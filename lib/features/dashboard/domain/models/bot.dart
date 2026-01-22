@@ -51,27 +51,27 @@ class Bot {
 
  // --- CÁLCULO DE DEUDA DE ALTA PRECISIÓN (CORREGIDO) ---
   // Tarifa: $20.00 por ciclo de 30 días.
+ // ... propiedades ...
+
   double get calculatedDebt {
-    // Si está desactivado, mostramos solo lo que ya debía
-    if (status != BotStatus.active) return currentBalance;
-
-    final now = DateTime.now();
-    // CAMBIO CRÍTICO: Usamos 'inSeconds' en lugar de 'inMinutes' para detectar deuda inmediata
-    final differenceInSeconds = now.difference(cycleStartDate).inSeconds;
+    if (status == BotStatus.disabled) {
+      return currentBalance; // Si está pausado, la deuda es la congelada
+    }
     
-    if (differenceInSeconds <= 0) return currentBalance;
-
-    // 30 días * 24 horas * 60 minutos * 60 segundos = 2,592,000 segundos
-    const double totalSecondsInCycle = 30.0 * 24.0 * 60.0 * 60.0; 
-    const double cycleCost = 20.0;
-
-    // Regla de tres con precisión de segundos
-    final double accumulated = (differenceInSeconds / totalSecondsInCycle) * cycleCost;
-
-    final double total = currentBalance + accumulated;
-
-    // Topeamos en 20.0
-    return total > 20.0 ? 20.0 : total;
+    // Si está activo, calculamos tiempo real
+    final now = DateTime.now();
+    final elapsedSeconds = now.difference(cycleStartDate).inSeconds;
+    
+    // $1.00 cada 30 días (2,592,000 segundos)
+    const totalSeconds = 2592000;
+    const price = 1.0;
+    
+    final accumulated = (elapsedSeconds / totalSeconds) * price;
+    
+    // Retornamos deuda base (si venía de antes) + acumulada actual
+    // Nota: En la lógica nueva de Time Rewind, currentBalance suele ser 0 al activarse
+    // porque todo se traslada a cycleStartDate, pero por seguridad sumamos.
+    return currentBalance + accumulated;
   }
 
   // --- MAPEO DE SUPABASE ---

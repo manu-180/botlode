@@ -4,12 +4,13 @@ import 'package:botslode/core/config/app_config.dart';
 import 'package:botslode/core/config/theme/app_theme.dart';
 import 'package:botslode/core/router/app_router.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // NUEVA IMPORTACIÓN
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rive/rive.dart'; // IMPORTACIÓN CRÍTICA AÑADIDA
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 
-const String DEPLOY_VERSION = "v1.0.4 - SECURE_CORE";
+const String DEPLOY_VERSION = "v1.0.5 - STABLE_CORE";
 
 void main() {
   runZonedGuarded(() async {
@@ -21,13 +22,12 @@ void main() {
       print("🔐 [SEGURIDAD] Variables de entorno cargadas correctamente.");
     } catch (e) {
       print("🔥 [FALLO CRÍTICO] No se pudo leer el archivo .env: $e");
-      // Sin .env la app no debe arrancar, dejamos que el error continúe o manejamos una UI de error.
     }
 
-    // 1. INICIALIZACIÓN DE SUPABASE (CON DIAGNÓSTICO)
+    // 1. INICIALIZACIÓN DE SUPABASE
     try {
       await Supabase.initialize(
-        url: AppConfig.supabaseUrl,     // Ahora lee del .env a través de AppConfig
+        url: AppConfig.supabaseUrl,     
         anonKey: AppConfig.supabaseAnonKey, 
       );
       print("🚀 [ENLACE ESTABLECIDO] Supabase conectado.");
@@ -35,10 +35,17 @@ void main() {
       print("🔥 [FALLO CRÍTICO] Error de enlace Supabase: $e");
     }
 
-    // 2. CONFIGURACIÓN DE VENTANA (AJUSTE DE ALTURA)
+    // 2. INICIALIZACIÓN DE RIVE (CORRECCIÓN VISUAL)
+    try {
+      await RiveFile.initialize();
+      print("🎨 [MOTOR GRÁFICO] Rive Engine inicializado.");
+    } catch (e) {
+      print("⚠️ [ADVERTENCIA VISUAL] Fallo en Rive Init: $e");
+    }
+
+    // 3. CONFIGURACIÓN DE VENTANA
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = const WindowOptions(
-      // Reducimos altura de 800 a 720 para compatibilidad total
       size: Size(1280, 720), 
       minimumSize: Size(1024, 600), 
       center: true,

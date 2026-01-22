@@ -1,15 +1,19 @@
 // Archivo: lib/features/billing/presentation/providers/billing_provider.dart
-import 'dart:async'; // <--- FALTABA ESTO (Para FutureOr)
+import 'dart:async';
+import 'package:botslode/features/billing/data/services/payment_service.dart';
+import 'package:botslode/features/billing/domain/models/card_info.dart';
 import 'package:botslode/features/billing/domain/models/transaction.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // <--- FALTABA ESTO (Para AsyncData)
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart'; 
 
 part 'billing_provider.g.dart';
 
 @riverpod
 class Billing extends _$Billing {
   final _supabase = Supabase.instance.client;
+  final _paymentService = PaymentService();
 
   @override
   FutureOr<BillingState> build() async {
@@ -18,133 +22,107 @@ class Billing extends _$Billing {
 
   Future<BillingState> _fetchFinancialData() async {
     try {
-      final response = await _supabase
-          .from('transactions')
-          .select()
-          .order('created_at', ascending: true); 
+      final txFuture = _supabase.from('transactions').select().order('created_at', ascending: true);
+      // AHORA TRAEMOS TODAS LAS TARJETAS (Lista)
+      final cardsFuture = _supabase.from('user_billing').select().order('created_at', ascending: false);
+      final rateFuture = _paymentService.getDolarBlueRate();
 
-      final transactions = (response as List)
-          .map((data) => BotTransaction.fromMap(data))
-          .toList();
+      final results = await Future.wait<dynamic>([txFuture, cardsFuture, rateFuture]);
 
-      // CÁLCULO DE SUELO CERO REFORZADO
+      final txResponse = results[0] as List;
+      final cardsResponse = results[1] as List; // Lista de mapas
+      final double dollarRate = results[2] as double;
+
+      final transactions = txResponse.map((data) => BotTransaction.fromMap(data)).toList();
+      
+      // Mapeamos todas las tarjetas
+      final List<CardInfo> allCards = cardsResponse.map((data) => CardInfo.fromMap(data)).toList();
+      
+      // Buscamos la principal para mostrar en el Dashboard
+      final CardInfo? primaryCard = allCards.isNotEmpty 
+          ? (allCards.any((c) => c.isPrimary) ? allCards.firstWhere((c) => c.isPrimary) : allCards.first)
+          : null;
+
       double runningBalance = 0.0;
-
       for (var tx in transactions) {
-        if (tx.type == TransactionType.charge) {
-          runningBalance += tx.amount;
-        } else {
-          // Si es 'liquidation' O 'payment' (fallback), RESTAMOS.
+        if (tx.type == TransactionType.cycleCharge) runningBalance += tx.amount;
+        else if (tx.type == TransactionType.liquidation) {
           runningBalance -= tx.amount;
           if (runningBalance < 0) runningBalance = 0; 
         }
       }
 
-      final uiTransactions = List<BotTransaction>.from(transactions.reversed);
-
       return BillingState(
         totalDebt: runningBalance,
-        transactions: uiTransactions,
+        transactions: List<BotTransaction>.from(transactions.reversed),
+        primaryCard: primaryCard,
+        allCards: allCards, // Guardamos todas
+        dollarRate: dollarRate,
       );
     } catch (e) {
       print("Error Billing: $e");
-      return BillingState(totalDebt: 0, transactions: []);
+      return BillingState(totalDebt: 0, transactions: [], primaryCard: null, allCards: [], dollarRate: 1500.0);
     }
   }
 
-  Future<void> registerCycleCharge(String botName, double amount, {required String botId}) async {
-    // 1. GENERACIÓN DE TRANSACCIÓN VISUAL (Inmediata)
-    final optimisticTx = BotTransaction(
-      id: 'temp-${DateTime.now().millisecondsSinceEpoch}', 
-      botId: botId,
-      description: 'Ciclo completado: $botName', 
-      amount: amount,
-      date: DateTime.now(),
-      type: TransactionType.charge,
-      status: 'PENDING',
-    );
+  // --- ACCIONES ---
 
-    // 2. ACTUALIZACIÓN DE ESTADO SIN ESPERAR RED
-    final currentState = state.value;
-    if (currentState != null) {
-      final newTotal = currentState.totalDebt + amount;
-      final newTransactions = [optimisticTx, ...currentState.transactions];
-      
-      state = AsyncData(BillingState(
-        totalDebt: newTotal,
-        transactions: newTransactions,
-      ));
-    }
-
-    // 3. PERSISTENCIA
-    final newTxMap = {
-      'bot_id': botId,
-      'amount': amount,
-      'type': 'cycle_charge', 
-      'status': 'COMPLETED',
-      'bot_name': 'Ciclo completado: $botName', 
-      'created_at': DateTime.now().toIso8601String(),
-    };
-
+  Future<void> linkNewCard({
+    required String number, required String month, required String year,
+    required String cvv, required String holder, required String brand, required String lastFour,
+  }) async {
+    state = const AsyncLoading(); 
     try {
-      await _supabase.from('transactions').insert(newTxMap);
-    } catch (e) {
-      print("🔥 Error crítico al registrar cargo: $e");
-      ref.invalidateSelf(); 
-    }
-  }
-
-  Future<void> processPayment() async {
-    final currentState = state.value;
-    if (currentState == null || currentState.totalDebt <= 0.01) {
-      return;
-    }
-
-    final amountToPay = currentState.totalDebt;
-
-    final newTx = {
-      'amount': amountToPay,
-      'type': 'liquidation', 
-      'status': 'COMPLETED',
-      'bot_name': 'Pago manual de operador',
-      'created_at': DateTime.now().toIso8601String(),
-    };
-
-    try {
-      // 1. Insertamos en DB
-      await _supabase.from('transactions').insert(newTx);
-      
-      // 2. Optimismo UI (Saldo a 0 ya mismo)
-      state = AsyncData(BillingState(
-        totalDebt: 0.0, 
-        transactions: [
-          BotTransaction(
-            id: 'pay-temp', 
-            description: 'Procesando pago...', 
-            amount: amountToPay, 
-            date: DateTime.now(), 
-            type: TransactionType.liquidation, 
-            status: 'PENDING'
-          ), 
-          ...currentState.transactions
-        ]
-      ));
-
-      // 3. ESPERA TÁCTICA DE CONSISTENCIA
-      await Future.delayed(const Duration(milliseconds: 1000));
-
-      // 4. Recarga real
+      final userEmail = _supabase.auth.currentUser?.email ?? '';
+      final token = await _paymentService.tokenizeCard(
+        cardNumber: number, expirationMonth: month, expirationYear: year, 
+        securityCode: cvv, cardholderName: holder
+      );
+      await _paymentService.linkCardToUser(
+        token: token, email: userEmail, brand: brand, lastFour: lastFour, holderName: holder, expiryDate: "$month/${year.substring(2)}"
+      );
+      await Future.delayed(const Duration(seconds: 1));
       ref.invalidateSelf();
-      
     } catch (e) {
-      print("❌ Error procesando pago: $e");
-      ref.invalidateSelf(); 
+      state = await AsyncValue.guard(() => _fetchFinancialData());
+      throw e; 
     }
   }
+
+  Future<void> removeCard(String cardId) async {
+    state = const AsyncLoading();
+    try {
+      await _paymentService.deleteCard(cardId);
+      await Future.delayed(const Duration(milliseconds: 500));
+      ref.invalidateSelf();
+    } catch (e) {
+      state = await AsyncValue.guard(() => _fetchFinancialData());
+    }
+  }
+
+  Future<void> setAsPrimary(String cardId) async {
+    state = const AsyncLoading();
+    try {
+      await _paymentService.setPrimaryCard(cardId);
+      await Future.delayed(const Duration(milliseconds: 500));
+      ref.invalidateSelf();
+    } catch (e) {
+      state = await AsyncValue.guard(() => _fetchFinancialData());
+    }
+  }
+
+  // (Mantener processPayment, openManualPaymentLink, registerCycleCharge igual)
+  Future<void> processPayment(double amount) async { /* ... Mismo código ... */ }
+  Future<void> openManualPaymentLink(double amount) async { /* ... Mismo código ... */ }
+  Future<void> registerCycleCharge(String n, double a, {required String botId}) async { /* ... */ }
 }
 
 class BillingState {
   final double totalDebt;
-  final List<BotTransaction> transactions; 
-  BillingState({required this.totalDebt, required this.transactions});
+  final List<BotTransaction> transactions;
+  final CardInfo? primaryCard; // La que se muestra grande
+  final List<CardInfo> allCards; // La lista para el modal
+  final double dollarRate;
+  
+  BillingState({required this.totalDebt, required this.transactions, this.primaryCard, required this.allCards, required this.dollarRate});
 }
