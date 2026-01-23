@@ -1,17 +1,19 @@
 // Archivo: lib/core/providers/auth_provider.dart
+import 'dart:async';
+import 'package:botslode/features/auth/presentation/providers/auth_repository_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class AuthState {
+class AuthStateData {
   final bool isLoading;
   final String? error;
   final Session? session;
 
-  AuthState({this.isLoading = false, this.error, this.session});
+  AuthStateData({this.isLoading = false, this.error, this.session});
 
-  AuthState copyWith({bool? isLoading, String? error, Session? session}) {
-    return AuthState(
+  AuthStateData copyWith({bool? isLoading, String? error, Session? session}) {
+    return AuthStateData(
       isLoading: isLoading ?? this.isLoading,
       error: error, 
       session: session ?? this.session, 
@@ -19,14 +21,26 @@ class AuthState {
   }
 }
 
-class AuthNotifier extends StateNotifier<AuthState> {
-  final SupabaseClient _supabase = Supabase.instance.client;
+class AuthNotifier extends StateNotifier<AuthStateData> {
+  final Ref _ref;
+  StreamSubscription<AuthState>? _authSubscription;
   bool _isSigningOut = false; 
 
-  AuthNotifier() : super(AuthState()) {
-    _checkCurrentSession();
+  AuthNotifier(this._ref) : super(AuthStateData()) {
+    _init();
+  }
+
+  void _init() {
+    final repo = _ref.read(authRepositoryProvider);
     
-    _supabase.auth.onAuthStateChange.listen((data) {
+    // 1. Check sesión inicial
+    final session = repo.currentSession;
+    if (session != null) {
+      state = state.copyWith(session: session);
+    }
+
+    // 2. Escuchar cambios
+    _authSubscription = repo.onAuthStateChange.listen((data) {
       if (_isSigningOut) return; 
 
       final event = data.event;
@@ -35,18 +49,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
       debugPrint("📢 AUTH EVENT: $event");
       
       if (event == AuthChangeEvent.signedOut) {
-        state = AuthState(); // Reset total al salir
+        state = AuthStateData(); // Reset total al salir
       } else if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.tokenRefreshed) {
         state = state.copyWith(session: session, isLoading: false);
       }
     });
   }
 
-  void _checkCurrentSession() {
-    final session = _supabase.auth.currentSession;
-    if (session != null) {
-      state = state.copyWith(session: session);
-    }
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   // --- MAPEO DE ERRORES (TEXTOS AMIGABLES) ---
@@ -54,13 +67,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final msg = rawError.toLowerCase();
     
     if (msg.contains('invalid login credentials')) {
-      return "DATOS INCORRECTOS: El correo o la contraseña no coinciden. Por favor, verifícalos e intenta de nuevo.";
+      return "DATOS INCORRECTOS: El correo o la contraseña no coinciden.";
     }
     if (msg.contains('user already registered')) {
-      return "CUENTA EXISTENTE: Este correo ya está registrado en el sistema. Intenta iniciar sesión.";
+      return "CUENTA EXISTENTE: Este correo ya está registrado.";
     }
-    if (msg.contains('network') || msg.contains('socket')) {
-      return "SIN CONEXIÓN: No se pudo contactar con el servidor. Revisa tu internet.";
+    if (msg.contains('network') || msg.contains('socket') || msg.contains('host lookup')) {
+      return "SIN CONEXIÓN: No se pudo contactar con el servidor.";
     }
     if (msg.contains('password should be at least')) {
       return "SEGURIDAD DÉBIL: La contraseña debe tener al menos 6 caracteres.";
@@ -72,7 +85,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> signIn(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _supabase.auth.signInWithPassword(email: email, password: password);
+      await _ref.read(authRepositoryProvider).signIn(email: email, password: password);
+      // El stream actualizará el estado con la sesión
     } on AuthException catch (e) {
       state = state.copyWith(isLoading: false, error: _mapAuthError(e.message));
     } catch (e) {
@@ -83,7 +97,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> signUp(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _supabase.auth.signUp(email: email, password: password);
+      await _ref.read(authRepositoryProvider).signUp(email: email, password: password);
     } on AuthException catch (e) {
       state = state.copyWith(isLoading: false, error: _mapAuthError(e.message));
     } catch (e) {
@@ -96,10 +110,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _isSigningOut = true;
     
     // Logout Optimista
-    state = AuthState(); 
+    state = AuthStateData(); 
 
     try {
-      await _supabase.auth.signOut();
+      await _ref.read(authRepositoryProvider).signOut();
     } catch (e) {
       debugPrint("⚠️ Cierre local forzado.");
     } finally {
@@ -107,15 +121,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  // --- NUEVO: ACTUALIZACIÓN DE CREDENCIALES ---
   Future<void> updatePassword(String newPassword) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _supabase.auth.updateUser(UserAttributes(password: newPassword));
+      await _ref.read(authRepositoryProvider).updatePassword(newPassword);
       state = state.copyWith(isLoading: false);
     } on AuthException catch (e) {
       state = state.copyWith(isLoading: false, error: _mapAuthError(e.message));
-      rethrow; // Re-lanzamos para manejar la UI en el modal
+      rethrow; 
     } catch (e) {
       state = state.copyWith(isLoading: false, error: "FALLO DE SEGURIDAD: No se pudo actualizar la clave.");
       rethrow;
@@ -123,6 +136,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 }
 
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier();
+// Inyectamos Ref para poder leer el repositorio
+final authProvider = StateNotifierProvider<AuthNotifier, AuthStateData>((ref) {
+  return AuthNotifier(ref);
 });

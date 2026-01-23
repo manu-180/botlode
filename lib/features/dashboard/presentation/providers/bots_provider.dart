@@ -2,8 +2,9 @@
 import 'dart:async';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
+import 'package:botslode/features/dashboard/presentation/providers/bots_repository_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Solo para Auth (usuario actual)
 import 'package:flutter/material.dart';
 
 part 'bots_provider.g.dart';
@@ -12,11 +13,10 @@ const bool USE_TURBO_TIMER = true;
 
 @riverpod
 class Bots extends _$Bots {
-  final _supabase = Supabase.instance.client;
   Timer? _timer;
   bool _isAutoPaying = false;
   
-  // NUEVO: Enfriamiento para evitar loops de pago
+  // Enfriamiento para evitar loops de pago
   DateTime? _lastAutoPayAttempt;
 
   static const double CYCLE_PRICE = 20.00; 
@@ -25,9 +25,13 @@ class Bots extends _$Bots {
   @override
   FutureOr<List<Bot>> build() async {
     _timer?.cancel();
+    
+    // Obtenemos el repositorio inyectado
+    final repository = ref.read(botsRepositoryProvider);
+
     try {
-      final response = await _supabase.from('bots').select().order('created_at', ascending: false);
-      final bots = (response as List).map((m) => Bot.fromMap(m)).toList();
+      // 1. Carga inicial limpia usando el repositorio
+      final bots = await repository.getBots();
       
       _enforceCreditLimit(bots);
       var currentBots = await _syncOfflineCharges(bots);
@@ -37,7 +41,7 @@ class Bots extends _$Bots {
       ref.onDispose(() => _timer?.cancel());
       return currentBots;
     } catch (e) {
-      debugPrint("Error fetching bots: $e");
+      debugPrint("Error fetching bots via Repo: $e");
       return [];
     }
   }
@@ -65,14 +69,13 @@ class Bots extends _$Bots {
       final autoThreshold = billing.primaryCard?.autoPayThreshold ?? 0.0;
       final currentDebt = billing.totalDebt;
 
-      // Verificamos si pasó suficiente tiempo desde el último intento (30 segundos)
       final bool canPay = _lastAutoPayAttempt == null || 
                           DateTime.now().difference(_lastAutoPayAttempt!) > const Duration(seconds: 30);
 
       if (canPay && autoThreshold > 0 && currentDebt >= autoThreshold && !_isAutoPaying) {
           debugPrint("🤖 AUTOPAGO INICIADO: Deuda ($currentDebt) >= Límite ($autoThreshold)");
           _isAutoPaying = true; 
-          _lastAutoPayAttempt = DateTime.now(); // Marcamos el intento
+          _lastAutoPayAttempt = DateTime.now(); 
           
           try {
             await ref.read(billingProvider.notifier).processPayment(currentDebt);
@@ -82,7 +85,6 @@ class Bots extends _$Bots {
           } finally {
              _isAutoPaying = false; 
           }
-          // Salimos para no mezclar lógica de pago con lógica de bots en el mismo tick
           return; 
       }
 
@@ -93,6 +95,8 @@ class Bots extends _$Bots {
       double runningTotalDebt = billing.totalDebt;
       final double creditLimit = billing.creditLimit;
 
+      final repository = ref.read(botsRepositoryProvider);
+
       for (var bot in currentList) {
         bool isLimitReached = runningTotalDebt >= (creditLimit - 0.01);
 
@@ -100,7 +104,10 @@ class Bots extends _$Bots {
         if (isLimitReached && bot.status == BotStatus.active) {
            final debt = bot.calculatedDebt;
            final suspendedBot = bot.copyWith(status: BotStatus.creditSuspended, currentBalance: debt);
-           await _updateBotInDb(suspendedBot);
+           
+           // USO DE REPO
+           await repository.updateBot(suspendedBot);
+           
            updatedList.add(suspendedBot);
            moneyChanged = true;
            continue; 
@@ -118,7 +125,9 @@ class Bots extends _$Bots {
              cycleStartDate: DateTime.now().subtract(Duration(seconds: secondsToRewind.round())) 
            );
            
-           await _updateBotInDb(reactivatedBot);
+           // USO DE REPO
+           await repository.updateBot(reactivatedBot);
+
            updatedList.add(reactivatedBot);
            moneyChanged = true;
            continue;
@@ -133,14 +142,20 @@ class Bots extends _$Bots {
           if (diffInSeconds >= cycleLimit) {
              if ((runningTotalDebt + CYCLE_PRICE) > creditLimit) {
                final suspendedBot = bot.copyWith(status: BotStatus.creditSuspended, currentBalance: bot.calculatedDebt);
-               await _updateBotInDb(suspendedBot);
+               
+               // USO DE REPO
+               await repository.updateBot(suspendedBot);
+
                updatedList.add(suspendedBot);
                runningTotalDebt += CYCLE_PRICE; 
              } else {
                await _chargeCycle(bot);
                runningTotalDebt += CYCLE_PRICE; 
                final nextCycleBot = bot.copyWith(currentBalance: 0.0, cycleStartDate: DateTime.now());
-               await _updateBotInDb(nextCycleBot);
+               
+               // USO DE REPO
+               await repository.updateBot(nextCycleBot);
+
                updatedList.add(nextCycleBot);
              }
              moneyChanged = true;
@@ -158,16 +173,6 @@ class Bots extends _$Bots {
         ref.invalidate(billingProvider); 
       }
     });
-  }
-
-  Future<void> _updateBotInDb(Bot bot) async {
-    try {
-      await _supabase.from('bots').update({
-        'status': bot.status == BotStatus.creditSuspended ? 'credit_suspended' : bot.status.name,
-        'current_balance': bot.currentBalance,
-        'cycle_start_date': bot.cycleStartDate.toIso8601String()
-      }).eq('id', bot.id);
-    } catch (e) { debugPrint("DB Update Error: $e"); }
   }
 
   Future<void> _chargeCycle(Bot bot) async {
@@ -194,29 +199,23 @@ class Bots extends _$Bots {
     return updatedList;
   }
 
-  // --- ACTIONS ---
+  // --- ACTIONS (AHORA USAN REPO) ---
 
   Future<void> addBot({required String name, required String description, required Color color, required String systemPrompt}) async {
-    final user = _supabase.auth.currentUser;
+    // Nota: Aún necesitamos Supabase Auth directo aquí solo para obtener el ID del usuario actual.
+    // En una refactorización futura, el User ID debería venir de un AuthRepository.
+    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) throw Exception("Usuario no autenticado");
 
-    final hexColor = '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
-    final nowUtc = DateTime.now().toUtc();
+    final repository = ref.read(botsRepositoryProvider);
 
-    final newBotMap = {
-      'user_id': user.id,
-      'name': name,
-      'description': description,
-      'system_prompt': systemPrompt,
-      'status': 'active', 
-      'tech_color': hexColor,
-      'current_balance': 0.0, 
-      'cycle_start_date': nowUtc.toIso8601String(), 
-      'created_at': nowUtc.toIso8601String(),
-    };
-
-    final response = await _supabase.from('bots').insert(newBotMap).select().single();
-    final newBot = Bot.fromMap(response);
+    final newBot = await repository.createBot(
+      userId: user.id, 
+      name: name, 
+      description: description, 
+      systemPrompt: systemPrompt, 
+      color: color
+    );
 
     final currentList = state.value ?? [];
     state = AsyncData([newBot, ...currentList]);
@@ -227,11 +226,14 @@ class Bots extends _$Bots {
   Future<void> toggleStatus(String id) async {
     if (state.value == null) return;
     final bot = state.value!.firstWhere((b) => b.id == id);
+    final repository = ref.read(botsRepositoryProvider);
     
     if (bot.status == BotStatus.creditSuspended) {
        final newStatus = BotStatus.disabled;
        final updatedBot = bot.copyWith(status: newStatus); 
-       await _updateBotInDb(updatedBot);
+       
+       await repository.updateBot(updatedBot);
+       
        state = AsyncData(state.value!.map((b) => b.id == id ? updatedBot : b).toList());
        return;
     }
@@ -261,7 +263,8 @@ class Bots extends _$Bots {
     }
 
     final updatedBot = bot.copyWith(status: newStatus, currentBalance: newBalance, cycleStartDate: newStartDate);
-    await _updateBotInDb(updatedBot);
+    
+    await repository.updateBot(updatedBot);
     
     state = AsyncData(state.value!.map((b) => b.id == id ? updatedBot : b).toList());
     
@@ -282,7 +285,8 @@ class Bots extends _$Bots {
       );
     }
 
-    await _supabase.from('bots').delete().eq('id', id);
+    final repository = ref.read(botsRepositoryProvider);
+    await repository.deleteBot(id);
     
     final currentList = state.value ?? [];
     state = AsyncData(currentList.where((b) => b.id != id).toList());
@@ -291,25 +295,33 @@ class Bots extends _$Bots {
   }
 
   Future<void> updateBotName(String id, String newName) async {
-    await _supabase.from('bots').update({'name': newName}).eq('id', id);
+    final repository = ref.read(botsRepositoryProvider);
+    await repository.patchBot(id, {'name': newName});
+    
     final currentList = state.value ?? [];
     state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(name: newName) : b).toList());
   }
 
   Future<void> updateBotPrompt(String id, String newPrompt) async {
-    await _supabase.from('bots').update({'description': newPrompt, 'system_prompt': newPrompt}).eq('id', id);
+    final repository = ref.read(botsRepositoryProvider);
+    await repository.patchBot(id, {'description': newPrompt, 'system_prompt': newPrompt});
+    
     final currentList = state.value ?? [];
     state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(description: newPrompt, systemPrompt: newPrompt) : b).toList());
   }
 
   Future<void> updateThemeMode(String id, String mode) async {
-    await _supabase.from('bots').update({'theme_mode': mode}).eq('id', id);
+    final repository = ref.read(botsRepositoryProvider);
+    await repository.patchBot(id, {'theme_mode': mode});
+    
     final currentList = state.value ?? [];
     state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(themeMode: mode) : b).toList());
   }
 
   Future<void> updateOfflineAlert(String id, bool enabled) async {
-    await _supabase.from('bots').update({'show_offline_alert': enabled}).eq('id', id);
+    final repository = ref.read(botsRepositoryProvider);
+    await repository.patchBot(id, {'show_offline_alert': enabled});
+    
     final currentList = state.value ?? [];
     state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(showOfflineAlert: enabled) : b).toList());
   }
