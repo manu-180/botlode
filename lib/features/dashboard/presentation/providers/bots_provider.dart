@@ -8,80 +8,143 @@ import 'package:flutter/material.dart';
 
 part 'bots_provider.g.dart';
 
-// MODO TURBO: true = 1 segundo son 1 día (para pruebas rápidas)
-// false = tiempo real (1 mes son 30 días reales)
-const bool IS_TURBO_MODE = false; 
+const bool USE_TURBO_TIMER = true; 
 
 @riverpod
 class Bots extends _$Bots {
   final _supabase = Supabase.instance.client;
   Timer? _timer;
+  bool _isAutoPaying = false;
+  
+  // NUEVO: Enfriamiento para evitar loops de pago
+  DateTime? _lastAutoPayAttempt;
 
-  // CONSTANTES DE FACTURACIÓN
-  static const double CYCLE_PRICE = 1.0; // $1.00 USD
-  static const int CYCLE_SECONDS = 30 * 24 * 60 * 60; // 30 Días en segundos
+  static const double CYCLE_PRICE = 20.00; 
+  static const int CYCLE_SECONDS_REAL = 2592000; 
 
   @override
   FutureOr<List<Bot>> build() async {
+    _timer?.cancel();
     try {
-      final response = await _supabase
-          .from('bots')
-          .select()
-          .order('created_at', ascending: false);
-      
+      final response = await _supabase.from('bots').select().order('created_at', ascending: false);
       final bots = (response as List).map((m) => Bot.fromMap(m)).toList();
       
-      // Sincronización inicial
+      _enforceCreditLimit(bots);
       var currentBots = await _syncOfflineCharges(bots);
       
       _startTimer();
-      ref.onDispose(() => _timer?.cancel());
       
+      ref.onDispose(() => _timer?.cancel());
       return currentBots;
     } catch (e) {
-      print("⚠️ Error cargando bots: $e");
+      debugPrint("Error fetching bots: $e");
       return [];
     }
   }
 
-  // --- LOGICA DE COBRO AUTOMÁTICO (CICLO) ---
+  void _enforceCreditLimit(List<Bot> bots) {
+    final billing = ref.read(billingProvider).valueOrNull;
+    if (billing != null && billing.totalDebt >= billing.creditLimit) {
+       // Lógica preventiva si fuera necesaria
+    }
+  }
+
   void _startTimer() {
-    // Si es Turbo, chequeamos cada 1s. Si es normal, cada 1 minuto.
-    final duration = IS_TURBO_MODE ? const Duration(seconds: 1) : const Duration(minutes: 1);
+    final duration = USE_TURBO_TIMER ? const Duration(seconds: 1) : const Duration(minutes: 1);
     
     _timer = Timer.periodic(duration, (timer) async {
       if (state.value == null) return;
-      
+
+      final billingAsync = ref.read(billingProvider);
+      if (billingAsync.isLoading || billingAsync.isRefreshing || _isAutoPaying) return; 
+
+      final billing = billingAsync.valueOrNull;
+      if (billing == null) return;
+
+      // --- AUTOPAGO BLINDADO ---
+      final autoThreshold = billing.primaryCard?.autoPayThreshold ?? 0.0;
+      final currentDebt = billing.totalDebt;
+
+      // Verificamos si pasó suficiente tiempo desde el último intento (30 segundos)
+      final bool canPay = _lastAutoPayAttempt == null || 
+                          DateTime.now().difference(_lastAutoPayAttempt!) > const Duration(seconds: 30);
+
+      if (canPay && autoThreshold > 0 && currentDebt >= autoThreshold && !_isAutoPaying) {
+          debugPrint("🤖 AUTOPAGO INICIADO: Deuda ($currentDebt) >= Límite ($autoThreshold)");
+          _isAutoPaying = true; 
+          _lastAutoPayAttempt = DateTime.now(); // Marcamos el intento
+          
+          try {
+            await ref.read(billingProvider.notifier).processPayment(currentDebt);
+            debugPrint("✅ AUTOPAGO ENVIADO");
+          } catch (e) {
+            debugPrint("❌ FALLO EN AUTOPAGO: $e");
+          } finally {
+             _isAutoPaying = false; 
+          }
+          // Salimos para no mezclar lógica de pago con lógica de bots en el mismo tick
+          return; 
+      }
+
       final List<Bot> currentList = state.value!;
       final List<Bot> updatedList = [];
-      bool anyChange = false;
+      bool moneyChanged = false; 
+
+      double runningTotalDebt = billing.totalDebt;
+      final double creditLimit = billing.creditLimit;
 
       for (var bot in currentList) {
-        if (bot.status == BotStatus.active) {
-          // Calculamos tiempo transcurrido
-          final now = DateTime.now();
-          final diff = now.difference(bot.cycleStartDate);
-          
-          // Factor de velocidad (Turbo o Real)
-          final effectiveDuration = IS_TURBO_MODE 
-              ? diff * (CYCLE_SECONDS / 30) // Acelera el tiempo
-              : diff;
+        bool isLimitReached = runningTotalDebt >= (creditLimit - 0.01);
 
-          // Si pasó el ciclo (30 días)
-          if (effectiveDuration.inSeconds >= CYCLE_SECONDS) {
-             print("💰 COBRANDO CICLO PARA: ${bot.name}");
-             
-             // 1. Ejecutar cobro
-             await _chargeCycle(bot);
-             
-             // 2. Resetear bot
-             updatedList.add(bot.copyWith(
-               currentBalance: 0.0,
-               cycleStartDate: DateTime.now(), // Nuevo ciclo empieza YA
-             ));
-             anyChange = true;
+        // 1. SUSPENSIÓN
+        if (isLimitReached && bot.status == BotStatus.active) {
+           final debt = bot.calculatedDebt;
+           final suspendedBot = bot.copyWith(status: BotStatus.creditSuspended, currentBalance: debt);
+           await _updateBotInDb(suspendedBot);
+           updatedList.add(suspendedBot);
+           moneyChanged = true;
+           continue; 
+        }
+
+        // 2. REACTIVACIÓN
+        if (!isLimitReached && bot.status == BotStatus.creditSuspended) {
+           final cycleLimit = USE_TURBO_TIMER ? 30 : CYCLE_SECONDS_REAL;
+           final double fractionSpent = bot.currentBalance / CYCLE_PRICE;
+           final double secondsToRewind = fractionSpent * cycleLimit;
+           
+           final reactivatedBot = bot.copyWith(
+             status: BotStatus.active, 
+             currentBalance: 0.0, 
+             cycleStartDate: DateTime.now().subtract(Duration(seconds: secondsToRewind.round())) 
+           );
+           
+           await _updateBotInDb(reactivatedBot);
+           updatedList.add(reactivatedBot);
+           moneyChanged = true;
+           continue;
+        }
+
+        // 3. CICLO OPERATIVO
+        if (bot.status == BotStatus.active) {
+          final now = DateTime.now();
+          final diffInSeconds = now.difference(bot.cycleStartDate).inSeconds;
+          final cycleLimit = USE_TURBO_TIMER ? 30 : CYCLE_SECONDS_REAL;
+
+          if (diffInSeconds >= cycleLimit) {
+             if ((runningTotalDebt + CYCLE_PRICE) > creditLimit) {
+               final suspendedBot = bot.copyWith(status: BotStatus.creditSuspended, currentBalance: bot.calculatedDebt);
+               await _updateBotInDb(suspendedBot);
+               updatedList.add(suspendedBot);
+               runningTotalDebt += CYCLE_PRICE; 
+             } else {
+               await _chargeCycle(bot);
+               runningTotalDebt += CYCLE_PRICE; 
+               final nextCycleBot = bot.copyWith(currentBalance: 0.0, cycleStartDate: DateTime.now());
+               await _updateBotInDb(nextCycleBot);
+               updatedList.add(nextCycleBot);
+             }
+             moneyChanged = true;
           } else {
-             // Solo actualizamos visualmente si es necesario (ej. barra de progreso)
              updatedList.add(bot); 
           }
         } else {
@@ -89,108 +152,36 @@ class Bots extends _$Bots {
         }
       }
 
-      if (anyChange) {
-        state = AsyncData(updatedList);
-      } else {
-        // Forzamos rebuild para que la UI actualice la deuda en tiempo real
-        // aunque no haya cobros, para que se vean los centavos subir
-        ref.notifyListeners(); 
+      state = AsyncData([...updatedList]); 
+
+      if (moneyChanged) {
+        ref.invalidate(billingProvider); 
       }
     });
   }
 
-  Future<void> _chargeCycle(Bot bot) async {
+  Future<void> _updateBotInDb(Bot bot) async {
     try {
-      // Llamada al Billing Provider para registrar la transacción
-      await ref.read(billingProvider.notifier).registerCycleCharge(
-        bot.name, 
-        CYCLE_PRICE, 
-        botId: bot.id
-      );
-      
-      // Actualizamos DB
       await _supabase.from('bots').update({
-        'current_balance': 0.0,
-        'cycle_start_date': DateTime.now().toIso8601String(),
+        'status': bot.status == BotStatus.creditSuspended ? 'credit_suspended' : bot.status.name,
+        'current_balance': bot.currentBalance,
+        'cycle_start_date': bot.cycleStartDate.toIso8601String()
       }).eq('id', bot.id);
-      
-    } catch (e) {
-      print("🔥 Error cobrando ciclo: $e");
-    }
+    } catch (e) { debugPrint("DB Update Error: $e"); }
   }
 
-  // --- LÓGICA DE PAUSA / REANUDAR (FIX "VUELVE A EMPEZAR") ---
-  Future<void> toggleStatus(String id) async {
-    if (state.value == null) return;
-    
-    final bot = state.value!.firstWhere((b) => b.id == id);
-    final isTurningOff = bot.status == BotStatus.active;
-    final newStatus = isTurningOff ? BotStatus.disabled : BotStatus.active;
-
-    double newBalance = bot.currentBalance;
-    DateTime newStartDate = bot.cycleStartDate;
-
-    if (isTurningOff) {
-      // ⏸️ APAGAR: 
-      // Calculamos la deuda exacta hasta este milisegundo y la guardamos.
-      // La fecha de inicio ya no importa porque congelamos la deuda.
-      final double currentDebt = bot.calculatedDebt; 
-      newBalance = currentDebt; 
-      
-      print("⏸️ PAUSANDO ${bot.name}. Deuda congelada en: \$$newBalance");
-      
-    } else {
-      // ▶️ ENCENDER (Time Rewind Logic): 
-      // Si el bot tiene deuda (ej: $0.50), significa que ya consumió medio mes.
-      // Debemos establecer la fecha de inicio EN EL PASADO para reflejar eso.
-      
-      // Regla de 3 simple: $1.00 = CYCLE_SECONDS. 
-      // $0.50 = X segundos.
-      final double secondsToRewind = (bot.currentBalance / CYCLE_PRICE) * CYCLE_SECONDS;
-      
-      // Ajustamos el reloj hacia atrás
-      newStartDate = DateTime.now().subtract(Duration(seconds: secondsToRewind.round()));
-      
-      // Visualmente la deuda empieza a contar desde 0 sumando el tiempo transcurrido
-      // O podemos mantener el balance en 0 y dejar que el getter calculatedDebt haga el trabajo.
-      // Para consistencia con el modelo:
-      newBalance = bot.currentBalance; // Mantenemos el valor base para el cálculo
-      
-      print("▶️ REANUDANDO ${bot.name}. Reloj ajustado a: $newStartDate (Back in time)");
-    }
-
-    // Actualizamos Estado Local Optimista
-    final updatedBot = bot.copyWith(
-      status: newStatus,
-      currentBalance: newBalance,
-      cycleStartDate: newStartDate,
-    );
-
-    final newList = state.value!.map((b) => b.id == id ? updatedBot : b).toList();
-    state = AsyncData(newList);
-    
-    // Persistimos en DB
-    try {
-      await _supabase.from('bots').update({
-        'status': newStatus.name,
-        'current_balance': newBalance,
-        'cycle_start_date': newStartDate.toIso8601String(),
-      }).eq('id', id);
-    } catch (e) {
-      print("❌ Error guardando estado: $e");
-      ref.invalidateSelf(); // Revertimos si falla
-    }
+  Future<void> _chargeCycle(Bot bot) async {
+    await ref.read(billingProvider.notifier).registerCycleCharge(bot.name, CYCLE_PRICE, botId: bot.id);
   }
 
-  // --- SINCRONIZACIÓN OFFLINE (Al abrir la app) ---
   Future<List<Bot>> _syncOfflineCharges(List<Bot> bots) async {
     final List<Bot> updatedList = [];
+    final cycleLimit = USE_TURBO_TIMER ? 30 : CYCLE_SECONDS_REAL; 
     
     for (var bot in bots) {
       if (bot.status == BotStatus.active) {
-        // Si estuvo activo mientras la app estaba cerrada
-        if (bot.daysActive >= 30) {
-          // Se cumplió el ciclo offline
+        final secondsActive = DateTime.now().difference(bot.cycleStartDate).inSeconds;
+        if (secondsActive >= cycleLimit) {
           await _chargeCycle(bot);
           updatedList.add(bot.copyWith(currentBalance: 0.0, cycleStartDate: DateTime.now()));
         } else {
@@ -203,45 +194,123 @@ class Bots extends _$Bots {
     return updatedList;
   }
 
-  // --- CRUD BÁSICO ---
+  // --- ACTIONS ---
+
   Future<void> addBot({required String name, required String description, required Color color, required String systemPrompt}) async {
-    // ... (Tu código de agregar bot, no cambia) ...
-    // Copiar del anterior si lo necesitas, pero es estándar insert
-     try {
-      final newBot = Bot(
-        id: '', name: name, description: description, systemPrompt: systemPrompt,
-        status: BotStatus.active, primaryColor: color, lastActive: DateTime.now(),
-        cycleStartDate: DateTime.now(), currentBalance: 0.0, themeMode: 'dark', showOfflineAlert: true,
-      );
-      final botData = newBot.toMap(); botData.remove('id');
-      final res = await _supabase.from('bots').insert(botData).select().single();
-      if (state.value != null) state = AsyncData([Bot.fromMap(res), ...state.value!]);
-    } catch (e) { print("Error Add: $e"); }
+    final user = _supabase.auth.currentUser;
+    if (user == null) throw Exception("Usuario no autenticado");
+
+    final hexColor = '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
+    final nowUtc = DateTime.now().toUtc();
+
+    final newBotMap = {
+      'user_id': user.id,
+      'name': name,
+      'description': description,
+      'system_prompt': systemPrompt,
+      'status': 'active', 
+      'tech_color': hexColor,
+      'current_balance': 0.0, 
+      'cycle_start_date': nowUtc.toIso8601String(), 
+      'created_at': nowUtc.toIso8601String(),
+    };
+
+    final response = await _supabase.from('bots').insert(newBotMap).select().single();
+    final newBot = Bot.fromMap(response);
+
+    final currentList = state.value ?? [];
+    state = AsyncData([newBot, ...currentList]);
+    
+    ref.invalidate(billingProvider);
+  }
+
+  Future<void> toggleStatus(String id) async {
+    if (state.value == null) return;
+    final bot = state.value!.firstWhere((b) => b.id == id);
+    
+    if (bot.status == BotStatus.creditSuspended) {
+       final newStatus = BotStatus.disabled;
+       final updatedBot = bot.copyWith(status: newStatus); 
+       await _updateBotInDb(updatedBot);
+       state = AsyncData(state.value!.map((b) => b.id == id ? updatedBot : b).toList());
+       return;
+    }
+
+    final isTurningOff = bot.status == BotStatus.active;
+    
+    if (!isTurningOff) { 
+       final billing = ref.read(billingProvider).valueOrNull;
+       if (billing != null && billing.totalDebt >= billing.creditLimit) {
+         throw Exception("Límite de crédito excedido.");
+       }
+    }
+    
+    final newStatus = isTurningOff ? BotStatus.disabled : BotStatus.active;
+    double newBalance;
+    DateTime newStartDate;
+    final cycleLimit = USE_TURBO_TIMER ? 30 : CYCLE_SECONDS_REAL;
+
+    if (isTurningOff) {
+      newBalance = bot.calculatedDebt; 
+      newStartDate = bot.cycleStartDate; 
+    } else {
+      final double fractionSpent = bot.currentBalance / CYCLE_PRICE;
+      final double secondsToRewind = fractionSpent * cycleLimit;
+      newStartDate = DateTime.now().subtract(Duration(seconds: secondsToRewind.round()));
+      newBalance = 0.0; 
+    }
+
+    final updatedBot = bot.copyWith(status: newStatus, currentBalance: newBalance, cycleStartDate: newStartDate);
+    await _updateBotInDb(updatedBot);
+    
+    state = AsyncData(state.value!.map((b) => b.id == id ? updatedBot : b).toList());
+    
+    ref.invalidate(billingProvider);
   }
 
   Future<void> removeBot(String id) async {
     if (state.value == null) return;
-    final bot = state.value!.firstWhere((b) => b.id == id);
     
-    // Liquidación final al borrar
-    if (bot.calculatedDebt > 0.01) {
-       await ref.read(billingProvider.notifier).registerCycleCharge(
-        "${bot.name} (LIQUIDACIÓN FINAL)", 
-        bot.calculatedDebt, 
+    final botToDelete = state.value!.firstWhere((b) => b.id == id);
+    final finalDebt = botToDelete.calculatedDebt;
+
+    if (finalDebt > 0.001) { 
+      await ref.read(billingProvider.notifier).registerCycleCharge(
+        "${botToDelete.name} (LIQUIDACIÓN FINAL)", 
+        finalDebt, 
         botId: id
       );
     }
 
-    try {
-      await _supabase.from('bots').delete().eq('id', id);
-      state = AsyncData(state.value!.where((b) => b.id != id).toList());
-      ref.invalidate(billingProvider); // Actualizar deuda global
-    } catch (_) {}
+    await _supabase.from('bots').delete().eq('id', id);
+    
+    final currentList = state.value ?? [];
+    state = AsyncData(currentList.where((b) => b.id != id).toList());
+
+    ref.invalidate(billingProvider);
   }
-  
-  // Actualizadores simples
-  Future<void> updateBotName(String id, String n) async { /* ... */ }
-  Future<void> updateBotPrompt(String id, String d) async { /* ... */ }
-  Future<void> updateThemeMode(String id, String m) async { /* ... */ }
-  Future<void> updateOfflineAlert(String id, bool e) async { /* ... */ }
+
+  Future<void> updateBotName(String id, String newName) async {
+    await _supabase.from('bots').update({'name': newName}).eq('id', id);
+    final currentList = state.value ?? [];
+    state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(name: newName) : b).toList());
+  }
+
+  Future<void> updateBotPrompt(String id, String newPrompt) async {
+    await _supabase.from('bots').update({'description': newPrompt, 'system_prompt': newPrompt}).eq('id', id);
+    final currentList = state.value ?? [];
+    state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(description: newPrompt, systemPrompt: newPrompt) : b).toList());
+  }
+
+  Future<void> updateThemeMode(String id, String mode) async {
+    await _supabase.from('bots').update({'theme_mode': mode}).eq('id', id);
+    final currentList = state.value ?? [];
+    state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(themeMode: mode) : b).toList());
+  }
+
+  Future<void> updateOfflineAlert(String id, bool enabled) async {
+    await _supabase.from('bots').update({'show_offline_alert': enabled}).eq('id', id);
+    final currentList = state.value ?? [];
+    state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(showOfflineAlert: enabled) : b).toList());
+  }
 }

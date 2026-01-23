@@ -23,23 +23,23 @@ class DashboardSearch extends _$DashboardSearch {
   void setSearch(String query) => state = query;
 }
 
-// --- ACTUALIZADO PARA MANEJAR ASYNCVALUE ---
 @riverpod
 AsyncValue<List<Bot>> filteredBots(FilteredBotsRef ref) {
-  // Observamos el provider de bots (que ahora es asíncrono)
   final botsAsync = ref.watch(botsProvider);
   final filter = ref.watch(dashboardFilterProvider);
   final search = ref.watch(dashboardSearchProvider).toLowerCase();
 
-  // Usamos .whenData para aplicar el filtro solo cuando los datos estén listos
   return botsAsync.whenData((bots) {
     return bots.where((bot) {
-      // 1. Filtro de Estado
+      // 1. Filtro de Estado CORREGIDO
       bool matchesFilter = switch (filter) {
         BotFilter.all => true,
         BotFilter.active => bot.status == BotStatus.active,
         BotFilter.maintenance => bot.status == BotStatus.maintenance,
-        BotFilter.disabled => bot.status == BotStatus.disabled,
+        // CORRECCIÓN: Si el filtro es 'disabled', aceptamos disabled OR creditSuspended
+        BotFilter.disabled => 
+            bot.status == BotStatus.disabled || 
+            bot.status == BotStatus.creditSuspended,
       };
 
       // 2. Filtro de Búsqueda

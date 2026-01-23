@@ -1,7 +1,10 @@
 // Archivo: lib/features/dashboard/domain/models/bot.dart
 import 'package:flutter/material.dart';
 
-enum BotStatus { active, maintenance, disabled }
+enum BotStatus { active, maintenance, disabled, creditSuspended }
+
+// MODO TURBO ACTIVO (30 seg = 1 mes)
+const bool IS_TURBO_MODE = true; 
 
 class Bot {
   final String id;
@@ -14,8 +17,7 @@ class Bot {
   final DateTime lastActive;
   final double currentBalance; 
   final DateTime cycleStartDate;
-  // --- NUEVOS CAMPOS CONFIGURABLES ---
-  final String themeMode; // 'dark' o 'light'
+  final String themeMode; 
   final bool showOfflineAlert;
 
   const Bot({
@@ -35,59 +37,82 @@ class Bot {
 
   // --- LÓGICA DE NEGOCIO ---
 
-  // Días visuales (Enteros para la UI "12 de 30 días")
-  int get daysActive {
+  static const double _CYCLE_PRICE = 20.00;
+
+  double get daysActivePrecise {
+    if (status == BotStatus.disabled || status == BotStatus.creditSuspended) {
+      final double fraction = currentBalance / _CYCLE_PRICE; 
+      return fraction * 30.0;
+    }
+
     final now = DateTime.now();
-    final difference = now.difference(cycleStartDate).inDays;
-    return difference < 0 ? 0 : difference;
+    final ms = now.difference(cycleStartDate).inMilliseconds;
+    
+    // Protección contra valores negativos (por sincronización de reloj)
+    if (ms < 0) return 0.0;
+
+    if (IS_TURBO_MODE) {
+      return ms / 1000.0;
+    } else {
+      return ms / 86400000.0;
+    }
   }
 
-  // Progreso visual (0.0 a 1.0)
+  int get daysActive {
+    return daysActivePrecise.floor();
+  }
+
   double get cycleProgress {
-    final days = daysActive;
-    if (days >= 30) return 1.0;
+    final days = daysActivePrecise; 
+    if (days >= 30.0) return 1.0;
+    if (days < 0) return 0.0;
     return days / 30.0;
   }
 
- // --- CÁLCULO DE DEUDA DE ALTA PRECISIÓN (CORREGIDO) ---
-  // Tarifa: $20.00 por ciclo de 30 días.
- // ... propiedades ...
-
   double get calculatedDebt {
-    if (status == BotStatus.disabled) {
-      return currentBalance; // Si está pausado, la deuda es la congelada
+    if (status == BotStatus.disabled || status == BotStatus.creditSuspended) {
+      return currentBalance; 
     }
     
-    // Si está activo, calculamos tiempo real
     final now = DateTime.now();
     final elapsedSeconds = now.difference(cycleStartDate).inSeconds;
     
-    // $1.00 cada 30 días (2,592,000 segundos)
-    const totalSeconds = 2592000;
-    const price = 1.0;
+    // Protección: Si acabamos de crearlo, elapsedSeconds podría ser -1 por milisegundos de diferencia
+    if (elapsedSeconds <= 0) return currentBalance;
+
+    double totalCycleSeconds;
+    if (IS_TURBO_MODE) {
+      totalCycleSeconds = 30.0; 
+    } else {
+      totalCycleSeconds = 2592000.0; 
+    }
     
-    final accumulated = (elapsedSeconds / totalSeconds) * price;
-    
-    // Retornamos deuda base (si venía de antes) + acumulada actual
-    // Nota: En la lógica nueva de Time Rewind, currentBalance suele ser 0 al activarse
-    // porque todo se traslada a cycleStartDate, pero por seguridad sumamos.
+    final accumulated = (elapsedSeconds / totalCycleSeconds) * _CYCLE_PRICE;
     return currentBalance + accumulated;
   }
 
   // --- MAPEO DE SUPABASE ---
-
   factory Bot.fromMap(Map<String, dynamic> map) {
+    Color parseColor(String? hexString) {
+      if (hexString == null || hexString.isEmpty) return const Color(0xFFFFC000); 
+      try {
+        final buffer = StringBuffer();
+        if (hexString.length == 6 || hexString.length == 7) buffer.write('ff');
+        buffer.write(hexString.replaceFirst('#', ''));
+        return Color(int.parse(buffer.toString(), radix: 16));
+      } catch (e) {
+        return const Color(0xFFFFC000);
+      }
+    }
+
     return Bot(
       id: map['id'],
       name: map['name'],
       description: map['description'],
       category: map['category'],
       systemPrompt: map['system_prompt'] ?? '',
-      status: BotStatus.values.firstWhere(
-        (e) => e.name == (map['status'] ?? 'active'),
-        orElse: () => BotStatus.active,
-      ),
-      primaryColor: Color(int.parse(map['tech_color'].replaceFirst('#', '0xFF'))),
+      status: _parseStatus(map['status']),
+      primaryColor: parseColor(map['tech_color']),
       lastActive: DateTime.parse(map['created_at']),
       currentBalance: (map['current_balance'] as num?)?.toDouble() ?? 0.0,
       cycleStartDate: map['cycle_start_date'] != null 
@@ -98,6 +123,16 @@ class Bot {
     );
   }
 
+  static BotStatus _parseStatus(String? statusStr) {
+    switch (statusStr) {
+      case 'active': return BotStatus.active;
+      case 'maintenance': return BotStatus.maintenance;
+      case 'disabled': return BotStatus.disabled;
+      case 'credit_suspended': return BotStatus.creditSuspended;
+      default: return BotStatus.active;
+    }
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id.isEmpty ? null : id,
@@ -105,8 +140,8 @@ class Bot {
       'description': description,
       'category': category,
       'system_prompt': systemPrompt,
-      'status': status.name,
-      'tech_color': '#${primaryColor.value.toRadixString(16).substring(2).toUpperCase()}',
+      'status': status == BotStatus.creditSuspended ? 'credit_suspended' : status.name,
+      'tech_color': '#${primaryColor.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
       'current_balance': currentBalance,
       'cycle_start_date': cycleStartDate.toIso8601String(),
       'theme_mode': themeMode,
@@ -115,17 +150,9 @@ class Bot {
   }
 
   Bot copyWith({
-    String? name,
-    String? description,
-    String? category,
-    String? systemPrompt,
-    BotStatus? status,
-    Color? primaryColor,
-    double? currentBalance,
-    DateTime? cycleStartDate,
-    DateTime? lastActive,
-    String? themeMode,
-    bool? showOfflineAlert,
+    String? name, String? description, String? category, String? systemPrompt,
+    BotStatus? status, Color? primaryColor, double? currentBalance,
+    DateTime? cycleStartDate, DateTime? lastActive, String? themeMode, bool? showOfflineAlert,
   }) {
     return Bot(
       id: id,

@@ -1,202 +1,486 @@
 // Archivo: lib/features/billing/presentation/widgets/add_card_modal.dart
-import 'dart:async';
-import 'dart:ui';
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/ui/widgets/error_feedback_card.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+
+enum CardBrand { visa, mastercard, amex, discover, unknown }
 
 class AddCardModal extends ConsumerStatefulWidget {
   const AddCardModal({super.key});
+
   @override
   ConsumerState<AddCardModal> createState() => _AddCardModalState();
 }
 
 class _AddCardModalState extends ConsumerState<AddCardModal> {
   final _formKey = GlobalKey<FormState>();
-  final _numberCtrl = TextEditingController();
-  final _expiryCtrl = TextEditingController();
-  final _cvvCtrl = TextEditingController();
-  final _holderCtrl = TextEditingController();
-  bool _isLoading = false;
-  String _cardType = "UNKNOWN";
+  
+  final _numberController = TextEditingController();
+  final _expiryController = TextEditingController();
+  final _cvvController = TextEditingController();
+  final _holderController = TextEditingController();
+
+  bool _isLinking = false;
+  String? _errorMessage;
+  CardBrand _detectedBrand = CardBrand.unknown;
+
+  // MÁSCARA ESTÁNDAR (Visa/Master: 16 dígitos)
+  final _cardMaskStandard = MaskTextInputFormatter(
+    mask: '#### #### #### ####', 
+    filter: {"#": RegExp(r'[0-9]')}
+  );
+
+  // MÁSCARA AMEX (15 dígitos: 4-6-5)
+  final _cardMaskAmex = MaskTextInputFormatter(
+    mask: '#### ###### #####', 
+    filter: {"#": RegExp(r'[0-9]')}
+  );
+  
+  final _expiryMask = MaskTextInputFormatter(
+    mask: '##/##', 
+    filter: {"#": RegExp(r'[0-9]')}
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _numberController.addListener(_detectBrandListener);
+  }
 
   @override
   void dispose() {
-    _numberCtrl.dispose(); _expiryCtrl.dispose(); _cvvCtrl.dispose(); _holderCtrl.dispose();
+    _numberController.removeListener(_detectBrandListener);
+    _numberController.dispose();
+    _expiryController.dispose();
+    _cvvController.dispose();
+    _holderController.dispose();
     super.dispose();
   }
 
-  void _detectBrand(String number) {
-    String cleanNum = number.replaceAll(' ', '');
-    String type = "UNKNOWN";
-    if (cleanNum.startsWith('4')) type = "VISA";
-    else if (RegExp(r'^(5[1-5]|222[1-9]|22[3-9]|2[3-6]|27[0-1]|2720)').hasMatch(cleanNum)) type = "MASTERCARD";
-    if (_cardType != type) setState(() => _cardType = type);
+  // --- INTELIGENCIA: DETECCIÓN DE MARCA Y CAMBIO DE MÁSCARA ---
+  void _detectBrandListener() {
+    final number = _numberController.text.replaceAll(' ', '');
+    CardBrand brand = CardBrand.unknown;
+
+    if (number.isNotEmpty) {
+      if (number.startsWith('4')) brand = CardBrand.visa;
+      else if (RegExp(r'^(5[1-5]|2[2-7])').hasMatch(number)) brand = CardBrand.mastercard;
+      // AMEX empieza con 34 o 37
+      else if (RegExp(r'^3[47]').hasMatch(number)) brand = CardBrand.amex;
+      else if (number.startsWith('6')) brand = CardBrand.discover;
+    }
+
+    if (brand != _detectedBrand) {
+      setState(() {
+        _detectedBrand = brand;
+        // Limpiamos errores previos al cambiar de marca para evitar confusión
+        // si el usuario borra todo y empieza de nuevo.
+      });
+    }
   }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
+  // --- VALIDACIONES ---
+  bool _isValidLuhn(String number) {
+    if (number.isEmpty) return false;
+    int sum = 0;
+    bool alternate = false;
+    for (int i = number.length - 1; i >= 0; i--) {
+      int n = int.parse(number[i]);
+      if (alternate) {
+        n *= 2;
+        if (n > 9) n -= 9;
+      }
+      sum += n;
+      alternate = !alternate;
+    }
+    return (sum % 10 == 0);
+  }
 
-    final dateParts = _expiryCtrl.text.split('/');
-    if (dateParts.length != 2) { setState(() => _isLoading = false); return; }
+  String? _validateExpiry(String? value) {
+    if (value == null || value.isEmpty) return "Requerido";
+    final parts = value.split('/');
+    if (parts.length != 2) return "Incompleto";
+    int month = int.tryParse(parts[0]) ?? 0;
+    int year = int.tryParse(parts[1]) ?? 0;
+    if (month < 1 || month > 12) return "Mes inválido";
+    final now = DateTime.now();
+    final currentYear = now.year % 100;
+    final currentMonth = now.month;
+    if (year < currentYear) return "Vencida";
+    if (year == currentYear && month < currentMonth) return "Vencida";
+    return null;
+  }
+
+  // --- LÓGICA DE ENVÍO ---
+  Future<void> _submit() async {
+    if (_isLinking) return; 
+    if (!_formKey.currentState!.validate()) return;
+
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _isLinking = true;
+      _errorMessage = null; 
+    });
 
     try {
-      final cleanNum = _numberCtrl.text.replaceAll(' ', '');
-      final lastFour = cleanNum.length >= 4 ? cleanNum.substring(cleanNum.length - 4) : '0000';
+      final expiryParts = _expiryController.text.split('/');
+      final month = expiryParts[0];
+      final year = "20${expiryParts[1]}"; 
+      final numberClean = _numberController.text.replaceAll(' ', '');
+      
+      String brandStr = _detectedBrand.name; 
+      if (_detectedBrand == CardBrand.unknown) brandStr = 'visa'; 
 
       await ref.read(billingProvider.notifier).linkNewCard(
-        number: _numberCtrl.text, month: dateParts[0], year: "20${dateParts[1]}",
-        cvv: _cvvCtrl.text, holder: _holderCtrl.text.toUpperCase(), brand: _cardType, lastFour: lastFour,
+        number: numberClean,
+        month: month,
+        year: year,
+        cvv: _cvvController.text,
+        holder: _holderController.text,
+        brand: brandStr,
+        lastFour: numberClean.length > 4 ? numberClean.substring(numberClean.length - 4) : '0000',
       );
 
-      if (!mounted) return;
-      Navigator.of(context).pop(); // Cerrar formulario
-
-      // --- FEEDBACK AUTO-CLOSE (Timer) ---
-      showGeneralDialog(
-        context: context, barrierDismissible: false, barrierLabel: '',
-        pageBuilder: (ctx, a1, a2) => Container(),
-        transitionBuilder: (ctx, a1, a2, child) => ScaleTransition(scale: CurvedAnimation(parent: a1, curve: Curves.elasticOut), child: _SuccessDialog()),
-      );
+      if (mounted) Navigator.of(context).pop(); 
 
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("ERROR: $e"), backgroundColor: AppColors.error));
+      if (mounted) {
+        setState(() {
+          _isLinking = false;
+          _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-      child: Dialog(
-        backgroundColor: Colors.transparent, insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Container(
-          width: 500,
-          decoration: BoxDecoration(color: const Color(0xFF09090B), borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 30, spreadRadius: 5)]),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildCardPreview(),
-              Padding(
-                padding: const EdgeInsets.all(24),
+    // Selección dinámica de máscara según la marca detectada
+    final currentMask = _detectedBrand == CardBrand.amex ? _cardMaskAmex : _cardMaskStandard;
+    // Longitud máxima de CVV: Amex usa 4, el resto 3
+    final cvvLength = _detectedBrand == CardBrand.amex ? 4 : 3;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20, 
+        left: 16, 
+        right: 16, 
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min, 
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+              decoration: const BoxDecoration(
+                color: Color(0xFF09090B), 
+                borderRadius: BorderRadius.all(Radius.circular(30)), 
+                border: Border.fromBorderSide(BorderSide(color: AppColors.primary, width: 2)), 
+                boxShadow: [
+                  BoxShadow(color: Colors.black54, blurRadius: 20, offset: Offset(0, 10))
+                ],
+              ),
+              child: Material(
+                type: MaterialType.transparency, 
                 child: Form(
                   key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("VINCULAR MÉTODO DE PAGO", style: TextStyle(color: Colors.white, fontFamily: 'Oxanium', fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                      const SizedBox(height: 24),
-                      _TechInput(label: "NÚMERO DE TARJETA", controller: _numberCtrl, icon: Icons.credit_card, hint: "0000 0000 0000 0000", inputType: TextInputType.number, formatters: [FilteringTextInputFormatter.digitsOnly, _CardNumberFormatter(), LengthLimitingTextInputFormatter(19)], onChanged: (val) { _detectBrand(val); setState(() {}); }, validator: (val) => (val == null || val.length < 19) ? "Incompleto" : null),
-                      const SizedBox(height: 16),
-                      Row(
+                  child: Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(child: _TechInput(label: "EXPIRACIÓN", controller: _expiryCtrl, icon: Icons.calendar_today_rounded, hint: "MM/AA", inputType: TextInputType.number, formatters: [FilteringTextInputFormatter.digitsOnly, _DateFormatter(), LengthLimitingTextInputFormatter(5)], validator: (val) => (val == null || val.length < 5) ? "Inválido" : null)),
-                          const SizedBox(width: 16),
-                          Expanded(child: _TechInput(label: "CVV", controller: _cvvCtrl, icon: Icons.lock_outline_rounded, hint: "123", inputType: TextInputType.number, isObscure: true, formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)], validator: (val) => (val == null || val.length < 3) ? "Inválido" : null)),
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "VINCULAR MÉTODO DE PAGO",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontFamily: 'Oxanium',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Protocolo seguro de tokenización (PCI-DSS Compliant)",
+                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                          ),
+                          const SizedBox(height: 30),
+                    
+                          _buildLabel("NÚMERO DE TARJETA"),
+                          _buildInput(
+                            controller: _numberController,
+                            hint: _detectedBrand == CardBrand.amex ? "0000 000000 00000" : "0000 0000 0000 0000",
+                            icon: Icons.credit_card,
+                            formatter: currentMask, // MÁSCARA DINÁMICA
+                            inputType: TextInputType.number,
+                            suffix: _buildBrandBadge(),
+                            validator: (val) {
+                              if (val == null || val.isEmpty) return "Número requerido";
+                              
+                              final clean = val.replaceAll(' ', '');
+                              // Amex tiene 15 dígitos, las otras 16.
+                              if (_detectedBrand == CardBrand.amex) {
+                                if (clean.length < 15) return "Número incompleto (Amex: 15 dígitos)";
+                              } else {
+                                if (clean.length < 16) return "Número incompleto";
+                              }
+
+                              if (!_isValidLuhn(clean)) return "Número inválido";
+                              return null;
+                            }
+                          ),
+                          const SizedBox(height: 20),
+                    
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildLabel("EXPIRACIÓN"),
+                                    _buildInput(
+                                      controller: _expiryController,
+                                      hint: "MM/AA",
+                                      icon: Icons.calendar_today,
+                                      formatter: _expiryMask,
+                                      inputType: TextInputType.number,
+                                      validator: _validateExpiry,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 20),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildLabel("CVV"),
+                                    _buildInput(
+                                      controller: _cvvController,
+                                      hint: _detectedBrand == CardBrand.amex ? "1234" : "123",
+                                      icon: Icons.lock_outline,
+                                      isObscure: true,
+                                      inputType: TextInputType.number,
+                                      maxLength: cvvLength, // LONGITUD DINÁMICA
+                                      validator: (val) {
+                                        if (val == null || val.length < cvvLength) return "Inválido";
+                                        return null;
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                    
+                          _buildLabel("TITULAR DE LA CUENTA"),
+                          _buildInput(
+                            controller: _holderController,
+                            hint: "Como aparece en la tarjeta",
+                            icon: Icons.person_outline,
+                            inputType: TextInputType.name,
+                            textCapitalization: TextCapitalization.characters,
+                            isLastField: true, 
+                            validator: (val) {
+                              if (val == null || val.isEmpty) return "Nombre requerido";
+                              // Validación relajada para pruebas
+                              if (val.contains(RegExp(r'[0-9]'))) return "Sin números";
+                              return null;
+                            }
+                          ),
+                          
+                          const SizedBox(height: 30),
+                    
+                          if (_errorMessage != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: ErrorFeedbackCard(
+                                message: _errorMessage!,
+                                onDismiss: () => setState(() => _errorMessage = null),
+                              ),
+                            ),
+                            
+                          SizedBox(
+                            width: double.infinity,
+                            height: 55,
+                            child: ElevatedButton(
+                              onPressed: _isLinking ? null : _submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.black,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                                disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+                              ),
+                              child: _isLinking 
+                                ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        width: 20, height: 20, 
+                                        child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2)
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        "INICIANDO PROTOCOLO...",
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Oxanium', letterSpacing: 1.0),
+                                      )
+                                    ],
+                                  )
+                                : const Text(
+                                    "INICIAR PROTOCOLO DE ENLACE",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'Oxanium',
+                                      fontSize: 16,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      _TechInput(
-                        label: "TITULAR DE LA CUENTA", controller: _holderCtrl, icon: Icons.person_outline_rounded, hint: "COMO FIGURA EN LA TARJETA", inputType: TextInputType.name, 
-                        formatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]'))], onChanged: (_) => setState(() {}), validator: (val) => val!.isEmpty ? "Requerido" : null,
-                        // --- ENTER PARA ENVIAR ---
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _submit(), 
-                      ),
-                      const SizedBox(height: 30),
-                      SizedBox(
-                        width: double.infinity, height: 50,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _submit,
-                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                          child: _isLoading 
-                            ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)), const SizedBox(width: 12), const Text("PROCESANDO...", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))])
-                            : const Text("INICIAR PROTOCOLO DE ENLACE", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              )
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildCardPreview() {
-    Color brandColor = AppColors.primary; String brandName = "TARJETA";
-    if (_cardType == 'VISA') { brandColor = const Color(0xFF1A1F71); brandName = "VISA"; } 
-    else if (_cardType == 'MASTERCARD') { brandColor = const Color(0xFFEB001B); brandName = "MASTERCARD"; }
-    return Container(
-      width: double.infinity, height: 200, 
-      decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(24)), gradient: LinearGradient(colors: [brandColor.withValues(alpha: 0.8), Colors.black], begin: Alignment.topLeft, end: Alignment.bottomRight)),
-      padding: const EdgeInsets.all(24),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Icon(Icons.nfc, color: Colors.white54, size: 30), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(4)), child: Text(brandName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic)))]),
-        Text(_numberCtrl.text.isEmpty ? "0000 0000 0000 0000" : _numberCtrl.text, style: const TextStyle(color: Colors.white, fontFamily: 'Courier', fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2.0, shadows: [Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1))])),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("TITULAR", style: TextStyle(color: Colors.white54, fontSize: 9)), Text(_holderCtrl.text.isEmpty ? "NOMBRE APELLIDO" : _holderCtrl.text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))]), Column(crossAxisAlignment: CrossAxisAlignment.end, children: [const Text("VENCE", style: TextStyle(color: Colors.white54, fontSize: 9)), Text(_expiryCtrl.text.isEmpty ? "MM/AA" : _expiryCtrl.text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))])])
-      ]),
-    );
-  }
-}
+  Widget _buildBrandBadge() {
+    IconData icon;
+    Color color;
+    String text;
 
-class _TechInput extends StatelessWidget {
-  final String label; final TextEditingController controller; final IconData icon; final String hint; final TextInputType inputType; final List<TextInputFormatter>? formatters; final Function(String)? onChanged; final String? Function(String?)? validator; final bool isObscure; 
-  final TextInputAction? textInputAction; final Function(String)? onSubmitted; 
+    switch (_detectedBrand) {
+      case CardBrand.visa:
+        icon = FontAwesomeIcons.ccVisa;
+        color = Colors.white; 
+        text = "VISA";
+        break;
+      case CardBrand.mastercard:
+        icon = FontAwesomeIcons.ccMastercard;
+        color = const Color(0xFFFF5F00);
+        text = "MASTER";
+        break;
+      case CardBrand.amex:
+        icon = FontAwesomeIcons.ccAmex;
+        color = const Color(0xFF006FCF);
+        text = "AMEX";
+        break;
+      case CardBrand.discover:
+        icon = FontAwesomeIcons.ccDiscover;
+        color = const Color(0xFFE55C20);
+        text = "DISC";
+        break;
+      default:
+        return const SizedBox.shrink();
+    }
 
-  const _TechInput({required this.label, required this.controller, required this.icon, required this.hint, required this.inputType, this.formatters, this.onChanged, this.validator, this.isObscure = false, this.textInputAction, this.onSubmitted});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.7), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)), const SizedBox(height: 8),
-      TextFormField(controller: controller, keyboardType: inputType, inputFormatters: formatters, onChanged: onChanged, validator: validator, obscureText: isObscure, textInputAction: textInputAction, onFieldSubmitted: onSubmitted, style: const TextStyle(color: Colors.white, fontFamily: 'Courier', fontWeight: FontWeight.bold), decoration: InputDecoration(filled: true, fillColor: Colors.white.withValues(alpha: 0.05), hintText: hint, hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontFamily: 'Courier'), prefixIcon: Icon(icon, color: AppColors.primary, size: 20), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1)), errorStyle: TextStyle(color: AppColors.error.withValues(alpha: 0.8), fontSize: 10))),
-    ]);
-  }
-}
-
-class _CardNumberFormatter extends TextInputFormatter { @override TextEditingValue formatEditUpdate(TextEditingValue o, TextEditingValue n) { var t = n.text; if (n.selection.baseOffset == 0) return n; var b = StringBuffer(); for (int i = 0; i < t.length; i++) { b.write(t[i]); var idx = i + 1; if (idx % 4 == 0 && idx != t.length) b.write(' '); } var s = b.toString(); return n.copyWith(text: s, selection: TextSelection.collapsed(offset: s.length)); } }
-class _DateFormatter extends TextInputFormatter { @override TextEditingValue formatEditUpdate(TextEditingValue o, TextEditingValue n) { var t = n.text; if (n.selection.baseOffset == 0) return n; var b = StringBuffer(); for (int i = 0; i < t.length; i++) { b.write(t[i]); if ((i + 1) == 2 && (i + 1) != t.length) b.write('/'); } var s = b.toString(); return n.copyWith(text: s, selection: TextSelection.collapsed(offset: s.length)); } }
-
-// --- DIALOGO DE ÉXITO CON AUTO-CLOSE ---
-class _SuccessDialog extends StatefulWidget {
-  @override
-  State<_SuccessDialog> createState() => _SuccessDialogState();
-}
-
-class _SuccessDialogState extends State<_SuccessDialog> {
-  @override
-  void initState() {
-    super.initState();
-    // Auto-Close después de 3.5 segundos
-    Future.delayed(const Duration(milliseconds: 3500), () {
-      if (mounted) Navigator.of(context).pop();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
       child: Container(
-        padding: const EdgeInsets.all(30),
-        decoration: BoxDecoration(color: Colors.black.withOpacity(0.9), borderRadius: BorderRadius.circular(30), border: Border.all(color: AppColors.primary, width: 2), boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 40, spreadRadius: 10)]),
-        child: Column(
+        key: ValueKey(_detectedBrand),
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          border: Border.all(color: color.withOpacity(0.5)),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.primary.withOpacity(0.2)), child: const Icon(Icons.check_rounded, color: AppColors.primary, size: 50)),
-            const SizedBox(height: 24),
-            const Text("PROTOCOLO EXITOSO", style: TextStyle(color: Colors.white, fontFamily: 'Oxanium', fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 2.0)),
-            const SizedBox(height: 8),
-            Text("Tarjeta vinculada y encriptada correctamente.", style: TextStyle(color: AppColors.textSecondary.withOpacity(0.8), fontSize: 12), textAlign: TextAlign.center),
+            FaIcon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Text(
+              text,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Oxanium',
+                letterSpacing: 1.0,
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0, left: 4),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInput({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    TextInputFormatter? formatter,
+    bool isObscure = false,
+    TextInputType inputType = TextInputType.text,
+    int? maxLength,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    TextInputAction action = TextInputAction.next,
+    String? Function(String?)? validator,
+    Widget? suffix,
+    bool isLastField = false, 
+    void Function(String)? onFieldSubmitted,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: TextFormField(
+        controller: controller,
+        obscureText: isObscure,
+        keyboardType: inputType,
+        textInputAction: TextInputAction.done, 
+        onFieldSubmitted: (_) => _submit(), 
+        textCapitalization: textCapitalization,
+        // CLAVE: Activa la validación en tiempo real para que el error desaparezca al corregir
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        inputFormatters: formatter != null ? [formatter] : (maxLength != null ? [LengthLimitingTextInputFormatter(maxLength)] : []),
+        style: const TextStyle(color: Colors.white, fontFamily: 'Courier', fontWeight: FontWeight.bold),
+        validator: validator,
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
+          prefixIcon: Icon(icon, color: AppColors.primary.withOpacity(0.7), size: 20),
+          suffixIcon: suffix != null ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [suffix]) : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          counterText: "", 
+          errorStyle: const TextStyle(color: AppColors.error, fontSize: 11, height: 0.8),
         ),
       ),
     );
