@@ -1,9 +1,9 @@
 // Archivo: lib/features/billing/presentation/providers/billing_provider.dart
 import 'dart:async';
 import 'package:botslode/core/config/theme/app_colors.dart';
-import 'package:botslode/features/billing/data/services/payment_service.dart';
 import 'package:botslode/features/billing/domain/models/card_info.dart';
 import 'package:botslode/features/billing/domain/models/transaction.dart';
+import 'package:botslode/features/billing/presentation/providers/billing_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -15,9 +15,6 @@ enum FinanceHealth { stable, warning, critical }
 
 @riverpod
 class Billing extends _$Billing {
-  final _supabase = Supabase.instance.client;
-  final _paymentService = PaymentService();
-
   static const double WARNING_THRESHOLD = 0.8; 
 
   @override
@@ -26,31 +23,30 @@ class Billing extends _$Billing {
   }
 
   Future<BillingState> _fetchFinancialData() async {
+    final repo = ref.read(billingRepositoryProvider);
+
     try {
-      final txFuture = _supabase.from('transactions').select().order('created_at', ascending: true);
-      final cardsFuture = _supabase.from('user_billing').select().order('created_at', ascending: false);
-      final rateFuture = _paymentService.getDolarBlueRate(); 
-      
-      final botsCountFuture = _supabase
-          .from('bots')
-          .count(CountOption.exact)
-          .or('status.eq.active,status.eq.maintenance');
+      // 1. Fetching Paralelo Optimizado
+      final results = await Future.wait<dynamic>([
+        repo.getTransactions(),       // 0
+        repo.getCards(),              // 1
+        repo.getDolarBlueRate(),      // 2
+        repo.getQualifiedBotCount(),  // 3
+      ]);
 
-      final results = await Future.wait<dynamic>([txFuture, cardsFuture, rateFuture, botsCountFuture]);
-
-      final txResponse = results[0] as List;
-      final cardsResponse = results[1] as List;
+      final transactions = results[0] as List<BotTransaction>;
+      final allCards = results[1] as List<CardInfo>;
       final double dollarRate = results[2] as double;
       final int qualifiedBotCount = results[3] as int;
 
+      // 2. Lógica de Negocio (Cálculo de Límites)
       const double baseLimit = 500.0;
       const double incrementPerBlock = 500.0;
       
       final int blocksOfTen = (qualifiedBotCount / 10).floor(); 
       final double botsBasedLimit = baseLimit + (blocksOfTen * incrementPerBlock);
 
-      final transactions = txResponse.map((data) => BotTransaction.fromMap(data)).toList();
-      
+      // 3. Cálculo de Deuda
       double runningBalance = 0.0;
       for (var tx in transactions) {
         if (tx.type == TransactionType.cycleCharge) runningBalance += tx.amount;
@@ -60,6 +56,7 @@ class Billing extends _$Billing {
         }
       }
 
+      // 4. Ajuste dinámico de límite basado en deuda (Lógica de expansión de crédito)
       double adjustedDebt = runningBalance - 25.0; 
       if (adjustedDebt < 0) adjustedDebt = 0;
 
@@ -71,7 +68,7 @@ class Billing extends _$Billing {
 
       final double finalLimit = (botsBasedLimit > debtBasedLimit) ? botsBasedLimit : debtBasedLimit;
 
-      final List<CardInfo> allCards = cardsResponse.map((data) => CardInfo.fromMap(data)).toList();
+      // 5. Selección de Tarjeta Principal
       CardInfo? primaryCard;
       if (allCards.isNotEmpty) {
         primaryCard = allCards.firstWhere((c) => c.isPrimary, orElse: () => allCards.first);
@@ -86,6 +83,8 @@ class Billing extends _$Billing {
         creditLimit: finalLimit, 
       );
     } catch (e) {
+      debugPrint("🔴 Error en Billing Provider: $e");
+      // Fallback seguro para no romper UI
       return BillingState(
         totalDebt: 0, 
         transactions: [], 
@@ -102,10 +101,15 @@ class Billing extends _$Billing {
   Future<void> updateAutoPayThreshold(double amount) async {
     final currentCard = state.value?.primaryCard;
     if (currentCard == null) return;
+    
+    final repo = ref.read(billingRepositoryProvider);
+    
     try {
+      // Optimistic UI Update
       final newState = state.value!.copyWith(primaryCard: currentCard.copyWith(autoPayThreshold: amount));
       state = AsyncData(newState);
-      await _supabase.from('user_billing').update({'auto_pay_threshold': amount}).eq('id', currentCard.id);
+      
+      await repo.updateAutoPayThreshold(currentCard.id, amount);
     } catch (e) { 
       ref.invalidateSelf(); 
     }
@@ -115,17 +119,15 @@ class Billing extends _$Billing {
       final card = state.value?.primaryCard;
       if (card == null) throw Exception("No hay tarjeta principal");
       
-      // CAMBIO IMPORTANTE: Ya NO ponemos state = AsyncLoading().
-      // Esto evita que la pantalla parpadee o muestre el Skeleton.
-      // La operación ocurre "en silencio" y al final refresca los datos.
-      
+      final repo = ref.read(billingRepositoryProvider);
+
       try {
-        await _paymentService.processRealPayment(amountUSD: amount, cardId: card.id);
-        // Pequeño delay para asegurar que Supabase procese la inserción
+        await repo.processPayment(amountUSD: amount, cardId: card.id);
+        
+        // Pequeño delay para asegurar consistencia en BD
         await Future.delayed(const Duration(milliseconds: 1000)); 
-        ref.invalidateSelf(); // Solo aquí se refrescan los datos visuales
+        ref.invalidateSelf(); 
       } catch (e) {
-        // Si falla, no rompemos la UI, solo lanzamos el error para que quien lo llamó lo maneje (ej: el Modal)
         throw e; 
       }
   }
@@ -134,6 +136,9 @@ class Billing extends _$Billing {
     final currentState = state.value;
     if (currentState == null) return;
 
+    final repo = ref.read(billingRepositoryProvider);
+
+    // Optimistic UI
     final updatedCards = currentState.allCards.map((c) {
       return c.copyWith(isPrimary: c.id == cardId);
     }).toList();
@@ -146,18 +151,27 @@ class Billing extends _$Billing {
     ));
 
     try { 
-      await _paymentService.setPrimaryCard(cardId); 
+      await repo.setPrimaryCard(cardId); 
     } catch (e) { 
       ref.invalidateSelf(); 
     }
   }
 
   Future<void> linkNewCard({required String number, required String month, required String year, required String cvv, required String holder, required String brand, required String lastFour}) async {
-    // TAMBIÉN AQUÍ: Quitamos AsyncLoading para que el modal no rompa el fondo
+    final repo = ref.read(billingRepositoryProvider);
+    final userEmail = Supabase.instance.client.auth.currentUser?.email ?? '';
+
     try {
-      final userEmail = _supabase.auth.currentUser?.email ?? '';
-      final token = await _paymentService.tokenizeCard(cardNumber: number, expirationMonth: month, expirationYear: year, securityCode: cvv, cardholderName: holder);
-      await _paymentService.linkCardToUser(token: token, email: userEmail, brand: brand, lastFour: lastFour, holderName: holder, expiryDate: "$month/${year.substring(2)}");
+      await repo.linkCard(
+        number: number, 
+        month: month, 
+        year: year, 
+        cvv: cvv, 
+        holder: holder, 
+        brand: brand, 
+        lastFour: lastFour, 
+        email: userEmail
+      );
       
       await Future.delayed(const Duration(seconds: 1));
       ref.invalidateSelf();
@@ -169,7 +183,10 @@ class Billing extends _$Billing {
   Future<void> removeCard(String cardId) async {
     final currentState = state.value;
     if (currentState == null) return;
+    
+    final repo = ref.read(billingRepositoryProvider);
 
+    // Optimistic UI
     final updatedCards = currentState.allCards.where((c) => c.id != cardId).toList();
     CardInfo? newPrimary;
     
@@ -182,7 +199,7 @@ class Billing extends _$Billing {
     state = AsyncData(currentState.copyWith(allCards: updatedCards, primaryCard: newPrimary));
 
     try { 
-      await _paymentService.deleteCard(cardId);
+      await repo.deleteCard(cardId);
       if (updatedCards.isEmpty) ref.invalidateSelf(); 
     } catch (e) { 
       ref.invalidateSelf(); 
@@ -191,8 +208,10 @@ class Billing extends _$Billing {
 
   Future<void> openManualPaymentLink(double amount) async {
     if (amount <= 0) return;
+    final repo = ref.read(billingRepositoryProvider);
+    
     try {
-      final url = await _paymentService.createCheckoutLink(amount);
+      final url = await repo.createCheckoutLink(amount);
       if (url.isNotEmpty && await canLaunchUrl(Uri.parse(url))) {
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       }
@@ -202,23 +221,21 @@ class Billing extends _$Billing {
   }
 
   Future<void> registerCycleCharge(String botName, double amount, {required String botId}) async {
-    final user = _supabase.auth.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
+    
+    final repo = ref.read(billingRepositoryProvider);
 
     try {
-      await _supabase.from('transactions').insert({
-        'user_id': user.id,
-        'bot_id': botId,
-        'bot_name': botName,
-        'amount': amount,
-        'type': 'cycle_charge',
-        'status': 'completed',
-        'created_at': DateTime.now().toIso8601String(),
-      });
-      
+      await repo.registerCycleCharge(
+        botId: botId, 
+        botName: botName, 
+        amount: amount, 
+        userId: user.id
+      );
       ref.invalidateSelf();
     } catch (e) {
-      debugPrint("❌ ERROR CRÍTICO: No se pudo registrar el cargo del ciclo para $botName: $e");
+      debugPrint("❌ CRITICAL: Fallo al registrar cargo de ciclo: $e");
     }
   }
 }
