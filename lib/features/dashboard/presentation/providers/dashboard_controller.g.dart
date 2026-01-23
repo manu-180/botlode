@@ -6,7 +6,7 @@ part of 'dashboard_controller.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$filteredBotsHash() => r'5441c8742e9611c2f4f9136f21b99428d9968b5d';
+String _$filteredBotsHash() => r'1eb36f9dd6613819473ffb7cff577101ff424c80';
 
 /// See also [filteredBots].
 @ProviderFor(filteredBots)

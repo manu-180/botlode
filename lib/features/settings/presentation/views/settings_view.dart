@@ -1,41 +1,33 @@
 // Archivo: lib/features/settings/presentation/views/settings_view.dart
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/providers/auth_provider.dart';
+import 'package:botslode/features/settings/presentation/widgets/change_password_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class SettingsView extends ConsumerStatefulWidget {
+class SettingsView extends ConsumerWidget {
   static const String routeName = 'settings';
 
   const SettingsView({super.key});
 
   @override
-  ConsumerState<SettingsView> createState() => _SettingsViewState();
-}
-
-class _SettingsViewState extends ConsumerState<SettingsView> {
-  // Estado local para los switches (luego se pueden conectar a un provider)
-  bool _neuralNotifs = true;
-  bool _audioFx = true;
-  bool _highPerformance = false;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
     return Scaffold(
       body: Stack(
         children: [
-          // Fondo Radial Sutil (Desde abajo a la izquierda esta vez)
+          // FONDO RADIAL INMERSIVO
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  center: const Alignment(-0.8, 0.8),
-                  radius: 1.5,
+                  center: const Alignment(0.0, 0.0),
+                  radius: 1.2,
                   colors: [
-                    AppColors.surface.withOpacity(0.8),
+                    AppColors.surface.withOpacity(0.6),
                     AppColors.background,
                   ],
                 ),
@@ -45,179 +37,99 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
 
           Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // --- HEADER ---
-                    Text(
-                      "CONFIGURACIÓN DEL SISTEMA",
-                      style: theme.textTheme.displayMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // --- ICONO DE SEGURIDAD ANIMADO ---
+                  Container(
+                    width: 120, height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black,
+                      border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.1),
+                          blurRadius: 50,
+                          spreadRadius: 10,
+                        )
+                      ]
                     ),
-                    Text(
-                      "Parámetros de enlace neural y preferencias de cuenta",
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                    child: Center(
+                      child: const Icon(Icons.shield_outlined, size: 50, color: AppColors.primary)
+                          .animate(onPlay: (c) => c.repeat(reverse: true))
+                          .fade(begin: 0.5, end: 1.0, duration: 2.seconds),
                     ),
+                  ),
 
-                    const SizedBox(height: 40),
+                  const SizedBox(height: 40),
 
-                    // --- TARJETA DE PERFIL (OPERADOR) ---
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: AppColors.borderGlass),
-                      ),
-                      child: Row(
-                        children: [
-                          // Avatar con anillo de energía
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.primary, width: 2),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.3),
-                                  blurRadius: 20,
-                                )
-                              ],
-                              color: Colors.black,
-                            ),
-                            child: const Icon(Icons.person, size: 40, color: Colors.white),
-                          ),
-                          const SizedBox(width: 24),
-                          
-                          // Info del Operador
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "OPERADOR: ADMIN",
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.5,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                                ),
-                                child: const Text(
-                                  "LICENCIA: APEX ENTERPRISE (ILIMITADA)",
-                                  style: TextStyle(
-                                    color: AppColors.primary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                  // --- TÍTULOS ---
+                  Text(
+                    "PROTOCOLO DE SEGURIDAD",
+                    style: theme.textTheme.displayMedium?.copyWith(
+                      color: Colors.white,
+                      fontFamily: 'Oxanium',
+                      fontSize: 24,
+                      letterSpacing: 2.0,
                     ),
-
-                    const SizedBox(height: 40),
-
-                    // --- SECCIONES DE CONFIGURACIÓN ---
-                    Expanded(
-                      child: ListView(
-                        physics: const BouncingScrollPhysics(),
-                        children: [
-                          const _SectionHeader(title: "INTERFAZ NEURAL"),
-                          _TechSwitch(
-                            title: "Notificaciones Neurales",
-                            subtitle: "Recibir alertas directas sobre estado de bots.",
-                            value: _neuralNotifs,
-                            onChanged: (v) => setState(() => _neuralNotifs = v),
-                            icon: Icons.notifications_active_outlined,
-                          ),
-                          _TechSwitch(
-                            title: "Efectos de Audio FX",
-                            subtitle: "Sonidos de interfaz y alertas de sistema.",
-                            value: _audioFx,
-                            onChanged: (v) => setState(() => _audioFx = v),
-                            icon: Icons.volume_up_outlined,
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          const _SectionHeader(title: "RENDIMIENTO DEL NÚCLEO"),
-                          _TechSwitch(
-                            title: "Modo Alto Rendimiento",
-                            subtitle: "Aumenta la tasa de refresco visual. Consume más batería.",
-                            value: _highPerformance,
-                            onChanged: (v) => setState(() => _highPerformance = v),
-                            icon: Icons.speed_rounded,
-                            activeColor: AppColors.error, // Rojo para indicar potencia/peligro
-                          ),
-
-                          const SizedBox(height: 40),
-                          const Divider(color: AppColors.borderGlass),
-                          const SizedBox(height: 20),
-
-                          // --- BOTÓN DE CERRAR SESIÓN (PROTOCOLO DE SALIDA) ---
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.error.withOpacity(0.15),
-                                    blurRadius: 30,
-                                    spreadRadius: 1,
-                                  )
-                                ],
-                              ),
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  // Ejecutamos la desconexión en el AuthProvider
-                                  // El AppRouter detectará el cambio y redirigirá a /login automáticamente
-                                  ref.read(authProvider.notifier).signOut();
-                                  GoRouter.of(context).go("/login");
-                                },
-                                icon: const Icon(Icons.logout_rounded), // Icono de puerta saliendo
-                                label: const Text("Cerrar Sesión"),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppColors.error,
-                                  backgroundColor: Colors.black.withOpacity(0.6),
-                                  side: const BorderSide(color: AppColors.error, width: 1.5),
-                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontFamily: 'Oxanium',
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 2.0,
-                                    fontSize: 14,
-                                  ),
-                                ).copyWith(
-                                  overlayColor: WidgetStateProperty.all(AppColors.error.withOpacity(0.1)),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 40),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "Gestión de credenciales y acceso al sistema central.",
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
                     ),
-                  ],
-                ),
+                  ),
+
+                  const SizedBox(height: 60),
+
+                  // --- BOTÓN 1: CAMBIAR CONTRASEÑA ---
+                  _SecurityActionButton(
+                    label: "ACTUALIZAR CONTRASEÑA",
+                    subLabel: "Modificar clave de acceso del operador",
+                    icon: Icons.password_rounded,
+                    color: AppColors.primary,
+                    onTap: () {
+                      showDialog(
+                        context: context, 
+                        builder: (_) => const ChangePasswordDialog()
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // --- BOTÓN 2: CERRAR SESIÓN ---
+                  _SecurityActionButton(
+                    label: "CERRAR SESIÓN",
+                    subLabel: "Desconectar y salir",
+                    icon: Icons.power_settings_new_rounded,
+                    color: AppColors.error,
+                    isDestructive: true,
+                    onTap: () async {
+                      // Ejecutamos logout
+                      await ref.read(authProvider.notifier).signOut();
+                      // Redirección forzada por seguridad (aunque el router debería hacerlo solo)
+                      if (context.mounted) GoRouter.of(context).go('/login');
+                    },
+                  ),
+
+                  const SizedBox(height: 40),
+                  
+                  // FOOTER
+                  Text(
+                    "SECURE CONNECTION // ENCRYPTED",
+                    style: TextStyle(
+                      color: AppColors.textSecondary.withOpacity(0.3),
+                      fontFamily: 'Courier',
+                      fontSize: 10,
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -227,84 +139,99 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
   }
 }
 
-// Widget Helper para los Headers de Sección
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2.0,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Divider(height: 1, color: AppColors.borderGlass),
-        ],
-      ),
-    );
-  }
-}
-
-// Widget Helper para los Switches Tecnológicos
-class _TechSwitch extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
+class _SecurityActionButton extends StatefulWidget {
+  final String label;
+  final String subLabel;
   final IconData icon;
-  final Color activeColor;
+  final Color color;
+  final VoidCallback onTap;
+  final bool isDestructive;
 
-  const _TechSwitch({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
+  const _SecurityActionButton({
+    required this.label,
+    required this.subLabel,
     required this.icon,
-    this.activeColor = AppColors.primary,
+    required this.color,
+    required this.onTap,
+    this.isDestructive = false,
   });
 
   @override
+  State<_SecurityActionButton> createState() => _SecurityActionButtonState();
+}
+
+class _SecurityActionButtonState extends State<_SecurityActionButton> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: value ? activeColor.withOpacity(0.3) : Colors.transparent,
-        ),
-      ),
-      child: SwitchListTile(
-        value: value,
-        onChanged: onChanged,
-        activeColor: activeColor,
-        inactiveThumbColor: AppColors.textSecondary,
-        inactiveTrackColor: Colors.black,
-        title: Text(
-          title,
-          style: TextStyle(
-            color: value ? Colors.white : AppColors.textSecondary,
-            fontWeight: FontWeight.bold,
+    final baseColor = widget.color;
+    
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          decoration: BoxDecoration(
+            color: widget.isDestructive 
+                ? (_isHovered ? baseColor.withOpacity(0.15) : Colors.transparent)
+                : (_isHovered ? baseColor.withOpacity(0.1) : Colors.black.withOpacity(0.3)),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _isHovered ? baseColor : AppColors.borderGlass,
+              width: 1.5,
+            ),
+            boxShadow: _isHovered 
+                ? [BoxShadow(color: baseColor.withOpacity(0.1), blurRadius: 20)] 
+                : [],
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(color: AppColors.textSecondary.withOpacity(0.7), fontSize: 12),
-        ),
-        secondary: Icon(
-          icon,
-          color: value ? activeColor : AppColors.textSecondary,
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: baseColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(widget.icon, color: baseColor, size: 24),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: _isHovered ? Colors.white : AppColors.textPrimary,
+                        fontFamily: 'Oxanium',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.subLabel,
+                      style: TextStyle(
+                        color: AppColors.textSecondary.withOpacity(0.7),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded, 
+                color: baseColor.withOpacity(_isHovered ? 1.0 : 0.3), 
+                size: 16
+              ),
+            ],
+          ),
         ),
       ),
     );

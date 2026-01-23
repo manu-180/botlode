@@ -21,15 +21,15 @@ class Sidebar extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 32),
-          // LOGO
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primary.withValues(alpha: 0.1),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+          
+          // LOGO FLOTANTE (REDUCCIÓN TÁCTICA DE TAMAÑO)
+          SizedBox(
+            width: 40, 
+            height: 40,
+            child: Image.asset(
+              'assets/icon/botlode_logo.png',
+              fit: BoxFit.contain,
             ),
-            child: const Icon(Icons.hexagon_rounded, color: AppColors.primary, size: 28),
           ),
           
           const SizedBox(height: 48),
@@ -37,8 +37,7 @@ class Sidebar extends StatelessWidget {
           // ÍTEMS DE NAVEGACIÓN
           _SidebarItem(
            icon: FontAwesomeIcons.robot,
-            label: "BOTS", // <--- CAMBIO SOLICITADO
-            // Activo si es /dashboard o cualquier subruta (como el detalle)
+            label: "BOTS", 
             isActive: location.startsWith('/dashboard') || location == '/', 
             onTap: () => context.goNamed(DashboardView.routeName),
           ),
@@ -101,8 +100,6 @@ class _SidebarItem extends StatelessWidget {
                 BoxShadow(color: AppColors.primary.withValues(alpha: 0.4), blurRadius: 12, spreadRadius: 2)
               ] : [],
             ),
-            // CAMBIO AQUÍ: Usamos FaIcon en lugar de Icon
-            // FaIcon renderiza correctamente tanto FontAwesome como Material Icons
             child: FaIcon(
               icon,
               color: isActive ? Colors.black : AppColors.textSecondary,

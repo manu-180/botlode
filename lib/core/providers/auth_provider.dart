@@ -53,17 +53,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
   String _mapAuthError(String rawError) {
     final msg = rawError.toLowerCase();
     
-    // DETECCIÓN ESPECÍFICA: Credenciales incorrectas
     if (msg.contains('invalid login credentials')) {
-      // CAMBIO AQUÍ: Mensaje más suave y claro para el humano
       return "DATOS INCORRECTOS: El correo o la contraseña no coinciden. Por favor, verifícalos e intenta de nuevo.";
     }
-    
     if (msg.contains('user already registered')) {
       return "CUENTA EXISTENTE: Este correo ya está registrado en el sistema. Intenta iniciar sesión.";
     }
     if (msg.contains('network') || msg.contains('socket')) {
       return "SIN CONEXIÓN: No se pudo contactar con el servidor. Revisa tu internet.";
+    }
+    if (msg.contains('password should be at least')) {
+      return "SEGURIDAD DÉBIL: La contraseña debe tener al menos 6 caracteres.";
     }
     
     return "ERROR DE SISTEMA: $rawError";
@@ -74,7 +74,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _supabase.auth.signInWithPassword(email: email, password: password);
     } on AuthException catch (e) {
-      // Mapeamos el error amigable y quitamos el loading sin tocar la sesión
       state = state.copyWith(isLoading: false, error: _mapAuthError(e.message));
     } catch (e) {
       state = state.copyWith(isLoading: false, error: "ERROR CRÍTICO: Se interrumpió la conexión.");
@@ -105,6 +104,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
       debugPrint("⚠️ Cierre local forzado.");
     } finally {
       _isSigningOut = false;
+    }
+  }
+
+  // --- NUEVO: ACTUALIZACIÓN DE CREDENCIALES ---
+  Future<void> updatePassword(String newPassword) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _supabase.auth.updateUser(UserAttributes(password: newPassword));
+      state = state.copyWith(isLoading: false);
+    } on AuthException catch (e) {
+      state = state.copyWith(isLoading: false, error: _mapAuthError(e.message));
+      rethrow; // Re-lanzamos para manejar la UI en el modal
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: "FALLO DE SEGURIDAD: No se pudo actualizar la clave.");
+      rethrow;
     }
   }
 }
