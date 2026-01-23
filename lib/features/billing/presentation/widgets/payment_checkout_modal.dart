@@ -4,11 +4,13 @@ import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/billing/presentation/widgets/add_card_modal.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class PaymentCheckoutModal extends ConsumerStatefulWidget {
-  final double amount;      // Monto en USD
-  final double exchangeRate; // Cotización del día
+  final double amount;      
+  final double exchangeRate; 
 
   const PaymentCheckoutModal({
     super.key, 
@@ -22,48 +24,88 @@ class PaymentCheckoutModal extends ConsumerStatefulWidget {
 
 class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
   bool _isCardProcessing = false;
-  String _statusText = "INICIANDO PROTOCOLO...";
+  
+  bool _hasFailed = false;
+  bool _hasSucceeded = false;
+
+  String _failureTitle = "";
+  String _failureMessage = "";
+
+  String _statusText = "INICIANDO...";
   double _progress = 0.0;
 
   void _startCardPaymentSequence() async {
     setState(() {
       _isCardProcessing = true;
-      _statusText = "ENCRIPTANDO ENLACE DE PAGO...";
+      _hasFailed = false; 
+      _hasSucceeded = false;
+      _statusText = "ENCRIPTANDO...";
       _progress = 0.2;
     });
 
-    await Future.delayed(const Duration(milliseconds: 800));
+    await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
     setState(() {
       _progress = 0.5;
-      _statusText = "VALIDANDO TOKEN DE SEGURIDAD...";
+      _statusText = "VALIDANDO TOKEN...";
     });
 
-    await Future.delayed(const Duration(milliseconds: 800));
+    await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
     setState(() {
       _progress = 0.8;
-      _statusText = "AUTORIZANDO TRANSFERENCIA...";
+      _statusText = "AUTORIZANDO...";
     });
 
     try {
       await ref.read(billingProvider.notifier).processPayment(widget.amount);
       
       if (!mounted) return;
-      setState(() {
-        _progress = 1.0;
-        _statusText = "LIQUIDACIÓN COMPLETADA";
-      });
-
-      await Future.delayed(const Duration(seconds: 1));
-      if (mounted) Navigator.of(context).pop(); 
-    } catch (e) {
-      if (!mounted) return;
+      
       setState(() {
         _isCardProcessing = false;
-        _statusText = "ERROR EN TRANSACCIÓN";
+        _hasSucceeded = true; 
       });
+
+      // Mismo tiempo de espera, pero sin la barra visual
+      await Future.delayed(const Duration(milliseconds: 3500));
+      if (mounted) Navigator.of(context).pop(); 
+
+    } catch (e) {
+      if (!mounted) return;
+      _handlePaymentError(e.toString());
     }
+  }
+
+  void _handlePaymentError(String rawError) {
+    String title = "TRANSACCIÓN RECHAZADA";
+    String msg = "La entidad financiera denegó la operación. Por favor, contacte a su banco.";
+
+    final cleanError = rawError.toLowerCase();
+
+    if (cleanError.contains('insufficient_funds') || cleanError.contains('fondos')) {
+      title = "FONDOS INSUFICIENTES";
+      msg = "La tarjeta no tiene saldo disponible para cubrir el monto total de la operación.";
+    } else if (cleanError.contains('security_code') || cleanError.contains('cvv')) {
+      title = "CÓDIGO DE SEGURIDAD INVÁLIDO";
+      msg = "El CVV ingresado es incorrecto. Verifique el dorso de su tarjeta.";
+    } else if (cleanError.contains('expiry') || cleanError.contains('expiration')) {
+      title = "TARJETA VENCIDA";
+      msg = "La fecha de expiración de la tarjeta no es válida.";
+    } else if (cleanError.contains('call_for_authorize') || cleanError.contains('autorizar')) {
+      title = "AUTORIZACIÓN REQUERIDA";
+      msg = "El banco emisor requiere que usted autorice esta compra telefónicamente.";
+    } else if (cleanError.contains('network') || cleanError.contains('connection')) {
+      title = "ERROR DE ENLACE";
+      msg = "No se pudo establecer conexión segura con la pasarela de pagos. Intente nuevamente.";
+    }
+
+    setState(() {
+      _isCardProcessing = false;
+      _hasFailed = true;
+      _failureTitle = title;
+      _failureMessage = msg;
+    });
   }
 
   void _openPaymentLink() {
@@ -72,37 +114,45 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
     Navigator.of(context).pop(); 
   }
 
+  List<Color> get _currentGradient {
+    if (_hasFailed) return [AppColors.error, AppColors.error.withOpacity(0.2)];
+    if (_hasSucceeded) return [AppColors.success, AppColors.success.withOpacity(0.2)];
+    return [AppColors.primary.withOpacity(0.3), Colors.transparent];
+  }
+
+  Color get _currentShadowColor {
+    if (_hasFailed) return AppColors.error.withOpacity(0.1);
+    if (_hasSucceeded) return AppColors.success.withOpacity(0.2);
+    return Colors.black.withOpacity(0.5);
+  }
+
   @override
   Widget build(BuildContext context) {
     final billingState = ref.watch(billingProvider);
-    // CORRECCIÓN: Usamos primaryCard en lugar de card
     final card = billingState.value?.primaryCard;
     final hasCard = card != null;
     final double approxARS = widget.amount * widget.exchangeRate;
 
-    // Color oficial de Mercado Pago
     const mpBlue = Color(0xFF009EE3);
 
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
       child: Dialog(
         backgroundColor: Colors.transparent,
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 500),
           width: 480, 
           padding: const EdgeInsets.all(1),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             gradient: LinearGradient(
-              colors: [
-                AppColors.primary.withValues(alpha: 0.3), 
-                Colors.transparent
-              ],
+              colors: _currentGradient,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.5),
+                color: _currentShadowColor,
                 blurRadius: 40,
                 spreadRadius: 10,
               )
@@ -111,201 +161,407 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
           child: Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: const Color(0xFF09090B), // Fondo tech oscuro
+              color: const Color(0xFF09090B),
               borderRadius: BorderRadius.circular(23),
               border: Border.all(color: AppColors.borderGlass),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header
-                const Icon(Icons.hub_rounded, color: AppColors.primary, size: 40),
-                const SizedBox(height: 16),
-                const Text(
-                  "PROTOCOLO DE LIQUIDACIÓN",
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 3.0,
-                    fontSize: 10,
-                    fontFamily: 'Courier',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
-                // Monto Grande en USD
-                Text(
-                  "\$ ${widget.amount.toStringAsFixed(2)}",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 56,
-                    fontFamily: 'Oxanium',
-                    fontWeight: FontWeight.bold,
-                    height: 1.0,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Conversión pequeña en ARS
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.2))
-                  ),
-                  child: Text(
-                    "≈ \$ ${approxARS.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')} ARS",
-                    style: TextStyle(
-                      color: AppColors.textSecondary.withValues(alpha: 0.9),
-                      fontSize: 14,
-                      fontFamily: 'Courier',
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(height: 40),
-
-                // --- CONTENIDO DINÁMICO ---
-                if (_isCardProcessing)
-                  _buildProcessingState()
-                else
-                  Column(
-                    children: [
-                      // 1. SI TIENE TARJETA VINCULADA
-                      if (hasCard) ...[
-                        _PaymentOptionButton(
-                          icon: Icons.flash_on_rounded,
-                          label: "PAGAR AHORA",
-                          subLabel: "Tarjeta •••• ${card.lastFour}",
-                          color: AppColors.success, 
-                          onTap: _startCardPaymentSequence,
-                          isOutlined: false, 
-                        ),
-                        const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            const Expanded(child: Divider(color: AppColors.borderGlass)),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text("MÉTODOS ALTERNATIVOS", style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.4), fontSize: 10, letterSpacing: 1.5)),
-                            ),
-                            const Expanded(child: Divider(color: AppColors.borderGlass)),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-
-                      // 2. BOTÓN MERCADO PAGO
-                      _PaymentOptionButton(
-                        icon: Icons.handshake_rounded,
-                        label: "ENLACE DE PAGO WEB",
-                        subLabel: "Pagar en Pesos vía Mercado Pago",
-                        color: mpBlue,
-                        onTap: _openPaymentLink,
-                        isOutlined: hasCard, 
-                      ),
-
-                      // 3. BOTÓN VINCULAR
-                      if (!hasCard) ...[
-                        const SizedBox(height: 16),
-                        _PaymentOptionButton(
-                          icon: Icons.add_card_rounded,
-                          label: "VINCULAR TARJETA DE CRÉDITO",
-                          subLabel: "Para mayor comodidad en futuros ciclos",
-                          color: AppColors.primary,
-                          onTap: () {
-                            Navigator.pop(context);
-                            showDialog(context: context, builder: (c) => const AddCardModal());
-                          },
-                          isOutlined: false,
-                        ),
-                      ],
-                    ],
-                  ),
-
-                const SizedBox(height: 32),
-                
-                if (!_isCardProcessing)
-                  // BOTÓN CANCELAR (BLANCO Y VISIBLE)
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.error.withOpacity(0.3), width: 1),
-                      borderRadius: BorderRadius.circular(12)
-                    ),
-                    child: TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        foregroundColor: Colors.white, // Letras blancas
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Text(
-                        "CANCELAR OPERACIÓN", 
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9), // Blanco casi puro
-                          fontSize: 11, 
-                          letterSpacing: 2.0,
-                          fontWeight: FontWeight.bold
-                        )
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            child: _buildContent(hasCard, card, mpBlue, approxARS),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildProcessingState() {
+  Widget _buildContent(bool hasCard, var card, Color mpBlue, double approxARS) {
+    if (_hasFailed) return _buildFailureState();
+    if (_hasSucceeded) return _buildSuccessState();
+    return _buildNormalState(hasCard, card, mpBlue, approxARS);
+  }
+
+  Widget _buildNormalState(bool hasCard, var card, Color mpBlue, double approxARS) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            SizedBox(
-              width: 80, height: 80,
-              child: CircularProgressIndicator(
-                color: AppColors.primary, 
-                strokeWidth: 2,
-                backgroundColor: AppColors.primary.withOpacity(0.1),
-              ),
-            ),
-            const Icon(Icons.lock_outline_rounded, color: AppColors.primary, size: 30),
-          ],
-        ),
-        const SizedBox(height: 30),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(2),
-          child: LinearProgressIndicator(
-            value: _progress,
-            minHeight: 4,
-            backgroundColor: Colors.white10,
-            color: AppColors.primary,
+        const Icon(Icons.hub_rounded, color: AppColors.primary, size: 40),
+        const SizedBox(height: 16),
+        const Text(
+          "PROTOCOLO DE LIQUIDACIÓN",
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 3.0,
+            fontSize: 10,
+            fontFamily: 'Courier',
           ),
         ),
         const SizedBox(height: 16),
+        
         Text(
-          _statusText,
-          textAlign: TextAlign.center,
+          "\$ ${widget.amount.toStringAsFixed(2)}",
           style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontFamily: 'Courier',
-            fontSize: 12,
+            color: Colors.white,
+            fontSize: 56,
+            fontFamily: 'Oxanium',
             fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
+            height: 1.0,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.primary.withOpacity(0.2))
+          ),
+          child: Text(
+            "≈ \$ ${approxARS.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')} ARS",
+            style: TextStyle(
+              color: AppColors.textSecondary.withValues(alpha: 0.9),
+              fontSize: 14,
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 40),
+
+        Column(
+          children: [
+            if (hasCard) ...[
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _isCardProcessing
+                    ? _buildProcessingCard()
+                    : _PaymentOptionButton(
+                        key: const ValueKey('btn_pay'),
+                        icon: Icons.flash_on_rounded,
+                        label: "PAGAR AHORA",
+                        subLabel: "Tarjeta •••• ${card.lastFour}",
+                        color: AppColors.success, 
+                        onTap: _startCardPaymentSequence,
+                        isOutlined: false, 
+                      ),
+              ),
+              const SizedBox(height: 20),
+              
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _isCardProcessing ? 0.3 : 1.0,
+                child: Row(
+                  children: [
+                    const Expanded(child: Divider(color: AppColors.borderGlass)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text("MÉTODOS ALTERNATIVOS", style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.4), fontSize: 10, letterSpacing: 1.5)),
+                    ),
+                    const Expanded(child: Divider(color: AppColors.borderGlass)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            IgnorePointer(
+              ignoring: _isCardProcessing,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _isCardProcessing ? 0.3 : 1.0,
+                child: Column(
+                  children: [
+                    _PaymentOptionButton(
+                      icon: FontAwesomeIcons.handshake,
+                      label: "ENLACE DE PAGO WEB",
+                      subLabel: "Pagar en Pesos vía Mercado Pago",
+                      color: mpBlue,
+                      onTap: _openPaymentLink,
+                      isOutlined: hasCard, 
+                    ),
+
+                    if (!hasCard) ...[
+                      const SizedBox(height: 16),
+                      _PaymentOptionButton(
+                        icon: Icons.add_card_rounded,
+                        label: "VINCULAR TARJETA DE CRÉDITO",
+                        subLabel: "Para mayor comodidad en futuros ciclos",
+                        color: AppColors.primary,
+                        onTap: () {
+                          Navigator.pop(context);
+                          showModalBottomSheet(
+                            context: context, 
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (c) => const AddCardModal()
+                          );
+                        },
+                        isOutlined: false,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 32),
+        
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 300),
+          opacity: _isCardProcessing ? 0.0 : 1.0,
+          child: IgnorePointer(
+            ignoring: _isCardProcessing,
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.error.withOpacity(0.3), width: 1),
+                borderRadius: BorderRadius.circular(12)
+              ),
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  foregroundColor: Colors.white, 
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text(
+                  "CANCELAR OPERACIÓN", 
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9), 
+                    fontSize: 11, 
+                    letterSpacing: 2.0,
+                    fontWeight: FontWeight.bold
+                  )
+                ),
+              ),
+            ),
           ),
         ),
       ],
     );
   }
+
+  Widget _buildProcessingCard() {
+    return Container(
+      width: double.infinity,
+      height: 80, 
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 22, height: 22,
+            child: CircularProgressIndicator(
+              color: AppColors.primary, 
+              strokeWidth: 2,
+            ),
+          ),
+          const SizedBox(width: 16),
+          
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _statusText,
+                  style: const TextStyle(
+                    color: AppColors.primary, 
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    letterSpacing: 1.0,
+                    fontFamily: 'Courier'
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: _progress,
+                    minHeight: 4,
+                    backgroundColor: Colors.black,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFailureState() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.error.withOpacity(0.1),
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.error.withOpacity(0.5), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.error.withOpacity(0.15), 
+                blurRadius: 15,
+                spreadRadius: 1
+              )
+            ]
+          ),
+          child: const Icon(Icons.gpp_bad_rounded, color: AppColors.error, size: 40),
+        )
+        .animate(onPlay: (c) => c.repeat(period: 3.seconds))
+        .shimmer(duration: 1.5.seconds, color: Colors.white.withOpacity(0.4), angle: 0.5),
+        
+        const SizedBox(height: 24),
+        
+        Text(
+          _failureTitle,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: AppColors.error,
+            fontFamily: 'Oxanium',
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
+        ),
+        
+        const SizedBox(height: 12),
+        
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+          ),
+          child: Text(
+            _failureMessage,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 32),
+
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white24),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text("CERRAR"),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  setState(() => _hasFailed = false);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text("REINTENTAR", style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        )
+      ],
+    );
+  }
+
+  // --- NUEVO: ESTADO DE ÉXITO (LIMPIO) ---
+  Widget _buildSuccessState() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Check animado con brillo "Barrido" y menos sombra
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.success.withOpacity(0.1),
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.success, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.success.withOpacity(0.15), // Sombra reducida
+                blurRadius: 15,
+                spreadRadius: 1,
+              )
+            ]
+          ),
+          child: const Icon(Icons.check_rounded, color: AppColors.success, size: 48),
+        )
+        .animate()
+        .scale(duration: 400.ms, curve: Curves.elasticOut)
+        .then()
+        .animate(onPlay: (c) => c.repeat(period: 3.seconds))
+        // Brillo igual al del error (más sutil)
+        .shimmer(duration: 1.5.seconds, color: Colors.white.withOpacity(0.4), angle: 0.5),
+
+        const SizedBox(height: 24),
+
+        const Text(
+          "PAGO APROBADO",
+          style: TextStyle(
+            color: AppColors.success,
+            fontFamily: 'Oxanium',
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2.0,
+          ),
+        ).animate().fadeIn().moveY(begin: 10, end: 0),
+
+        const SizedBox(height: 12),
+
+        Text(
+          "La transferencia se ha completado exitosamente.\nLos sistemas están operativos.",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.8),
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ).animate().fadeIn(delay: 200.ms),
+
+        const SizedBox(height: 32),
+
+        // Barra de progreso ELIMINADA. Solo texto informativo.
+        Text(
+          "CERRANDO PROTOCOLO...",
+          style: TextStyle(
+            color: AppColors.success.withOpacity(0.5),
+            fontSize: 10,
+            fontFamily: 'Courier',
+            letterSpacing: 2.0
+          ),
+        ).animate().fadeIn(delay: 500.ms),
+      ],
+    );
+  }
 }
 
-// --- BOTÓN TECH INTERACTIVO (SUTIL) ---
 class _PaymentOptionButton extends StatefulWidget {
   final IconData icon;
   final String label;
@@ -315,6 +571,7 @@ class _PaymentOptionButton extends StatefulWidget {
   final bool isOutlined;
 
   const _PaymentOptionButton({
+    super.key,
     required this.icon,
     required this.label,
     required this.subLabel,

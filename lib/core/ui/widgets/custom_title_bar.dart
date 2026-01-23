@@ -10,40 +10,44 @@ class CustomTitleBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 40, // Altura estándar compacta
-      color: AppColors.background, // Mismo color de fondo para continuidad
+      color: AppColors.background, // Mismo color de fondo para continuidad (0xFF050505)
       child: Row(
         children: [
           // 1. ÁREA DE ARRASTRE (DRAG AREA)
-          // Ocupa todo el espacio izquierdo excepto los botones
           Expanded(
             child: DragToMoveArea(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 alignment: Alignment.centerLeft,
-                child: Row(
-                  children: [
-                    // Icono de la App (Pequeño logo)
-                    Icon(Icons.hexagon_rounded, color: AppColors.primary, size: 16),
-                    const SizedBox(width: 8),
-                    // Título de la App
-                    Text(
-                      "BOTSLODE // FACTORY TERMINAL v1.0",
-                      style: TextStyle(
-                        color: AppColors.textSecondary.withOpacity(0.5),
-                        fontSize: 12,
-                        fontFamily: 'Courier',
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2.0,
-                      ),
+                // CAMBIO: Eliminado el icono, solo texto técnico
+                child: RichText(
+                  text: TextSpan(
+                    style: TextStyle(
+                      fontFamily: 'Oxanium', // Fuente Sci-Fi principal
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
                     ),
-                  ],
+                    children: [
+                      TextSpan(
+                        text: "BOTSLODE",
+                        style: TextStyle(color: AppColors.primary), // Amarillo/Dorado
+                      ),
+                      TextSpan(
+                        text: " // FACTORY TERMINAL v1.0",
+                        style: TextStyle(
+                          color: AppColors.textSecondary.withOpacity(0.5),
+                          fontFamily: 'Courier', // Monospaced para la versión
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
 
           // 2. BOTONES DE VENTANA (MIN/MAX/CLOSE)
-          // Los hacemos custom para que encajen con el tema
           _WindowButton(
             icon: Icons.remove,
             onTap: () => windowManager.minimize(),
@@ -69,7 +73,7 @@ class CustomTitleBar extends StatelessWidget {
   }
 }
 
-// Botón auxiliar individual
+// Botón auxiliar individual (Sin cambios lógicos, solo visuales)
 class _WindowButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -90,7 +94,6 @@ class _WindowButtonState extends State<_WindowButton> {
 
   @override
   Widget build(BuildContext context) {
-    // Definimos colores según el estado
     final hoverColor = widget.isClose ? AppColors.error : Colors.white.withOpacity(0.1);
     final iconColor = _isHovered && widget.isClose 
         ? Colors.white 
@@ -102,7 +105,7 @@ class _WindowButtonState extends State<_WindowButton> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
-          width: 46, // Ancho estándar de botón de ventana
+          width: 46, // Ancho estándar Windows
           height: double.infinity,
           color: _isHovered ? hoverColor : Colors.transparent,
           child: Icon(

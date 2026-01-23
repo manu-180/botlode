@@ -3,7 +3,7 @@ import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/rive_bot_card_display.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart'; // IMPORT NECESARIO PARA EL PARPADEO
+import 'package:flutter_animate/flutter_animate.dart';
 
 class BotCard extends StatefulWidget {
   final Bot bot;
@@ -21,20 +21,29 @@ class _BotCardState extends State<BotCard> {
 
   @override
   Widget build(BuildContext context) {
+    // --- LÓGICA VISUAL DE ESTADOS ---
     final isActive = widget.bot.status == BotStatus.active;
-    final statusColor = isActive ? AppColors.success : AppColors.error;
+    final isSuspended = widget.bot.status == BotStatus.creditSuspended;
+    
+    Color statusColor;
+    String statusText;
+
+    if (isActive) {
+      statusColor = AppColors.success;
+      statusText = "ACTIVE";
+    } else if (isSuspended) {
+      statusColor = const Color(0xFFFF8800); // Naranja alerta
+      statusText = "SUSPENDED";
+    } else {
+      statusColor = AppColors.error; // Rojo
+      statusText = "OFFLINE";
+    }
 
     return MouseRegion(
+      // ... (Resto de la lógica de mouse region igual) ...
       onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() {
-        _isHovered = false;
-        _localMousePos = null; 
-      }),
-      onHover: (event) {
-        setState(() {
-          _localMousePos = event.localPosition;
-        });
-      },
+      onExit: (_) => setState(() { _isHovered = false; _localMousePos = null; }),
+      onHover: (event) => setState(() => _localMousePos = event.localPosition),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,
@@ -61,21 +70,11 @@ class _BotCardState extends State<BotCard> {
           ),
           child: Stack(
             children: [
+              // ... (Gradiente de fondo igual) ...
               Positioned.fill(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.02),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
+                  child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white.withValues(alpha: 0.02), Colors.transparent]))),
                 ),
               ),
 
@@ -87,14 +86,13 @@ class _BotCardState extends State<BotCard> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // ROBOT CON SEGUIMIENTO LOCAL
                         RiveBotCardDisplay(
                           primaryColor: widget.bot.primaryColor,
                           cycleProgress: widget.bot.cycleProgress,
                           pointerLocalPos: _localMousePos, 
                         ),
                         
-                        // BADGE DE ESTADO CON PARPADEO
+                        // BADGE DE ESTADO DINÁMICO
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
@@ -105,15 +103,14 @@ class _BotCardState extends State<BotCard> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // --- PUNTO QUE PARPADEA (ANIMACIÓN AGREGADA) ---
                               Icon(Icons.circle, size: 8, color: statusColor)
-                                .animate(onPlay: (c) => c.repeat(reverse: true)) // Repetir ida y vuelta
-                                .fade(duration: 1000.ms, curve: Curves.easeInOut, begin: 0.2, end: 1.0), // Parpadeo suave
+                                .animate(onPlay: (c) => c.repeat(reverse: true)) 
+                                .fade(duration: 1000.ms, curve: Curves.easeInOut, begin: 0.2, end: 1.0),
                               
                               const SizedBox(width: 6),
                               
                               Text(
-                                isActive ? "ACTIVE" : "OFFLINE",
+                                statusText, // TEXTO DINÁMICO (ACTIVE / SUSPENDED / OFFLINE)
                                 style: TextStyle(
                                   color: statusColor,
                                   fontSize: 10,
@@ -129,24 +126,12 @@ class _BotCardState extends State<BotCard> {
                     
                     const Spacer(),
                     
-                    Text(
-                      widget.bot.name,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    // ... (Resto de textos igual) ...
+                    Text(widget.bot.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22), maxLines: 1, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 6),
-                    Text(
-                      widget.bot.description ?? "Unidad de propósito general.",
-                      style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.7), fontSize: 12),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    Text(widget.bot.description ?? "Unidad de propósito general.", style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.7), fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 12),
-                    Text(
-                      "ID: ${widget.bot.id}",
-                      style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.3), fontFamily: 'Courier', fontSize: 9),
-                    ),
+                    Text("ID: ${widget.bot.id}", style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.3), fontFamily: 'Courier', fontSize: 9)),
                   ],
                 ),
               ),

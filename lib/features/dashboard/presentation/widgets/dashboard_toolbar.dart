@@ -13,19 +13,22 @@ class DashboardToolbar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentFilter = ref.watch(dashboardFilterProvider);
     
-    // CORRECCIÓN: Extraer la lista del AsyncValue
     final botsAsync = ref.watch(botsProvider);
     final allBots = botsAsync.value ?? []; 
 
-    // Contadores basados en la lista extraída
     final activeCount = allBots.where((b) => b.status == BotStatus.active).length;
-    final maintCount = allBots.where((b) => b.status == BotStatus.maintenance).length;
+    // CORRECCIÓN: Offline ahora incluye Disabled + Maintenance + CreditSuspended
+    final offlineCount = allBots.where((b) => 
+        b.status == BotStatus.disabled || 
+        b.status == BotStatus.maintenance || 
+        b.status == BotStatus.creditSuspended // <-- AQUI
+    ).length;
 
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(0.4),
+        color: AppColors.surface.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderGlass),
       ),
@@ -39,7 +42,7 @@ class DashboardToolbar extends ConsumerWidget {
                 prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
                 hintText: "BUSCAR UNIDAD POR ID O NOMBRE...",
                 hintStyle: TextStyle(
-                  color: AppColors.textSecondary.withOpacity(0.5),
+                  color: AppColors.textSecondary.withValues(alpha: 0.5),
                   fontSize: 12,
                   letterSpacing: 1.2,
                 ),
@@ -70,7 +73,7 @@ class DashboardToolbar extends ConsumerWidget {
               const SizedBox(width: 8),
               _FilterTab(
                 label: "OFFLINE",
-                count: allBots.length - activeCount - maintCount,
+                count: offlineCount, // Usamos la variable corregida
                 isSelected: currentFilter == BotFilter.disabled,
                 activeColor: AppColors.textSecondary,
                 onTap: () => ref.read(dashboardFilterProvider.notifier).setFilter(BotFilter.disabled),
@@ -107,10 +110,10 @@ class _FilterTab extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor.withOpacity(0.2) : Colors.transparent,
+          color: isSelected ? activeColor.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? activeColor.withOpacity(0.5) : Colors.transparent,
+            color: isSelected ? activeColor.withValues(alpha: 0.5) : Colors.transparent,
           ),
         ),
         child: Row(
@@ -127,7 +130,7 @@ class _FilterTab extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
