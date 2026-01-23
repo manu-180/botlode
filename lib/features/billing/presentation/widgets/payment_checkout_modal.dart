@@ -1,6 +1,7 @@
 // Archivo: lib/features/billing/presentation/widgets/payment_checkout_modal.dart
 import 'dart:ui';
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/features/billing/domain/logic/payment_error_handler.dart'; // IMPORTACIÓN DE LA LÓGICA
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/billing/presentation/widgets/add_card_modal.dart';
 import 'package:flutter/material.dart';
@@ -43,6 +44,7 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
       _progress = 0.2;
     });
 
+    // Simulación visual de pasos de seguridad
     await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
     setState(() {
@@ -67,45 +69,23 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
         _hasSucceeded = true; 
       });
 
-      // Mismo tiempo de espera, pero sin la barra visual
+      // Delay para que el usuario vea el éxito antes de cerrar
       await Future.delayed(const Duration(milliseconds: 3500));
       if (mounted) Navigator.of(context).pop(); 
 
     } catch (e) {
       if (!mounted) return;
-      _handlePaymentError(e.toString());
+      
+      // DELEGACIÓN DE LÓGICA AL HANDLER DE DOMINIO
+      final errorDetails = PaymentErrorHandler.parseError(e.toString());
+
+      setState(() {
+        _isCardProcessing = false;
+        _hasFailed = true;
+        _failureTitle = errorDetails.title;
+        _failureMessage = errorDetails.message;
+      });
     }
-  }
-
-  void _handlePaymentError(String rawError) {
-    String title = "TRANSACCIÓN RECHAZADA";
-    String msg = "La entidad financiera denegó la operación. Por favor, contacte a su banco.";
-
-    final cleanError = rawError.toLowerCase();
-
-    if (cleanError.contains('insufficient_funds') || cleanError.contains('fondos')) {
-      title = "FONDOS INSUFICIENTES";
-      msg = "La tarjeta no tiene saldo disponible para cubrir el monto total de la operación.";
-    } else if (cleanError.contains('security_code') || cleanError.contains('cvv')) {
-      title = "CÓDIGO DE SEGURIDAD INVÁLIDO";
-      msg = "El CVV ingresado es incorrecto. Verifique el dorso de su tarjeta.";
-    } else if (cleanError.contains('expiry') || cleanError.contains('expiration')) {
-      title = "TARJETA VENCIDA";
-      msg = "La fecha de expiración de la tarjeta no es válida.";
-    } else if (cleanError.contains('call_for_authorize') || cleanError.contains('autorizar')) {
-      title = "AUTORIZACIÓN REQUERIDA";
-      msg = "El banco emisor requiere que usted autorice esta compra telefónicamente.";
-    } else if (cleanError.contains('network') || cleanError.contains('connection')) {
-      title = "ERROR DE ENLACE";
-      msg = "No se pudo establecer conexión segura con la pasarela de pagos. Intente nuevamente.";
-    }
-
-    setState(() {
-      _isCardProcessing = false;
-      _hasFailed = true;
-      _failureTitle = title;
-      _failureMessage = msg;
-    });
   }
 
   void _openPaymentLink() {
@@ -491,12 +471,10 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
     );
   }
 
-  // --- NUEVO: ESTADO DE ÉXITO (LIMPIO) ---
   Widget _buildSuccessState() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Check animado con brillo "Barrido" y menos sombra
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -505,7 +483,7 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
             border: Border.all(color: AppColors.success, width: 2),
             boxShadow: [
               BoxShadow(
-                color: AppColors.success.withOpacity(0.15), // Sombra reducida
+                color: AppColors.success.withOpacity(0.15), 
                 blurRadius: 15,
                 spreadRadius: 1,
               )
@@ -517,7 +495,6 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
         .scale(duration: 400.ms, curve: Curves.elasticOut)
         .then()
         .animate(onPlay: (c) => c.repeat(period: 3.seconds))
-        // Brillo igual al del error (más sutil)
         .shimmer(duration: 1.5.seconds, color: Colors.white.withOpacity(0.4), angle: 0.5),
 
         const SizedBox(height: 24),
@@ -547,7 +524,6 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
 
         const SizedBox(height: 32),
 
-        // Barra de progreso ELIMINADA. Solo texto informativo.
         Text(
           "CERRANDO PROTOCOLO...",
           style: TextStyle(

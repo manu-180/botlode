@@ -1,4 +1,3 @@
-// Archivo: supabase/functions/process-payment/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -28,12 +27,12 @@ serve(async (req) => {
     const { amount_usd, card_id, token: clientToken } = await req.json()
 
     // --- 2. OBTENER COTIZACIÓN REAL (DOLAR BLUE) ---
-    let dollarRate = 1200; // Fallback seguro por si falla la API externa
+    let dollarRate = 1200; // Fallback seguro
     try {
         const rateResponse = await fetch('https://dolarapi.com/v1/dolares/blue');
         if (rateResponse.ok) {
             const rateData = await rateResponse.json();
-            dollarRate = rateData.venta; // Tomamos el valor de venta
+            dollarRate = rateData.venta;
             console.log(`[COTIZACION] Dolar Blue: $${dollarRate}`);
         } else {
             console.warn("[COTIZACION] API Error, usando fallback.");
@@ -43,11 +42,7 @@ serve(async (req) => {
     }
 
     // --- 3. CÁLCULO DE CONVERSIÓN ---
-    // Convertimos los dólares de deuda a pesos argentinos para cobrar
     const amount_ars = amount_usd * dollarRate;
-    
-    // Mercado Pago tiene un mínimo operativo (aprox 50 pesos).
-    // Aseguramos que nunca intentemos cobrar menos de 100 pesos para evitar errores 400.
     const finalAmountARS = Math.max(amount_ars, 100); 
 
     // --- 4. BUSCAR DATOS DE TARJETA ---
@@ -78,7 +73,6 @@ serve(async (req) => {
     if (!paymentToken) {
       if (!MP_PUBLIC_KEY) throw new Error("Configuración incompleta (Falta MP_PUBLIC_KEY).");
       
-      // Regeneramos token para cobro automático server-side
       const tokenResponse = await fetch(`https://api.mercadopago.com/v1/card_tokens?public_key=${MP_PUBLIC_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -97,7 +91,7 @@ serve(async (req) => {
     const description = `BotLode Pay - $${amount_usd.toFixed(2)} USD (T.C. $${dollarRate})`;
     
     const paymentPayload = {
-      transaction_amount: Number(finalAmountARS.toFixed(2)), // MONTO EN PESOS
+      transaction_amount: Number(finalAmountARS.toFixed(2)),
       token: paymentToken, 
       description: description,
       installments: 1,
@@ -129,7 +123,6 @@ serve(async (req) => {
       console.error("[MP ERROR]", JSON.stringify(paymentData));
       const causes = paymentData.cause?.map((c: any) => c.description).join(' | ') || paymentData.message;
       
-      // Mapeo simple de errores comunes para devolver al frontend
       if (causes.includes("funds")) throw new Error("fondos_insuficientes");
       if (causes.includes("security_code")) throw new Error("cvv_invalido");
       
@@ -138,9 +131,8 @@ serve(async (req) => {
 
     if (paymentData.status === 'approved') {
         // --- 7. REGISTRAR TRANSACCIÓN (EN DÓLARES) ---
-        // Guardamos el monto en USD para que el sistema de Billing descuente la deuda correctamente.
         await supabaseClient.from('transactions').insert({
-            amount: amount_usd, // IMPORTANTE: USD
+            amount: amount_usd,
             type: 'liquidation',
             status: 'COMPLETED',
             bot_name: 'Liquidación de Saldo',
@@ -148,7 +140,6 @@ serve(async (req) => {
             created_at: new Date().toISOString()
         })
     } else {
-        // Si está en 'in_process' o 'rejected'
         throw new Error(`El pago no fue aprobado. Estado: ${paymentData.status}`);
     }
 
@@ -157,7 +148,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
-  } catch (error) {
+  } catch (error: any) {
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -1,14 +1,13 @@
 // Archivo: lib/features/billing/presentation/widgets/add_card_modal.dart
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/ui/widgets/error_feedback_card.dart';
+import 'package:botslode/features/billing/domain/logic/card_validator_logic.dart'; // IMPORTACIÓN DE LA LÓGICA
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
-
-enum CardBrand { visa, mastercard, amex, discover, unknown }
 
 class AddCardModal extends ConsumerStatefulWidget {
   const AddCardModal({super.key});
@@ -27,15 +26,16 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
 
   bool _isLinking = false;
   String? _errorMessage;
+  
+  // Estado local visual (la lógica de detección viene de la clase de dominio)
   CardBrand _detectedBrand = CardBrand.unknown;
 
-  // MÁSCARA ESTÁNDAR (Visa/Master: 16 dígitos)
+  // --- MÁSCARAS ---
   final _cardMaskStandard = MaskTextInputFormatter(
     mask: '#### #### #### ####', 
     filter: {"#": RegExp(r'[0-9]')}
   );
 
-  // MÁSCARA AMEX (15 dígitos: 4-6-5)
   final _cardMaskAmex = MaskTextInputFormatter(
     mask: '#### ###### #####', 
     filter: {"#": RegExp(r'[0-9]')}
@@ -49,12 +49,12 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
   @override
   void initState() {
     super.initState();
-    _numberController.addListener(_detectBrandListener);
+    _numberController.addListener(_onCardNumberChanged);
   }
 
   @override
   void dispose() {
-    _numberController.removeListener(_detectBrandListener);
+    _numberController.removeListener(_onCardNumberChanged);
     _numberController.dispose();
     _expiryController.dispose();
     _cvvController.dispose();
@@ -62,61 +62,14 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
     super.dispose();
   }
 
-  // --- INTELIGENCIA: DETECCIÓN DE MARCA Y CAMBIO DE MÁSCARA ---
-  void _detectBrandListener() {
-    final number = _numberController.text.replaceAll(' ', '');
-    CardBrand brand = CardBrand.unknown;
-
-    if (number.isNotEmpty) {
-      if (number.startsWith('4')) brand = CardBrand.visa;
-      else if (RegExp(r'^(5[1-5]|2[2-7])').hasMatch(number)) brand = CardBrand.mastercard;
-      // AMEX empieza con 34 o 37
-      else if (RegExp(r'^3[47]').hasMatch(number)) brand = CardBrand.amex;
-      else if (number.startsWith('6')) brand = CardBrand.discover;
-    }
-
+  // Listener UI: Solo actualiza el estado visual si la marca cambia
+  void _onCardNumberChanged() {
+    final brand = CardValidatorLogic.detectBrand(_numberController.text);
     if (brand != _detectedBrand) {
-      setState(() {
-        _detectedBrand = brand;
-        // Limpiamos errores previos al cambiar de marca para evitar confusión
-        // si el usuario borra todo y empieza de nuevo.
-      });
+      setState(() => _detectedBrand = brand);
     }
   }
 
-  // --- VALIDACIONES ---
-  bool _isValidLuhn(String number) {
-    if (number.isEmpty) return false;
-    int sum = 0;
-    bool alternate = false;
-    for (int i = number.length - 1; i >= 0; i--) {
-      int n = int.parse(number[i]);
-      if (alternate) {
-        n *= 2;
-        if (n > 9) n -= 9;
-      }
-      sum += n;
-      alternate = !alternate;
-    }
-    return (sum % 10 == 0);
-  }
-
-  String? _validateExpiry(String? value) {
-    if (value == null || value.isEmpty) return "Requerido";
-    final parts = value.split('/');
-    if (parts.length != 2) return "Incompleto";
-    int month = int.tryParse(parts[0]) ?? 0;
-    int year = int.tryParse(parts[1]) ?? 0;
-    if (month < 1 || month > 12) return "Mes inválido";
-    final now = DateTime.now();
-    final currentYear = now.year % 100;
-    final currentMonth = now.month;
-    if (year < currentYear) return "Vencida";
-    if (year == currentYear && month < currentMonth) return "Vencida";
-    return null;
-  }
-
-  // --- LÓGICA DE ENVÍO ---
   Future<void> _submit() async {
     if (_isLinking) return; 
     if (!_formKey.currentState!.validate()) return;
@@ -133,6 +86,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
       final year = "20${expiryParts[1]}"; 
       final numberClean = _numberController.text.replaceAll(' ', '');
       
+      // Mapeo seguro del nombre de la marca para el backend
       String brandStr = _detectedBrand.name; 
       if (_detectedBrand == CardBrand.unknown) brandStr = 'visa'; 
 
@@ -152,6 +106,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
       if (mounted) {
         setState(() {
           _isLinking = false;
+          // Limpieza básica del mensaje de error técnico
           _errorMessage = e.toString().replaceAll('Exception:', '').trim();
         });
       }
@@ -160,9 +115,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
 
   @override
   Widget build(BuildContext context) {
-    // Selección dinámica de máscara según la marca detectada
     final currentMask = _detectedBrand == CardBrand.amex ? _cardMaskAmex : _cardMaskStandard;
-    // Longitud máxima de CVV: Amex usa 4, el resto 3
     final cvvLength = _detectedBrand == CardBrand.amex ? 4 : 3;
 
     return Padding(
@@ -175,6 +128,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
         child: Column(
           mainAxisSize: MainAxisSize.min, 
           children: [
+            // PANEL PRINCIPAL
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
               decoration: const BoxDecoration(
@@ -194,6 +148,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // HEADER
                           const Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -216,31 +171,34 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                           ),
                           const SizedBox(height: 30),
                     
+                          // INPUT: NÚMERO DE TARJETA
                           _buildLabel("NÚMERO DE TARJETA"),
                           _buildInput(
                             controller: _numberController,
                             hint: _detectedBrand == CardBrand.amex ? "0000 000000 00000" : "0000 0000 0000 0000",
                             icon: Icons.credit_card,
-                            formatter: currentMask, // MÁSCARA DINÁMICA
+                            formatter: currentMask,
                             inputType: TextInputType.number,
                             suffix: _buildBrandBadge(),
                             validator: (val) {
                               if (val == null || val.isEmpty) return "Número requerido";
                               
                               final clean = val.replaceAll(' ', '');
-                              // Amex tiene 15 dígitos, las otras 16.
+                              // Validación de longitud según marca
                               if (_detectedBrand == CardBrand.amex) {
-                                if (clean.length < 15) return "Número incompleto (Amex: 15 dígitos)";
+                                if (clean.length < 15) return "Amex requiere 15 dígitos";
                               } else {
                                 if (clean.length < 16) return "Número incompleto";
                               }
 
-                              if (!_isValidLuhn(clean)) return "Número inválido";
+                              // Uso de la lógica de dominio
+                              if (!CardValidatorLogic.isValidLuhn(clean)) return "Número inválido (Luhn Check)";
                               return null;
                             }
                           ),
                           const SizedBox(height: 20),
                     
+                          // FILA: EXPIRACIÓN Y CVV
                           Row(
                             children: [
                               Expanded(
@@ -254,7 +212,8 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                                       icon: Icons.calendar_today,
                                       formatter: _expiryMask,
                                       inputType: TextInputType.number,
-                                      validator: _validateExpiry,
+                                      // Uso de la lógica de dominio
+                                      validator: CardValidatorLogic.validateExpiry,
                                     ),
                                   ],
                                 ),
@@ -271,7 +230,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                                       icon: Icons.lock_outline,
                                       isObscure: true,
                                       inputType: TextInputType.number,
-                                      maxLength: cvvLength, // LONGITUD DINÁMICA
+                                      maxLength: cvvLength,
                                       validator: (val) {
                                         if (val == null || val.length < cvvLength) return "Inválido";
                                         return null;
@@ -284,6 +243,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                           ),
                           const SizedBox(height: 20),
                     
+                          // INPUT: TITULAR
                           _buildLabel("TITULAR DE LA CUENTA"),
                           _buildInput(
                             controller: _holderController,
@@ -294,7 +254,6 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                             isLastField: true, 
                             validator: (val) {
                               if (val == null || val.isEmpty) return "Nombre requerido";
-                              // Validación relajada para pruebas
                               if (val.contains(RegExp(r'[0-9]'))) return "Sin números";
                               return null;
                             }
@@ -302,6 +261,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                           
                           const SizedBox(height: 30),
                     
+                          // FEEDBACK DE ERROR
                           if (_errorMessage != null)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 10),
@@ -311,6 +271,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                               ),
                             ),
                             
+                          // BOTÓN DE ACCIÓN
                           SizedBox(
                             width: double.infinity,
                             height: 55,
@@ -361,6 +322,8 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
       ),
     );
   }
+
+  // --- WIDGETS AUXILIARES (Badge & Inputs) ---
 
   Widget _buildBrandBadge() {
     IconData icon;
@@ -467,7 +430,6 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
         textInputAction: TextInputAction.done, 
         onFieldSubmitted: (_) => _submit(), 
         textCapitalization: textCapitalization,
-        // CLAVE: Activa la validación en tiempo real para que el error desaparezca al corregir
         autovalidateMode: AutovalidateMode.onUserInteraction,
         inputFormatters: formatter != null ? [formatter] : (maxLength != null ? [LengthLimitingTextInputFormatter(maxLength)] : []),
         style: const TextStyle(color: Colors.white, fontFamily: 'Courier', fontWeight: FontWeight.bold),

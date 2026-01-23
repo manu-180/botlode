@@ -91,10 +91,10 @@ class _BillingViewState extends ConsumerState<BillingView> {
                   const SizedBox(height: 20),
                   
                   MouseRegion(
-                    cursor: debt > 0.1 ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                    cursor: debt > 0.0 ? SystemMouseCursors.click : SystemMouseCursors.basic,
                     child: GestureDetector(
                       onTap: () {
-                        if (debt > 0.1) _openCheckoutModal(context, debt, billing.dollarRate);
+                        if (debt > 0.0) _openCheckoutModal(context, debt, billing.dollarRate);
                       },
                       child: _buildBalanceHud(debt, billing.creditLimit, billing.usagePercentage, billing.dollarRate),
                     ),
@@ -123,7 +123,7 @@ class _BillingViewState extends ConsumerState<BillingView> {
                           label: "PAGAR AHORA",
                           icon: Icons.payments_outlined,
                           color: AppColors.primary,
-                          onPressed: (debt > 0.1) ? () => _openCheckoutModal(context, debt, billing.dollarRate) : null,
+                          onPressed: (debt > 0.0) ? () => _openCheckoutModal(context, debt, billing.dollarRate) : null,
                         ),
                       ),
                       const SizedBox(width: 15),
@@ -163,7 +163,7 @@ class _BillingViewState extends ConsumerState<BillingView> {
         children: [
           GestureDetector(
             onTap: () {
-               if (debt > 0.1) _openCheckoutModal(context, debt, billing.dollarRate);
+               if (debt > 0.0) _openCheckoutModal(context, debt, billing.dollarRate);
             },
             child: _buildBalanceHud(debt, billing.creditLimit, billing.usagePercentage, billing.dollarRate),
           ),
@@ -184,7 +184,7 @@ class _BillingViewState extends ConsumerState<BillingView> {
                Expanded(
                  child: _buildActionButton(
                     context: context, label: "PAGAR", icon: Icons.payments, color: AppColors.primary,
-                    onPressed: (debt > 0.1) ? () => _openCheckoutModal(context, debt, billing.dollarRate) : null
+                    onPressed: (debt > 0.0) ? () => _openCheckoutModal(context, debt, billing.dollarRate) : null
                  ),
                ),
                const SizedBox(width: 10),

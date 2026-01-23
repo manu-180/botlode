@@ -107,8 +107,7 @@ class _CustomTitleBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            const Icon(Icons.hexagon_rounded, size: 14, color: AppColors.primary),
-            const SizedBox(width: 8),
+            // SE ELIMINÓ EL ÍCONO Y EL SIZEDBOX DE AQUÍ
             Text(
               "BOTSLODE // FACTORY TERMINAL v1.0",
               style: TextStyle(
@@ -120,7 +119,7 @@ class _CustomTitleBar extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            // --- BOTONES DE VENTANA (CORREGIDOS) ---
+            // --- BOTONES DE VENTANA ---
              Row(
               children: [
                 IconButton(
@@ -130,7 +129,6 @@ class _CustomTitleBar extends StatelessWidget {
                 ),
                 IconButton(
                   icon: const Icon(Icons.check_box_outline_blank, size: 14, color: Colors.white), 
-                  // REPARACIÓN: Lógica manual de toggle
                   onPressed: () async {
                     if (await windowManager.isMaximized()) {
                       windowManager.unmaximize();
