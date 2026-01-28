@@ -1,6 +1,6 @@
 // Archivo: lib/features/bot_engine/presentation/providers/chat_provider.dart
+import 'package:botslode/features/bot_engine/presentation/providers/bot_mood_provider.dart';
 import 'package:botslode/features/bot_engine/presentation/providers/chat_repository_provider.dart';
-import 'package:botslode/features/bot_engine/presentation/widgets/rive_bot_display.dart'; // Para actualizar el mood global
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 

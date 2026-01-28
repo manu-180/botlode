@@ -42,7 +42,7 @@ class ChatRepositoryImpl implements ChatRepository {
         throw Exception('Fallo del Núcleo: Código ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint("🔴 CRITICAL NEURAL LINK ERROR: $e");
+      // Error silenciado
       // En lugar de romper la app, devolvemos una respuesta de error táctica
       return const BotResponse(
         reply: 'FALLO DE ENLACE NEURAL: Verifica la conexión o el estado de la Edge Function.',

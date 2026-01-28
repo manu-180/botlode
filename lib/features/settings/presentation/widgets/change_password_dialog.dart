@@ -4,6 +4,7 @@ import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/providers/auth_provider.dart';
 import 'package:botslode/core/ui/widgets/error_feedback_card.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ChangePasswordDialog extends ConsumerStatefulWidget {
@@ -89,7 +90,9 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.security_rounded, color: AppColors.primary, size: 28),
+                    Icon(Icons.security_rounded, color: AppColors.primary, size: 28)
+                        .animate(onPlay: (c) => c.repeat())
+                        .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
                     const SizedBox(width: 16),
                     const Expanded(
                       child: Text(
@@ -193,12 +196,14 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
               BoxShadow(color: AppColors.success.withOpacity(0.2), blurRadius: 40, spreadRadius: 5)
             ],
           ),
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check_circle_outline_rounded, color: AppColors.success, size: 64),
-              SizedBox(height: 24),
-              Text(
+              Icon(Icons.check_circle_outline_rounded, color: AppColors.success, size: 64)
+                  .animate(onPlay: (c) => c.repeat())
+                  .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
+              const SizedBox(height: 24),
+              const Text(
                 "CLAVE ACTUALIZADA",
                 style: TextStyle(
                   color: AppColors.success,
@@ -247,7 +252,7 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
           style: const TextStyle(color: Colors.white, fontFamily: 'Courier'),
           cursorColor: AppColors.primary,
           validator: validator,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
+          autovalidateMode: AutovalidateMode.onUnfocus,
           textInputAction: textInputAction, // Configuración de teclado
           onFieldSubmitted: onSubmitted,    // Acción al dar Enter
           decoration: InputDecoration(

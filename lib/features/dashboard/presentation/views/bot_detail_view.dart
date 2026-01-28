@@ -4,12 +4,14 @@ import 'package:botslode/core/config/app_config.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/providers/connectivity_provider.dart'; 
 import 'package:botslode/core/ui/widgets/animated_ticker.dart';
+import 'package:botslode/features/bot_engine/presentation/providers/bot_mood_provider.dart';
 import 'package:botslode/features/bot_engine/presentation/widgets/bot_chat_console.dart';
 import 'package:botslode/features/bot_engine/presentation/widgets/rive_bot_display.dart';
 import 'package:botslode/features/bot_engine/presentation/widgets/status_indicator.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/presentation/providers/bots_provider.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/delete_protocol_dialog.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/edit_color_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart'; 
 import 'package:flutter/services.dart';
@@ -76,27 +78,101 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
 
   // --- DIÁLOGOS ---
   void _showEmbedDialog(Bot bot) {
-    final String embedCode = '''
-<div id="botlode-wrapper" style="position: fixed; bottom: 35px; right: 35px; z-index: 9999;">
-    <iframe id="botlode-iframe" src="${AppConfig.playerBaseUrl}/?bot_id=${bot.id}" allow="microphone; clipboard-write" allowtransparency="true" style="position: absolute; width: 450px; height: 750px; max-height: 85vh; bottom: -40px; right: -40px; border: none; transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); pointer-events: none; background-color: transparent;"></iframe>
-    <div id="interaction-proxy" style="position: absolute; bottom: 0; right: 0; width: 72px; height: 72px; border-radius: 50%; cursor: pointer; background: rgba(255, 255, 255, 0.01); pointer-events: auto;"></div>
-</div>
-<script>
-    (function() {
+    final String embedCode = '''<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        #botlode-wrapper { position: fixed; bottom: 35px; right: 35px; z-index: 9999; }
+        
+        #backdrop {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            display: none; z-index: 9998;
+        }
+
+        #botlode-iframe { 
+            position: absolute; 
+            width: 450px; 
+            height: 750px; 
+            max-height: 85vh; 
+            bottom: -40px; 
+            right: -40px; 
+            border: none; 
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); 
+            pointer-events: auto;
+        }
+        
+        #botlode-wrapper.expanded #botlode-iframe { 
+            width: 400px; 
+            bottom: 0; right: 0; 
+            border-radius: 28px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5); 
+        }
+        body.chat-open #backdrop { display: block; }
+    </style>
+</head>
+<body>
+    <div id="backdrop"></div>
+    <div id="botlode-wrapper">
+        <iframe 
+            id="botlode-iframe" 
+            src="${AppConfig.playerBaseUrl}/?botId=${bot.id}" 
+            allow="microphone; clipboard-write"
+        ></iframe>
+    </div>
+    <script>
+        const wrapper = document.getElementById('botlode-wrapper');
         const iframe = document.getElementById('botlode-iframe');
-        const proxy = document.getElementById('interaction-proxy');
-        document.addEventListener('mousemove', (e) => { iframe.contentWindow.postMessage(`MOUSE_MOVE:\${e.clientX},\${e.clientY},\${window.innerWidth},\${window.innerHeight}`, '*'); });
+        const backdrop = document.getElementById('backdrop');
+
+        // 1. RASTREO DE MOUSE GLOBAL (Coordenadas relativas al iframe)
+        document.addEventListener('mousemove', (e) => {
+            try {
+                const iframeRect = iframe.getBoundingClientRect();
+                const relativeX = e.clientX - iframeRect.left;
+                const relativeY = e.clientY - iframeRect.top;
+                iframe.contentWindow.postMessage({
+                    type: 'MOUSE_MOVE',
+                    x: relativeX,
+                    y: relativeY
+                }, '*');
+            } catch (err) {}
+        });
+        
+        document.addEventListener('mouseleave', () => {
+            try {
+                iframe.contentWindow.postMessage({
+                    type: 'MOUSE_LEAVE'
+                }, '*');
+            } catch (err) {}
+        });
+
+        // 2. ESCUCHA DE EVENTOS DE FLUTTER
         window.addEventListener('message', (event) => {
             const cmd = event.data;
-            if (cmd === 'CMD_CLOSE') { iframe.style.width = '450px'; iframe.style.pointerEvents = 'none'; }
-            if (cmd === 'CMD_OPEN') { iframe.style.width = '400px'; iframe.style.pointerEvents = 'auto'; }
-            if (cmd === 'HOVER_ENTER') { iframe.style.pointerEvents = 'auto'; }
-            if (cmd === 'HOVER_EXIT') { iframe.style.pointerEvents = 'none'; }
+            if (cmd === 'CMD_CLOSE') closeChat();
+            if (cmd === 'CMD_OPEN') openChat();
         });
-        proxy.addEventListener('click', () => { iframe.contentWindow.postMessage('CMD_OPEN', '*'); });
-    })();
-</script>
-''';
+
+        function openChat() {
+            wrapper.classList.add('expanded');
+            document.body.classList.add('chat-open');
+            setTimeout(() => { 
+                iframe.contentWindow.postMessage('CMD_OPEN', '*'); 
+            }, 100);
+        }
+
+        function closeChat() {
+            wrapper.classList.remove('expanded');
+            document.body.classList.remove('chat-open');
+            iframe.contentWindow.postMessage('CMD_CLOSE', '*');
+        }
+        
+        backdrop.addEventListener('click', closeChat);
+    </script>
+</body>
+</html>''';
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -119,7 +195,8 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
   }
 
   void _showEditPromptDialog(Bot bot) {
-    final TextEditingController promptCtrl = TextEditingController(text: bot.description ?? "");
+    // ⬅️ SIMPLIFICADO: Usar solo system_prompt (todo en un solo campo)
+    final TextEditingController promptCtrl = TextEditingController(text: bot.systemPrompt);
 
     showDialog(
       context: context,
@@ -159,7 +236,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "Modifique las directivas primarias de la unidad (System Prompt).",
+                  "Modifique las directivas primarias de la unidad. Aquí defines TODO: comportamiento, personalidad, tono, estilo...",
                   style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.8), fontSize: 12),
                 ),
                 const SizedBox(height: 24),
@@ -170,7 +247,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.black.withValues(alpha: 0.5),
-                    hintText: "Ingrese las nuevas instrucciones del sistema...",
+                    hintText: "Ej: 'Comportate serio y profesional' o 'Sé relajado y amigable. Responde de forma casual.'",
                     hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.3)),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary)),
@@ -286,6 +363,16 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                         color: AppColors.primary,
                         tooltip: "Código Web",
                         onTap: () => _showEmbedDialog(bot),
+                      ),
+                      Container(width: 1, height: 20, color: AppColors.borderGlass),
+                      _ActionButton(
+                        icon: Icons.palette_rounded,
+                        color: bot.primaryColor,
+                        tooltip: "Editar Color",
+                        onTap: () => showDialog(
+                          context: context,
+                          builder: (c) => EditColorDialog(bot: bot),
+                        ),
                       ),
                       Container(width: 1, height: 20, color: AppColors.borderGlass),
                       _ActionButton(

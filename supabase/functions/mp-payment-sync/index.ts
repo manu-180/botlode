@@ -9,6 +9,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper para formatear errores de Mercado Pago de forma amigable
+function formatUserError(mpError: any): string {
+  const desc = mpError.cause?.[0]?.description?.toLowerCase() || mpError.message?.toLowerCase() || '';
+  
+  if (desc.includes('not found') || desc.includes('customer')) {
+    return 'No pudimos validar tu tarjeta. Verifica que los datos sean correctos.';
+  }
+  if (desc.includes('invalid') || desc.includes('security')) {
+    return 'Datos de tarjeta inválidos. Revisa el CVV y fecha de vencimiento.';
+  }
+  if (desc.includes('expired') || desc.includes('expir')) {
+    return 'La tarjeta está vencida. Usa una tarjeta vigente.';
+  }
+  if (desc.includes('duplicate')) {
+    return 'Esta tarjeta ya está registrada en tu cuenta.';
+  }
+  if (desc.includes('email')) {
+    return 'El correo electrónico no es válido.';
+  }
+  return 'No pudimos procesar tu tarjeta. Intenta con otra o contacta a soporte.';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -20,7 +42,9 @@ serve(async (req) => {
     )
 
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
-    if (userError || !user) throw new Error("Usuario no autenticado")
+    if (userError || !user) {
+      throw new Error("Tu sesión expiró. Por favor, inicia sesión nuevamente.")
+    }
 
     const { token, brand, last_four, holder_name, expiry_date } = await req.json()
     
@@ -69,8 +93,7 @@ serve(async (req) => {
             const createData = await createResponse.json();
             if (!createResponse.ok) {
                  console.error("MP Create Error:", JSON.stringify(createData));
-                 // Si falla, probablemente sea un error de formato de email, lanzamos error limpio
-                 throw new Error(`Error MP: ${createData.message}`);
+                 throw new Error('No pudimos crear tu perfil de pago. Verifica tu correo electrónico.');
             }
             customerId = createData.id;
         }
@@ -90,7 +113,7 @@ serve(async (req) => {
     const cardData = await cardResponse.json();
     if (!cardResponse.ok) {
         console.error("MP Card Error:", JSON.stringify(cardData));
-        throw new Error(`Tarjeta rechazada: ${cardData.cause?.[0]?.description || cardData.message}`);
+        throw new Error(formatUserError(cardData));
     }
 
     const realCardId = cardData.id; 
@@ -111,7 +134,10 @@ serve(async (req) => {
         created_at: new Date().toISOString()
     });
 
-    if (dbError) throw new Error(`Error BD: ${dbError.message}`);
+    if (dbError) {
+      console.error("[DB ERROR]", dbError);
+      throw new Error('Error al guardar tu tarjeta. Intenta nuevamente.');
+    }
 
     return new Response(
       JSON.stringify({ success: true, customer_id: customerId, card_id: realCardId }),

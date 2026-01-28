@@ -35,14 +35,14 @@ class _AutoPaySettingsCardState extends ConsumerState<AutoPaySettingsCard> {
         // 1. Sincronización Inicial (Solo la primera vez o al cerrar y reabrir para resetear)
         if (!_isInit && !_isExpanded) {
           final dbVal = billing.primaryCard!.autoPayThreshold;
-          // Si está en 0 (inactivo), ponemos el slider visualmente en 20 para empezar a configurar
-          _tempLimit = dbVal > 0 ? dbVal : 20.0; 
+          // Si está en 0 (inactivo), ponemos el slider visualmente en 1 para empezar a configurar
+          _tempLimit = dbVal > 0 ? dbVal : 1.0; // 🧪 MODO PRUEBAS
           _isInit = true;
         }
 
         // Límites Lógicos del Slider
         final double maxLimit = billing.creditLimit;
-        const double minLimit = 20.0;
+        const double minLimit = 1.0; // 🧪 MODO PRUEBAS: Mínimo $1
 
         // Corrección de rango visual (por si bajó el límite de crédito)
         if (_tempLimit > maxLimit) _tempLimit = maxLimit;

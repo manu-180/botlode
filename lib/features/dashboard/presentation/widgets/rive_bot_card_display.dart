@@ -4,6 +4,7 @@ import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/providers/rive_provider.dart'; // Importamos el caché
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart';
 
@@ -139,7 +140,9 @@ class _RiveBotCardDisplayState extends ConsumerState<RiveBotCardDisplay> with Si
                   onInit: _onRiveInit,
                 ),
                 loading: () => Container(color: Colors.black), // Instantáneo
-                error: (_, __) => const Icon(Icons.error, size: 20, color: Colors.red),
+                error: (_, __) => Icon(Icons.error, size: 20, color: Colors.red)
+                    .animate(onPlay: (c) => c.repeat())
+                    .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
               ),
             ),
           ),

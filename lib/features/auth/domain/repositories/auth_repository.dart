@@ -11,9 +11,6 @@ abstract class AuthRepository {
   /// Inicia sesión con correo y contraseña.
   Future<AuthResponse> signIn({required String email, required String password});
 
-  /// Registra un nuevo usuario.
-  Future<AuthResponse> signUp({required String email, required String password});
-
   /// Cierra la sesión actual.
   Future<void> signOut();
 

@@ -57,9 +57,9 @@ class SettingsView extends ConsumerWidget {
                       ]
                     ),
                     child: Center(
-                      child: const Icon(Icons.shield_outlined, size: 50, color: AppColors.primary)
-                          .animate(onPlay: (c) => c.repeat(reverse: true))
-                          .fade(begin: 0.5, end: 1.0, duration: 2.seconds),
+                      child: Icon(Icons.shield_outlined, size: 50, color: AppColors.primary)
+                          .animate(onPlay: (c) => c.repeat())
+                          .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
                     ),
                   ),
 

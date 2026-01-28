@@ -1,7 +1,7 @@
 // Archivo: lib/features/billing/presentation/widgets/payment_checkout_modal.dart
 import 'dart:ui';
 import 'package:botslode/core/config/theme/app_colors.dart';
-import 'package:botslode/features/billing/domain/logic/payment_error_handler.dart'; // IMPORTACIÓN DE LA LÓGICA
+import 'package:botslode/features/billing/domain/services/payment_error_service.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/billing/presentation/widgets/add_card_modal.dart';
 import 'package:flutter/material.dart';
@@ -77,7 +77,7 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
       if (!mounted) return;
       
       // DELEGACIÓN DE LÓGICA AL HANDLER DE DOMINIO
-      final errorDetails = PaymentErrorHandler.parseError(e.toString());
+      final errorDetails = PaymentErrorService.parseError(e.toString());
 
       setState(() {
         _isCardProcessing = false;
@@ -89,8 +89,8 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
   }
 
   void _openPaymentLink() {
-    final amountInArs = widget.amount * widget.exchangeRate;
-    ref.read(billingProvider.notifier).openManualPaymentLink(amountInArs);
+    // 🧪 MODO PRUEBAS: Sin conversión, enviar USD directo
+    ref.read(billingProvider.notifier).openManualPaymentLink(widget.amount);
     Navigator.of(context).pop(); 
   }
 

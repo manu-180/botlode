@@ -51,11 +51,16 @@ class Bot {
     // Protección contra valores negativos (por sincronización de reloj)
     if (ms < 0) return 0.0;
 
+    double days;
     if (IS_TURBO_MODE) {
-      return ms / 1000.0;
+      days = ms / 1000.0; // En modo turbo, segundos = días
     } else {
-      return ms / 86400000.0;
+      days = ms / 86400000.0; // Días reales
     }
+    
+    // 🔧 FIX: Limitar a 30 días máximo (1 ciclo completo)
+    // Evita mostrar "miles de días" por fechas antiguas
+    return days.clamp(0.0, 30.0);
   }
 
   int get daysActive {
@@ -87,7 +92,12 @@ class Bot {
       totalCycleSeconds = 2592000.0; 
     }
     
-    final accumulated = (elapsedSeconds / totalCycleSeconds) * _CYCLE_PRICE;
+    // 🔧 FIX: Limitar a UN ciclo máximo de deuda acumulada
+    // Si elapsedSeconds es mayor que totalCycleSeconds, significa que ya pasó
+    // un ciclo completo y debería haberse cobrado. Solo calculamos hasta 1 ciclo.
+    final cappedSeconds = elapsedSeconds.clamp(0.0, totalCycleSeconds);
+    final accumulated = (cappedSeconds / totalCycleSeconds) * _CYCLE_PRICE;
+    
     return currentBalance + accumulated;
   }
 

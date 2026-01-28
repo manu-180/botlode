@@ -1,12 +1,12 @@
 // Archivo: lib/features/billing/presentation/providers/billing_provider.dart
 import 'dart:async';
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/providers/supabase_provider.dart';
 import 'package:botslode/features/billing/domain/models/card_info.dart';
 import 'package:botslode/features/billing/domain/models/transaction.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart'; 
 
 part 'billing_provider.g.dart';
@@ -83,7 +83,6 @@ class Billing extends _$Billing {
         creditLimit: finalLimit, 
       );
     } catch (e) {
-      debugPrint("🔴 Error en Billing Provider: $e");
       // Fallback seguro para no romper UI
       return BillingState(
         totalDebt: 0, 
@@ -159,7 +158,7 @@ class Billing extends _$Billing {
 
   Future<void> linkNewCard({required String number, required String month, required String year, required String cvv, required String holder, required String brand, required String lastFour}) async {
     final repo = ref.read(billingRepositoryProvider);
-    final userEmail = Supabase.instance.client.auth.currentUser?.email ?? '';
+    final userEmail = ref.read(currentUserEmailProvider);
 
     try {
       await repo.linkCard(
@@ -173,9 +172,11 @@ class Billing extends _$Billing {
         email: userEmail
       );
       
-      await Future.delayed(const Duration(seconds: 1));
+      // Forzar estado de loading antes de recargar
+      state = const AsyncLoading();
+      await Future.delayed(const Duration(milliseconds: 500));
       ref.invalidateSelf();
-    } catch (e) { 
+    } catch (e) {
       throw e; 
     }
   }
@@ -216,12 +217,12 @@ class Billing extends _$Billing {
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       }
     } catch (e) { 
-      debugPrint("Error Link: $e"); 
+      // Error silenciado
     }
   }
 
   Future<void> registerCycleCharge(String botName, double amount, {required String botId}) async {
-    final user = Supabase.instance.client.auth.currentUser;
+    final user = ref.read(currentUserProvider);
     if (user == null) return;
     
     final repo = ref.read(billingRepositoryProvider);
@@ -235,7 +236,7 @@ class Billing extends _$Billing {
       );
       ref.invalidateSelf();
     } catch (e) {
-      debugPrint("❌ CRITICAL: Fallo al registrar cargo de ciclo: $e");
+      // Error silenciado
     }
   }
 }
