@@ -6,6 +6,7 @@ import 'package:botslode/features/dashboard/presentation/providers/bots_provider
 import 'package:botslode/features/dashboard/presentation/views/dashboard_view.dart'; 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart'; 
@@ -73,15 +74,124 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
   }
 
   void _createBot() async {
-    await ref.read(botsProvider.notifier).addBot(
-      name: _nameController.text.isEmpty ? 'Unidad Desconocida' : _nameController.text,
-      description: _promptController.text, 
-      systemPrompt: _promptController.text, 
-      color: _selectedColor,
-    );
+    try {
+      final credentials = await ref.read(botsProvider.notifier).addBot(
+        name: _nameController.text.isEmpty ? 'Unidad Desconocida' : _nameController.text,
+        description: '', // ⬅️ Ya no se usa, solo system_prompt
+        systemPrompt: _promptController.text, 
+        color: _selectedColor,
+      );
 
-    if (mounted) Navigator.of(context).pop();
-    if (mounted) context.goNamed(DashboardView.routeName);
+      if (mounted) Navigator.of(context).pop();
+      
+      // ⬅️ NUEVO: Mostrar diálogo con PIN y alias generados
+      if (mounted) {
+        _showCredentialsDialog(context, credentials);
+      }
+      
+      if (mounted) context.goNamed(DashboardView.routeName);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al crear bot: $e')),
+        );
+      }
+    }
+  }
+  
+  // ⬅️ NUEVO: Diálogo para mostrar credenciales
+  void _showCredentialsDialog(BuildContext context, Map<String, String> credentials) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Row(
+          children: [
+            Icon(Icons.security, color: AppColors.primary, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "CREDENCIALES GENERADAS",
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Bot creado exitosamente: ${credentials['name']}",
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 24),
+            _CredentialField(
+              label: "ALIAS",
+              value: credentials['alias'] ?? '',
+              icon: Icons.alternate_email,
+            ),
+            const SizedBox(height: 16),
+            _CredentialField(
+              label: "PIN DE ACCESO",
+              value: credentials['pin'] ?? '',
+              icon: Icons.lock,
+              isPin: true,
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Guarda estas credenciales. Necesitarás el PIN para acceder al historial.",
+                      style: TextStyle(
+                        color: AppColors.warning,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              // Copiar PIN al portapapeles
+              Clipboard.setData(ClipboardData(text: credentials['pin'] ?? ''));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('PIN copiado al portapapeles')),
+              );
+            },
+            child: const Text("COPIAR PIN"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.black,
+            ),
+            child: const Text("ENTENDIDO"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -253,7 +363,7 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
                         maxLines: 8, 
                         style: const TextStyle(color: Colors.white, fontFamily: 'Courier', fontSize: 12, height: 1.4),
                         decoration: const InputDecoration(
-                          hintText: "Escribe aquí las instrucciones del bot...",
+                          hintText: "Define aquí TODO: comportamiento, personalidad, tono, estilo...\nEj: 'Comportate serio y profesional' o 'Sé relajado y amigable'",
                           prefixIcon: Padding(
                             padding: EdgeInsets.only(bottom: 140), 
                             child: Icon(Icons.terminal_rounded),
@@ -388,6 +498,78 @@ class UpperCaseTextFormatter extends TextInputFormatter {
     return TextEditingValue(
       text: newValue.text.toUpperCase(),
       selection: newValue.selection,
+    );
+  }
+}
+
+// ⬅️ NUEVO: Widget para mostrar credenciales
+class _CredentialField extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final bool isPin;
+
+  const _CredentialField({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.isPin = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.primary.withOpacity(0.7),
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.0,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: AppColors.primary, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  value,
+                  style: GoogleFonts.oxanium(
+                    color: AppColors.primary,
+                    fontSize: isPin ? 20 : 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: isPin ? 4.0 : 1.0,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy, size: 18),
+                color: AppColors.primary.withOpacity(0.7),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: value));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('$label copiado'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

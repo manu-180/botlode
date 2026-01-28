@@ -1,6 +1,7 @@
 // Archivo: lib/features/dashboard/presentation/views/dashboard_view.dart
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/ui/widgets/animated_ticker.dart';
+import 'package:botslode/core/ui/widgets/page_title.dart';
 import 'package:botslode/core/ui/widgets/skeleton_base.dart'; // IMPORTAR SKELETON
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/billing/presentation/widgets/payment_checkout_modal.dart';
@@ -20,7 +21,6 @@ class DashboardView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final botsAsync = ref.watch(filteredBotsProvider);
     final billingAsync = ref.watch(billingProvider);
 
@@ -63,22 +63,10 @@ class DashboardView extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "BAHÍA DE CARGA",
-                          style: theme.textTheme.displayMedium?.copyWith(
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          "Gestión operativa de unidades autónomas",
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
+                    const PageTitle(
+                      title: "BAHÍA DE CARGA",
+                      subtitle: "Gestión operativa de unidades autónomas",
+                      style: PageTitleStyle.techBar, // Barra lateral amarilla
                     ),
                     
                     // --- PANEL DE CRÉDITO SCI-FI ---

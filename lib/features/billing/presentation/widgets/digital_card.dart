@@ -2,6 +2,7 @@
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/features/billing/domain/models/card_info.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:math' as math;
 
@@ -177,7 +178,9 @@ class DigitalCard extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.credit_card_off_rounded, color: AppColors.error.withValues(alpha: 0.5), size: 40),
+                Icon(Icons.credit_card_off_rounded, color: AppColors.error.withValues(alpha: 0.5), size: 40)
+                    .animate(onPlay: (c) => c.repeat())
+                    .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
                 const SizedBox(height: 16),
                 Text("SIN MÉTODO DE PAGO", style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontFamily: 'Oxanium')),
                 const SizedBox(height: 8),

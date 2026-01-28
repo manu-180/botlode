@@ -1,5 +1,6 @@
 // Archivo: lib/features/bots_library/presentation/views/bots_library_view.dart
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/ui/widgets/page_title.dart';
 import 'package:botslode/features/bots_library/domain/models/blueprint.dart';
 import 'package:botslode/features/bots_library/presentation/widgets/blueprint_card.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/create_bot_modal.dart';
@@ -12,7 +13,6 @@ class BotsLibraryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final blueprints = BotBlueprint.catalog;
 
     return Scaffold(
@@ -40,17 +40,11 @@ class BotsLibraryView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // --- HEADER ---
-                Text(
-                  "BIBLIOTECA DE PLANOS",
-                  style: theme.textTheme.displayMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                Text(
-                  "Seleccione un prototipo para iniciar el ensamblaje",
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                const PageTitle(
+                  title: "BIBLIOTECA DE PLANOS",
+                  subtitle: "Seleccione un prototipo para iniciar el ensamblaje",
+                  accentColor: Color(0xFF00E5FF), // Cyan tech
+                  style: PageTitleStyle.techBar, // OPCIÓN 2: Barra lateral
                 ),
                 
                 const SizedBox(height: 40),

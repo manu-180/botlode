@@ -1,10 +1,11 @@
 // Archivo: lib/features/dashboard/presentation/providers/bots_provider.dart
 import 'dart:async';
+import 'package:botslode/core/providers/supabase_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/presentation/providers/bots_repository_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // Solo para Auth (usuario actual)
 import 'package:flutter/material.dart';
 
 part 'bots_provider.g.dart';
@@ -19,7 +20,7 @@ class Bots extends _$Bots {
   // Enfriamiento para evitar loops de pago
   DateTime? _lastAutoPayAttempt;
 
-  static const double CYCLE_PRICE = 20.00; 
+  static const double CYCLE_PRICE = 0.10; // 🧪 MODO PRUEBAS: $0.10 por ciclo
   static const int CYCLE_SECONDS_REAL = 2592000; 
 
   @override
@@ -41,7 +42,6 @@ class Bots extends _$Bots {
       ref.onDispose(() => _timer?.cancel());
       return currentBots;
     } catch (e) {
-      debugPrint("Error fetching bots via Repo: $e");
       return [];
     }
   }
@@ -56,122 +56,150 @@ class Bots extends _$Bots {
   void _startTimer() {
     final duration = USE_TURBO_TIMER ? const Duration(seconds: 1) : const Duration(minutes: 1);
     
-    _timer = Timer.periodic(duration, (timer) async {
-      if (state.value == null) return;
+    _timer = Timer.periodic(duration, (timer) {
+      // 🚀 OPTIMIZACIÓN: Timer NO-BLOQUEANTE
+      // Procesa cambios inmediatamente en UI, operaciones BD en background
+      _processBotsTickNonBlocking();
+    });
+  }
 
-      final billingAsync = ref.read(billingProvider);
-      if (billingAsync.isLoading || billingAsync.isRefreshing || _isAutoPaying) return; 
+  void _processBotsTickNonBlocking() {
+    if (state.value == null) return;
 
-      final billing = billingAsync.valueOrNull;
-      if (billing == null) return;
+    final billingAsync = ref.read(billingProvider);
+    if (billingAsync.isLoading || billingAsync.isRefreshing || _isAutoPaying) return; 
 
-      // --- AUTOPAGO BLINDADO ---
-      final autoThreshold = billing.primaryCard?.autoPayThreshold ?? 0.0;
-      final currentDebt = billing.totalDebt;
+    final billing = billingAsync.valueOrNull;
+    if (billing == null) return;
 
-      final bool canPay = _lastAutoPayAttempt == null || 
-                          DateTime.now().difference(_lastAutoPayAttempt!) > const Duration(seconds: 30);
+    // --- AUTOPAGO (ejecutar en background) ---
+    final autoThreshold = billing.primaryCard?.autoPayThreshold ?? 0.0;
+    final currentDebt = billing.totalDebt;
 
-      if (canPay && autoThreshold > 0 && currentDebt >= autoThreshold && !_isAutoPaying) {
-          debugPrint("🤖 AUTOPAGO INICIADO: Deuda ($currentDebt) >= Límite ($autoThreshold)");
-          _isAutoPaying = true; 
-          _lastAutoPayAttempt = DateTime.now(); 
-          
-          try {
-            await ref.read(billingProvider.notifier).processPayment(currentDebt);
-            debugPrint("✅ AUTOPAGO ENVIADO");
-          } catch (e) {
-            debugPrint("❌ FALLO EN AUTOPAGO: $e");
-          } finally {
-             _isAutoPaying = false; 
-          }
-          return; 
+    final bool canPay = _lastAutoPayAttempt == null || 
+                        DateTime.now().difference(_lastAutoPayAttempt!) > const Duration(seconds: 30);
+
+    if (canPay && autoThreshold > 0 && currentDebt >= autoThreshold && !_isAutoPaying) {
+        _isAutoPaying = true; 
+        _lastAutoPayAttempt = DateTime.now(); 
+        
+        // Ejecutar en background sin bloquear
+        _executeAutoPay(currentDebt);
+        return; 
+    }
+
+    // --- PROCESAMIENTO DE BOTS ---
+    final List<Bot> currentList = state.value!;
+    final List<Bot> updatedList = [];
+    final List<Future<void>> backgroundTasks = []; // Operaciones BD en paralelo
+    bool moneyChanged = false; 
+
+    double runningTotalDebt = billing.totalDebt;
+    final double creditLimit = billing.creditLimit;
+    final repository = ref.read(botsRepositoryProvider);
+    final now = DateTime.now();
+    final cycleLimit = USE_TURBO_TIMER ? 30 : CYCLE_SECONDS_REAL;
+
+    for (var bot in currentList) {
+      bool isLimitReached = runningTotalDebt >= (creditLimit - 0.01);
+
+      // 1. SUSPENSIÓN POR LÍMITE
+      if (isLimitReached && bot.status == BotStatus.active) {
+         final debt = bot.calculatedDebt;
+         final suspendedBot = bot.copyWith(status: BotStatus.creditSuspended, currentBalance: debt);
+         
+         // UI: Actualización inmediata
+         updatedList.add(suspendedBot);
+         moneyChanged = true;
+         
+         // BD: En background
+         backgroundTasks.add(repository.updateBot(suspendedBot));
+         continue; 
       }
 
-      final List<Bot> currentList = state.value!;
-      final List<Bot> updatedList = [];
-      bool moneyChanged = false; 
+      // 2. REACTIVACIÓN
+      if (!isLimitReached && bot.status == BotStatus.creditSuspended) {
+         final double fractionSpent = bot.currentBalance / CYCLE_PRICE;
+         final double secondsToRewind = fractionSpent * cycleLimit;
+         
+         final reactivatedBot = bot.copyWith(
+           status: BotStatus.active, 
+           currentBalance: 0.0, 
+           cycleStartDate: now.subtract(Duration(seconds: secondsToRewind.round())) 
+         );
+         
+         // UI: Actualización inmediata
+         updatedList.add(reactivatedBot);
+         moneyChanged = true;
+         
+         // BD: En background
+         backgroundTasks.add(repository.updateBot(reactivatedBot));
+         continue;
+      }
 
-      double runningTotalDebt = billing.totalDebt;
-      final double creditLimit = billing.creditLimit;
+      // 3. CICLO OPERATIVO
+      if (bot.status == BotStatus.active) {
+        final diffInSeconds = now.difference(bot.cycleStartDate).inSeconds;
 
-      final repository = ref.read(botsRepositoryProvider);
-
-      for (var bot in currentList) {
-        bool isLimitReached = runningTotalDebt >= (creditLimit - 0.01);
-
-        // 1. SUSPENSIÓN
-        if (isLimitReached && bot.status == BotStatus.active) {
-           final debt = bot.calculatedDebt;
-           final suspendedBot = bot.copyWith(status: BotStatus.creditSuspended, currentBalance: debt);
-           
-           // USO DE REPO
-           await repository.updateBot(suspendedBot);
-           
-           updatedList.add(suspendedBot);
+        if (diffInSeconds >= cycleLimit) {
+           if ((runningTotalDebt + CYCLE_PRICE) > creditLimit) {
+             // Suspender por alcanzar límite al completar ciclo
+             final suspendedBot = bot.copyWith(status: BotStatus.creditSuspended, currentBalance: bot.calculatedDebt);
+             
+             // UI: Actualización inmediata
+             updatedList.add(suspendedBot);
+             runningTotalDebt += CYCLE_PRICE;
+             
+             // BD: En background
+             backgroundTasks.add(repository.updateBot(suspendedBot));
+           } else {
+             // ✅ Completar ciclo normalmente
+             final nextCycleBot = bot.copyWith(currentBalance: 0.0, cycleStartDate: now);
+             runningTotalDebt += CYCLE_PRICE;
+             
+             // UI: Actualización INMEDIATA (sin await)
+             updatedList.add(nextCycleBot);
+             
+             // BD: En background (en paralelo)
+             backgroundTasks.add(_chargeCycle(bot));
+             backgroundTasks.add(repository.updateBot(nextCycleBot));
+           }
            moneyChanged = true;
-           continue; 
-        }
-
-        // 2. REACTIVACIÓN
-        if (!isLimitReached && bot.status == BotStatus.creditSuspended) {
-           final cycleLimit = USE_TURBO_TIMER ? 30 : CYCLE_SECONDS_REAL;
-           final double fractionSpent = bot.currentBalance / CYCLE_PRICE;
-           final double secondsToRewind = fractionSpent * cycleLimit;
-           
-           final reactivatedBot = bot.copyWith(
-             status: BotStatus.active, 
-             currentBalance: 0.0, 
-             cycleStartDate: DateTime.now().subtract(Duration(seconds: secondsToRewind.round())) 
-           );
-           
-           // USO DE REPO
-           await repository.updateBot(reactivatedBot);
-
-           updatedList.add(reactivatedBot);
-           moneyChanged = true;
-           continue;
-        }
-
-        // 3. CICLO OPERATIVO
-        if (bot.status == BotStatus.active) {
-          final now = DateTime.now();
-          final diffInSeconds = now.difference(bot.cycleStartDate).inSeconds;
-          final cycleLimit = USE_TURBO_TIMER ? 30 : CYCLE_SECONDS_REAL;
-
-          if (diffInSeconds >= cycleLimit) {
-             if ((runningTotalDebt + CYCLE_PRICE) > creditLimit) {
-               final suspendedBot = bot.copyWith(status: BotStatus.creditSuspended, currentBalance: bot.calculatedDebt);
-               
-               // USO DE REPO
-               await repository.updateBot(suspendedBot);
-
-               updatedList.add(suspendedBot);
-               runningTotalDebt += CYCLE_PRICE; 
-             } else {
-               await _chargeCycle(bot);
-               runningTotalDebt += CYCLE_PRICE; 
-               final nextCycleBot = bot.copyWith(currentBalance: 0.0, cycleStartDate: DateTime.now());
-               
-               // USO DE REPO
-               await repository.updateBot(nextCycleBot);
-
-               updatedList.add(nextCycleBot);
-             }
-             moneyChanged = true;
-          } else {
-             updatedList.add(bot); 
-          }
         } else {
-          updatedList.add(bot);
+           // No ha completado ciclo, continuar igual
+           updatedList.add(bot); 
         }
+      } else {
+        updatedList.add(bot);
       }
+    }
 
-      state = AsyncData([...updatedList]); 
+    // 🚀 ACTUALIZAR UI INMEDIATAMENTE (sin esperar BD)
+    state = AsyncData([...updatedList]); 
 
-      if (moneyChanged) {
-        ref.invalidate(billingProvider); 
-      }
+    // 📡 Ejecutar operaciones BD en paralelo en background
+    if (backgroundTasks.isNotEmpty) {
+      Future.wait(backgroundTasks).catchError((e) {
+        // Error silenciado
+      });
+    }
+
+    // 💰 Invalidar billing si hubo cambios monetarios
+    if (moneyChanged) {
+      // Pequeño delay para que las transacciones se completen
+      Future.delayed(const Duration(milliseconds: 500), () {
+        ref.invalidate(billingProvider);
+      });
+    }
+  }
+
+  void _executeAutoPay(double amount) {
+    ref.read(billingProvider.notifier).processPayment(amount).then((_) {
+      // Autopago completado
+    }).catchError((e) {
+      // Error silenciado
+    }).whenComplete(() {
+      _isAutoPaying = false;
     });
   }
 
@@ -186,7 +214,14 @@ class Bots extends _$Bots {
     for (var bot in bots) {
       if (bot.status == BotStatus.active) {
         final secondsActive = DateTime.now().difference(bot.cycleStartDate).inSeconds;
-        if (secondsActive >= cycleLimit) {
+        
+        // 🔧 FIX: Protección contra fechas muy antiguas
+        // Si el bot tiene una fecha de inicio muy antigua (más de 2 ciclos atrás),
+        // lo reiniciamos en lugar de cobrar ciclos acumulados
+        if (secondsActive > (cycleLimit * 2)) {
+          updatedList.add(bot.copyWith(currentBalance: 0.0, cycleStartDate: DateTime.now()));
+        } else if (secondsActive >= cycleLimit) {
+          // Cobrar solo UN ciclo (no múltiples ciclos acumulados)
           await _chargeCycle(bot);
           updatedList.add(bot.copyWith(currentBalance: 0.0, cycleStartDate: DateTime.now()));
         } else {
@@ -201,16 +236,16 @@ class Bots extends _$Bots {
 
   // --- ACTIONS (AHORA USAN REPO) ---
 
-  Future<void> addBot({required String name, required String description, required Color color, required String systemPrompt}) async {
-    // Nota: Aún necesitamos Supabase Auth directo aquí solo para obtener el ID del usuario actual.
-    // En una refactorización futura, el User ID debería venir de un AuthRepository.
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) throw Exception("Usuario no autenticado");
+  Future<Map<String, String>> addBot({required String name, required String description, required Color color, required String systemPrompt}) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) {
+      throw Exception("Tu sesión expiró. Por favor, inicia sesión nuevamente.");
+    }
 
     final repository = ref.read(botsRepositoryProvider);
 
     final newBot = await repository.createBot(
-      userId: user.id, 
+      userId: userId, 
       name: name, 
       description: description, 
       systemPrompt: systemPrompt, 
@@ -221,6 +256,20 @@ class Bots extends _$Bots {
     state = AsyncData([newBot, ...currentList]);
     
     ref.invalidate(billingProvider);
+    
+    // ⬅️ NUEVO: Obtener PIN y alias del bot recién creado
+    final supabase = Supabase.instance.client;
+    final botData = await supabase
+        .from('bots')
+        .select('access_pin, alias')
+        .eq('id', newBot.id)
+        .single();
+    
+    return {
+      'pin': botData['access_pin'] ?? '0000',
+      'alias': botData['alias'] ?? name.toLowerCase().replaceAll(' ', '-'),
+      'name': newBot.name,
+    };
   }
 
   Future<void> toggleStatus(String id) async {
@@ -243,7 +292,7 @@ class Bots extends _$Bots {
     if (!isTurningOff) { 
        final billing = ref.read(billingProvider).valueOrNull;
        if (billing != null && billing.totalDebt >= billing.creditLimit) {
-         throw Exception("Límite de crédito excedido.");
+         throw Exception("Has alcanzado tu límite de crédito. Realiza un pago para poder activar más bots.");
        }
     }
     
@@ -304,10 +353,20 @@ class Bots extends _$Bots {
 
   Future<void> updateBotPrompt(String id, String newPrompt) async {
     final repository = ref.read(botsRepositoryProvider);
-    await repository.patchBot(id, {'description': newPrompt, 'system_prompt': newPrompt});
+    // ⬅️ SIMPLIFICADO: Solo actualizar system_prompt (description ya no se usa)
+    await repository.patchBot(id, {'system_prompt': newPrompt});
     
     final currentList = state.value ?? [];
-    state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(description: newPrompt, systemPrompt: newPrompt) : b).toList());
+    state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(systemPrompt: newPrompt) : b).toList());
+  }
+
+  Future<void> updateBotColor(String id, Color newColor) async {
+    final repository = ref.read(botsRepositoryProvider);
+    final hexColor = '#${newColor.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+    await repository.patchBot(id, {'tech_color': hexColor});
+    
+    final currentList = state.value ?? [];
+    state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(primaryColor: newColor) : b).toList());
   }
 
   Future<void> updateThemeMode(String id, String mode) async {

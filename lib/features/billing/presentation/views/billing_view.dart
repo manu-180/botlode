@@ -1,5 +1,6 @@
 // Archivo: lib/features/billing/presentation/views/billing_view.dart
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/ui/widgets/page_title.dart';
 import 'package:botslode/core/ui/widgets/skeleton_base.dart'; // IMPORTAR SKELETON
 import 'package:botslode/features/billing/domain/models/card_info.dart';
 import 'package:botslode/features/billing/domain/models/transaction.dart';
@@ -9,8 +10,8 @@ import 'package:botslode/features/billing/presentation/widgets/auto_pay_settings
 import 'package:botslode/features/billing/presentation/widgets/manage_cards_modal.dart';
 import 'package:botslode/features/billing/presentation/widgets/payment_checkout_modal.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 class BillingView extends ConsumerStatefulWidget {
@@ -27,7 +28,20 @@ class _BillingViewState extends ConsumerState<BillingView> {
   String _searchQuery = "";
 
   @override
+  void initState() {
+    super.initState();
+    print('🏦 [BILLING VIEW] initState llamado');
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    print('🏦 [BILLING VIEW] didChangeDependencies llamado');
+  }
+
+  @override
   void dispose() {
+    print('🏦 [BILLING VIEW] dispose llamado');
     _searchController.dispose();
     super.dispose();
   }
@@ -38,7 +52,9 @@ class _BillingViewState extends ConsumerState<BillingView> {
 
   @override
   Widget build(BuildContext context) {
+    print('🏦 [BILLING VIEW] Build ejecutándose');
     final billingState = ref.watch(billingProvider);
+    print('🏦 [BILLING VIEW] Estado actual: ${billingState.runtimeType}');
 
     return Scaffold(
       backgroundColor: const Color(0xFF050505),
@@ -87,7 +103,12 @@ class _BillingViewState extends ConsumerState<BillingView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("PANEL FINANCIERO", style: TextStyle(fontFamily: 'Oxanium', fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const PageTitle(
+                    title: "PANEL FINANCIERO",
+                    subtitle: "Control de transacciones y métodos de pago",
+                    accentColor: Color(0xFF00FF88), // Verde financiero
+                    style: PageTitleStyle.techBar, // Barra lateral verde
+                  ),
                   const SizedBox(height: 20),
                   
                   MouseRegion(
@@ -430,7 +451,9 @@ class _BillingViewState extends ConsumerState<BillingView> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: color.withOpacity(0.8), size: 18),
+          Icon(icon, color: color.withOpacity(0.8), size: 18)
+              .animate(onPlay: (c) => c.repeat())
+              .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -500,29 +523,121 @@ class _BillingViewState extends ConsumerState<BillingView> {
   Widget _buildNoCardState(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(30),
+      height: 210,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.02),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        children: [
-          const Icon(Icons.credit_card_off, color: Colors.white24, size: 40),
-          const SizedBox(height: 10),
-          const Text("SIN MÉTODO DE PAGO", style: TextStyle(color: AppColors.error, fontFamily: 'Oxanium', fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: 300, 
-            child: _buildActionButton(
-              context: context, 
-              label: "VINCULAR AHORA", 
-              icon: Icons.add_card_rounded, 
-              color: AppColors.primary, 
-              onPressed: () => _showAddCardModal(context)
-            ),
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF1A1A1A).withOpacity(0.3),
+            const Color(0xFF0A0A0A).withOpacity(0.3),
+          ],
+        ),
+        border: Border.all(
+          color: AppColors.error.withOpacity(0.3),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.error.withOpacity(0.1),
+            blurRadius: 20,
+            spreadRadius: 2,
           )
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Row(
+          children: [
+            // Ícono a la izquierda
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.error.withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                Icons.lock_outline,
+                color: AppColors.error.withOpacity(0.6),
+                size: 32,
+              )
+                  .animate(onPlay: (c) => c.repeat())
+                  .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
+            ),
+            const SizedBox(width: 20),
+            // Contenido a la derecha
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "SISTEMA DE PAGO NO CONFIGURADO",
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontFamily: 'Oxanium',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Vincula un método de pago para activar autopagos y liquidación de deudas",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.4),
+                      fontFamily: 'Courier',
+                      fontSize: 10,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => _showAddCardModal(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.add_card, size: 16, color: Colors.black),
+                            SizedBox(width: 8),
+                            Text(
+                              "VINCULAR AHORA",
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontFamily: 'Oxanium',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -541,7 +656,15 @@ class _BillingViewState extends ConsumerState<BillingView> {
   }
 
   void _showAddCardModal(BuildContext context) {
-    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const AddCardModal());
+    print('🏦 [BILLING VIEW] Abriendo modal AddCardModal');
+    showModalBottomSheet(
+      context: context, 
+      isScrollControlled: true, 
+      backgroundColor: Colors.transparent, 
+      builder: (_) => const AddCardModal()
+    ).then((_) {
+      print('🏦 [BILLING VIEW] Modal cerrado, retornando a BillingView');
+    });
   }
 
   void _openCheckoutModal(BuildContext context, double amount, double rate) {

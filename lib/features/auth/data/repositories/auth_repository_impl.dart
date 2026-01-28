@@ -19,17 +19,6 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       return await _supabase.auth.signInWithPassword(email: email, password: password);
     } catch (e) {
-      debugPrint("🔴 Auth Repo SignIn Error: $e");
-      rethrow;
-    }
-  }
-
-  @override
-  Future<AuthResponse> signUp({required String email, required String password}) async {
-    try {
-      return await _supabase.auth.signUp(email: email, password: password);
-    } catch (e) {
-      debugPrint("🔴 Auth Repo SignUp Error: $e");
       rethrow;
     }
   }
@@ -39,7 +28,6 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await _supabase.auth.signOut();
     } catch (e) {
-      debugPrint("🔴 Auth Repo SignOut Error: $e");
       // No relanzamos, intentamos salir igual localmente
     }
   }
@@ -49,7 +37,6 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       return await _supabase.auth.updateUser(UserAttributes(password: newPassword));
     } catch (e) {
-      debugPrint("🔴 Auth Repo UpdatePassword Error: $e");
       rethrow;
     }
   }

@@ -1,10 +1,11 @@
 // Archivo: lib/features/billing/presentation/widgets/add_card_modal.dart
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/ui/widgets/error_feedback_card.dart';
-import 'package:botslode/features/billing/domain/logic/card_validator_logic.dart'; // IMPORTACIÓN DE LA LÓGICA
+import 'package:botslode/features/billing/domain/services/card_validator_service.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
@@ -25,6 +26,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
   final _holderController = TextEditingController();
 
   bool _isLinking = false;
+  bool _isSuccess = false;
   String? _errorMessage;
   
   // Estado local visual (la lógica de detección viene de la clase de dominio)
@@ -64,7 +66,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
 
   // Listener UI: Solo actualiza el estado visual si la marca cambia
   void _onCardNumberChanged() {
-    final brand = CardValidatorLogic.detectBrand(_numberController.text);
+    final brand = CardValidatorService.detectBrand(_numberController.text);
     if (brand != _detectedBrand) {
       setState(() => _detectedBrand = brand);
     }
@@ -74,6 +76,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
     if (_isLinking) return; 
     if (!_formKey.currentState!.validate()) return;
 
+    print('🎯 [MODAL] Iniciando submit de tarjeta');
     FocusScope.of(context).unfocus();
     setState(() {
       _isLinking = true;
@@ -90,6 +93,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
       String brandStr = _detectedBrand.name; 
       if (_detectedBrand == CardBrand.unknown) brandStr = 'visa'; 
 
+      print('🎯 [MODAL] Llamando a linkNewCard...');
       await ref.read(billingProvider.notifier).linkNewCard(
         number: numberClean,
         month: month,
@@ -100,12 +104,33 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
         lastFour: numberClean.length > 4 ? numberClean.substring(numberClean.length - 4) : '0000',
       );
 
-      if (mounted) Navigator.of(context).pop(); 
+      print('🎯 [MODAL] linkNewCard completado exitosamente');
+
+      // Mostrar éxito brevemente antes de cerrar
+      if (mounted) {
+        print('🎯 [MODAL] Mostrando estado de éxito');
+        setState(() {
+          _isLinking = false;
+          _isSuccess = true;
+        });
+        
+        // Esperar a que el usuario vea el éxito y el provider recargue
+        print('🎯 [MODAL] Esperando 1500ms antes de cerrar modal...');
+        await Future.delayed(const Duration(milliseconds: 1500));
+        
+        if (mounted) {
+          print('🎯 [MODAL] Cerrando modal con Navigator.pop()');
+          Navigator.of(context).pop();
+          print('🎯 [MODAL] Modal cerrado');
+        }
+      }
 
     } catch (e) {
+      print('🔴 [MODAL] Error al vincular tarjeta: $e');
       if (mounted) {
         setState(() {
           _isLinking = false;
+          _isSuccess = false;
           // Limpieza básica del mensaje de error técnico
           _errorMessage = e.toString().replaceAll('Exception:', '').trim();
         });
@@ -143,11 +168,10 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                 type: MaterialType.transparency, 
                 child: Form(
                   key: _formKey,
-                  child: Flexible(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                           // HEADER
                           const Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -192,7 +216,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                               }
 
                               // Uso de la lógica de dominio
-                              if (!CardValidatorLogic.isValidLuhn(clean)) return "Número inválido (Luhn Check)";
+                              if (!CardValidatorService.isValidLuhn(clean)) return "Número inválido (Luhn Check)";
                               return null;
                             }
                           ),
@@ -213,7 +237,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                                       formatter: _expiryMask,
                                       inputType: TextInputType.number,
                                       // Uso de la lógica de dominio
-                                      validator: CardValidatorLogic.validateExpiry,
+                                      validator: CardValidatorService.validateExpiry,
                                     ),
                                   ],
                                 ),
@@ -261,8 +285,41 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                           
                           const SizedBox(height: 30),
                     
+                          // FEEDBACK DE ÉXITO
+                          if (_isSuccess)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppColors.success.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.success, width: 1),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.check_circle_outline, color: AppColors.success, size: 24)
+                                        .animate(onPlay: (c) => c.repeat())
+                                        .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
+                                    const SizedBox(width: 12),
+                                    const Expanded(
+                                      child: Text(
+                                        "¡TARJETA VINCULADA! Cargando datos...",
+                                        style: TextStyle(
+                                          color: AppColors.success,
+                                          fontWeight: FontWeight.bold,
+                                          fontFamily: 'Oxanium',
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                    
                           // FEEDBACK DE ERROR
-                          if (_errorMessage != null)
+                          if (_errorMessage != null && !_isSuccess)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 10),
                               child: ErrorFeedbackCard(
@@ -276,42 +333,55 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                             width: double.infinity,
                             height: 55,
                             child: ElevatedButton(
-                              onPressed: _isLinking ? null : _submit,
+                              onPressed: (_isLinking || _isSuccess) ? null : _submit,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
+                                backgroundColor: _isSuccess ? AppColors.success : AppColors.primary,
                                 foregroundColor: Colors.black,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 elevation: 0,
-                                disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+                                disabledBackgroundColor: _isSuccess 
+                                    ? AppColors.success.withOpacity(0.5)
+                                    : AppColors.primary.withOpacity(0.5),
                               ),
-                              child: _isLinking 
+                              child: _isSuccess
                                 ? const Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      SizedBox(
-                                        width: 20, height: 20, 
-                                        child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2)
-                                      ),
+                                      Icon(Icons.check_circle, color: Colors.black, size: 20),
                                       SizedBox(width: 12),
                                       Text(
-                                        "INICIANDO PROTOCOLO...",
+                                        "ENLACE COMPLETADO",
                                         style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Oxanium', letterSpacing: 1.0),
                                       )
                                     ],
                                   )
-                                : const Text(
-                                    "INICIAR PROTOCOLO DE ENLACE",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Oxanium',
-                                      fontSize: 16,
-                                      letterSpacing: 1.0,
+                                : _isLinking 
+                                  ? const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        SizedBox(
+                                          width: 20, height: 20, 
+                                          child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2)
+                                        ),
+                                        SizedBox(width: 12),
+                                        Text(
+                                          "INICIANDO PROTOCOLO...",
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Oxanium', letterSpacing: 1.0),
+                                        )
+                                      ],
+                                    )
+                                  : const Text(
+                                      "INICIAR PROTOCOLO DE ENLACE",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Oxanium',
+                                        fontSize: 16,
+                                        letterSpacing: 1.0,
+                                      ),
                                     ),
-                                  ),
                             ),
                           ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
                 ),
@@ -430,7 +500,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
         textInputAction: TextInputAction.done, 
         onFieldSubmitted: (_) => _submit(), 
         textCapitalization: textCapitalization,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
+        autovalidateMode: AutovalidateMode.onUnfocus,
         inputFormatters: formatter != null ? [formatter] : (maxLength != null ? [LengthLimitingTextInputFormatter(maxLength)] : []),
         style: const TextStyle(color: Colors.white, fontFamily: 'Courier', fontWeight: FontWeight.bold),
         validator: validator,

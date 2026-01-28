@@ -23,7 +23,6 @@ class _LoginViewState extends ConsumerState<LoginView> with SingleTickerProvider
   final _emailController = TextEditingController();
   final _passController = TextEditingController();
   
-  bool _isSignUp = false;
   String? _errorMessage;
   bool _showError = false;
   Timer? _errorTimer;
@@ -129,11 +128,7 @@ class _LoginViewState extends ConsumerState<LoginView> with SingleTickerProvider
     final email = _emailController.text.trim();
     final pass = _passController.text.trim();
 
-    if (_isSignUp) {
-      ref.read(authProvider.notifier).signUp(email, pass);
-    } else {
-      ref.read(authProvider.notifier).signIn(email, pass);
-    }
+    ref.read(authProvider.notifier).signIn(email, pass);
   }
 
   @override
@@ -172,7 +167,11 @@ class _LoginViewState extends ConsumerState<LoginView> with SingleTickerProvider
                                 onInit: _onRiveInit,
                               ),
                               loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                              error: (_, __) => const Center(child: Icon(Icons.broken_image, color: AppColors.error)),
+                              error: (_, __) => Center(
+                                child: Icon(Icons.broken_image, color: AppColors.error)
+                                    .animate(onPlay: (c) => c.repeat())
+                                    .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5))
+                              ),
                             ),
                           ),
                           Positioned.fill(
@@ -248,9 +247,9 @@ class _LoginViewState extends ConsumerState<LoginView> with SingleTickerProvider
                             const Icon(Icons.lock_outline_rounded, color: AppColors.primary, size: 48)
                                 .animate().scale(duration: 400.ms, curve: Curves.elasticOut),
                             const SizedBox(height: 24),
-                            Text(
-                              _isSignUp ? "REGISTRO DE OPERADOR" : "IDENTIFICACIÓN REQUERIDA",
-                              style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, fontFamily: 'Oxanium'),
+                            const Text(
+                              "IDENTIFICACIÓN REQUERIDA",
+                              style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, fontFamily: 'Oxanium'),
                             ),
                             const SizedBox(height: 8),
                             Text("Ingrese sus credenciales para acceder al núcleo.", style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.8))),
@@ -308,41 +307,19 @@ class _LoginViewState extends ConsumerState<LoginView> with SingleTickerProvider
                                         children: [
                                           const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2)),
                                           const SizedBox(width: 12),
-                                          Text(
-                                            _isSignUp ? "REGISTRANDO..." : "VERIFICANDO...",
-                                            style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12),
+                                          const Text(
+                                            "VERIFICANDO...",
+                                            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12),
                                           ),
                                         ],
                                       )
-                                    : Text(
-                                        _isSignUp ? "INICIAR REGISTRO" : "ACCEDER AL SISTEMA",
-                                        style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                                    : const Text(
+                                        "ACCEDER AL SISTEMA",
+                                        style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5),
                                       ),
                               ),
                             ),
 
-                            const SizedBox(height: 32),
-
-                            Center(
-                              child: TextButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _isSignUp = !_isSignUp;
-                                    _showError = false; 
-                                  });
-                                  _formKey.currentState?.reset();
-                                },
-                                child: RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(color: AppColors.textSecondary),
-                                    children: [
-                                      TextSpan(text: _isSignUp ? "¿Ya tiene credenciales? " : "¿Nuevo personal? "),
-                                      TextSpan(text: _isSignUp ? "Ingresar" : "Solicitar Acceso", style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -381,7 +358,9 @@ class _LoginViewState extends ConsumerState<LoginView> with SingleTickerProvider
                         color: AppColors.error.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 28),
+                      child: Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 28)
+                          .animate(onPlay: (c) => c.repeat())
+                          .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
                     ),
                     const SizedBox(width: 20),
                     Expanded(

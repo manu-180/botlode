@@ -16,6 +16,30 @@ class BillingRepositoryImpl implements BillingRepository {
 
   String get _mpPublicKey => dotenv.env['MP_PUBLIC_KEY'] ?? '';
 
+  // --- HELPERS PRIVADOS ---
+
+  /// Analiza errores de vinculación de tarjetas y retorna mensaje amigable
+  String _parseLinkCardError(dynamic error) {
+    final String errorText = error.toString().toLowerCase();
+    
+    if (errorText.contains('customer not found') || errorText.contains('not found')) {
+      return 'No pudimos validar tu tarjeta. Verifica que los datos sean correctos.';
+    }
+    if (errorText.contains('invalid') || errorText.contains('rejected')) {
+      return 'La tarjeta fue rechazada. Verifica el número, CVV y fecha de vencimiento.';
+    }
+    if (errorText.contains('network') || errorText.contains('timeout') || errorText.contains('connection')) {
+      return 'Error de conexión. Por favor, intenta nuevamente.';
+    }
+    if (errorText.contains('expired') || errorText.contains('expir')) {
+      return 'La tarjeta está vencida. Por favor, usa una tarjeta vigente.';
+    }
+    if (errorText.contains('duplicate')) {
+      return 'Esta tarjeta ya está registrada en tu cuenta.';
+    }
+    return 'No pudimos procesar tu tarjeta. Intenta con otra tarjeta o contacta a soporte.';
+  }
+
   // --- GETTERS & FETCHING ---
 
   @override
@@ -27,8 +51,7 @@ class BillingRepositoryImpl implements BillingRepository {
           .order('created_at', ascending: true);
       return (response as List).map((data) => BotTransaction.fromMap(data)).toList();
     } catch (e) {
-      debugPrint("🔴 Error fetching transactions: $e");
-      throw Exception("Error de sincronización de transacciones");
+      throw Exception("No pudimos cargar tu historial de transacciones. Verifica tu conexión a internet.");
     }
   }
 
@@ -41,8 +64,7 @@ class BillingRepositoryImpl implements BillingRepository {
           .order('created_at', ascending: false);
       return (response as List).map((data) => CardInfo.fromMap(data)).toList();
     } catch (e) {
-      debugPrint("🔴 Error fetching cards: $e");
-      throw Exception("Error obteniendo métodos de pago");
+      throw Exception("No pudimos cargar tus métodos de pago. Verifica tu conexión a internet.");
     }
   }
 
@@ -55,7 +77,7 @@ class BillingRepositoryImpl implements BillingRepository {
         return (data['venta'] as num).toDouble();
       }
     } catch (e) {
-      debugPrint("⚠️ API Dolar Error (Fallback): $e");
+      // Error silenciado
     }
     return 1240.0; // Fallback seguro
   }
@@ -68,7 +90,6 @@ class BillingRepositoryImpl implements BillingRepository {
           .count(CountOption.exact)
           .or('status.eq.active,status.eq.maintenance');
     } catch (e) {
-      debugPrint("🔴 Error counting bots: $e");
       return 0;
     }
   }
@@ -83,36 +104,35 @@ class BillingRepositoryImpl implements BillingRepository {
           .update({'auto_pay_threshold': amount})
           .eq('id', cardId);
     } catch (e) {
-      throw Exception("No se pudo actualizar el límite de autopago: $e");
+      throw Exception("No pudimos actualizar tu configuración de autopago. Intenta nuevamente.");
     }
   }
 
   @override
   Future<void> processPayment({required double amountUSD, required String cardId}) async {
-    final sessionToken = _supabase.auth.currentSession?.accessToken;
-    if (sessionToken == null) throw Exception("Sesión inválida");
-
-    final url = Uri.parse('${AppConfig.supabaseUrl}/functions/v1/process-payment');
-
+    // Validar monto mínimo (Mercado Pago requiere mínimo $2 ARS)
+    if (amountUSD < 2.0) {
+      amountUSD = 2.0;
+    }
+    
     try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $sessionToken',
-          'apikey': AppConfig.supabaseAnonKey
-        },
-        body: jsonEncode({
+      // ✅ Usar el cliente de Supabase para Edge Functions
+      // Esto maneja automáticamente los headers de autenticación
+      final response = await _supabase.functions.invoke(
+        'process-payment',
+        body: {
           'amount_usd': amountUSD,
           'card_id': cardId,
-        }),
+        },
       );
 
-      if (response.statusCode != 200) {
-        throw Exception('Rechazo del procesador: ${response.body}');
+      if (response.status != 200) {
+        final errorMessage = response.data is Map 
+            ? (response.data['error'] ?? 'No pudimos procesar el pago. Intenta nuevamente.')
+            : response.data.toString();
+        throw Exception(errorMessage);
       }
     } catch (e) {
-      debugPrint("🔴 Payment Process Error: $e");
       rethrow;
     }
   }
@@ -161,37 +181,47 @@ class BillingRepositoryImpl implements BillingRepository {
       if (mpResponse.statusCode == 201 || mpResponse.statusCode == 200) {
         token = jsonDecode(mpResponse.body)['id'];
       } else {
-        throw Exception('Error Tokenización: ${mpResponse.body}');
+        final errorData = jsonDecode(mpResponse.body);
+        // debugPrint("🔴 MP Tokenization Error: $errorData");
+        throw Exception('Los datos de tu tarjeta no son válidos. Verifica el número, CVV y fecha de vencimiento.');
       }
     } catch (e) {
-      throw Exception("Fallo al contactar proveedor de tarjetas: $e");
+      // debugPrint("🔴 Card provider error: $e");
+      if (e.toString().contains('Los datos de tu tarjeta')) rethrow;
+      throw Exception("Error de conexión con el procesador de pagos. Por favor, intenta nuevamente.");
     }
 
-    // 2. Sincronización Segura (Supabase Edge Function)
-    final sessionToken = _supabase.auth.currentSession?.accessToken;
-    if (sessionToken == null) throw Exception("Sesión expirada");
-
-    final url = Uri.parse('${AppConfig.supabaseUrl}/functions/v1/mp-payment-sync');
+    // 2. Vincular tarjeta (Supabase Edge Function)
     
-    final syncResponse = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $sessionToken',
-        'apikey': AppConfig.supabaseAnonKey
-      },
-      body: jsonEncode({
-        'token': token,
-        'email': email,
-        'brand': brand,
-        'last_four': lastFour,
-        'holder_name': holder,
-        'expiry_date': "$month/${year.substring(2)}"
-      }),
-    );
+    try {
+      final response = await _supabase.functions.invoke(
+        'mp-payment-sync',
+        body: {
+          'token': token,
+          'email': email,
+          'brand': brand,
+          'last_four': lastFour,
+          'holder_name': holder,
+          'expiry_date': "$month/${year.substring(2)}"
+        },
+      );
 
-    if (syncResponse.statusCode != 200) {
-      throw Exception('Error en vinculación segura: ${syncResponse.body}');
+      // debugPrint("🔍 [LINK CARD] Response status: ${response.status}");
+
+      if (response.status != 200) {
+        final errorMessage = response.data is Map 
+            ? (response.data['error'] ?? 'No pudimos vincular tu tarjeta. Intenta nuevamente.')
+            : response.data.toString();
+        
+        // debugPrint("🔴 Card sync error: $errorMessage");
+        final userMessage = _parseLinkCardError(errorMessage);
+        throw Exception(userMessage);
+      }
+      
+      // debugPrint("✅ [LINK CARD] Tarjeta vinculada exitosamente");
+    } catch (e) {
+      // debugPrint("🔴 Card Link Process Error: $e");
+      rethrow;
     }
   }
 
@@ -219,7 +249,7 @@ class BillingRepositoryImpl implements BillingRepository {
       }
       return "";
     } catch (e) {
-      debugPrint("Checkout Link Error: $e");
+      // debugPrint("Checkout Link Error: $e");
       return "";
     }
   }
@@ -242,7 +272,7 @@ class BillingRepositoryImpl implements BillingRepository {
         'created_at': DateTime.now().toIso8601String(),
       });
     } catch (e) {
-      debugPrint("🔴 Critical Error logging charge: $e");
+      // debugPrint("🔴 Critical Error logging charge: $e");
       // No re-lanzamos para no romper el flujo del bot, pero se loguea
     }
   }

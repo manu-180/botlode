@@ -3,6 +3,7 @@ import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/providers/connectivity_provider.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/sidebar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:window_manager/window_manager.dart';
@@ -76,7 +77,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: color),
+                Icon(icon, color: color)
+                    .animate(onPlay: (c) => c.repeat())
+                    .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
                 const SizedBox(width: 16),
                 Text(
                   message,

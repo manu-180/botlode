@@ -1,10 +1,20 @@
-// Archivo: lib/features/billing/domain/logic/card_validator_logic.dart
+// Archivo: lib/features/billing/domain/services/card_validator_service.dart
 
+/// Enumeración de marcas de tarjetas de crédito soportadas
 enum CardBrand { visa, mastercard, amex, discover, unknown }
 
-class CardValidatorLogic {
+/// Servicio de dominio para validación de tarjetas de crédito
+/// 
+/// Responsabilidades:
+/// - Validar números de tarjeta usando el algoritmo de Luhn
+/// - Detectar la marca de la tarjeta basándose en el BIN
+/// - Validar fechas de expiración
+class CardValidatorService {
   
   /// Algoritmo de Luhn para validación de tarjetas de crédito
+  /// 
+  /// Retorna true si el número de tarjeta pasa la validación de Luhn,
+  /// que es el estándar internacional para verificar números de tarjetas.
   static bool isValidLuhn(String number) {
     if (number.isEmpty) return false;
     
@@ -28,6 +38,9 @@ class CardValidatorLogic {
   }
 
   /// Detección de marca basada en BIN (Bank Identification Number)
+  /// 
+  /// Analiza los primeros dígitos del número de tarjeta para determinar
+  /// la marca/red de procesamiento (Visa, Mastercard, etc.)
   static CardBrand detectBrand(String number) {
     // Limpieza básica para el análisis
     final clean = number.replaceAll(' ', '');
@@ -42,6 +55,9 @@ class CardValidatorLogic {
   }
 
   /// Validación de fecha de expiración (MM/AA)
+  /// 
+  /// Retorna null si la fecha es válida, o un mensaje de error
+  /// describiendo el problema específico.
   static String? validateExpiry(String? value) {
     if (value == null || value.isEmpty) return "Requerido";
     

@@ -2,14 +2,11 @@
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:botslode/core/providers/rive_provider.dart';
+import 'package:botslode/features/bot_engine/presentation/providers/bot_mood_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart';
-
-// --- CORRECCIÓN: AUTO DISPOSE PARA RESETEAR ESTADO AL SALIR ---
-final terminalBotMoodProvider = StateProvider.autoDispose<int>((ref) => 0);
-final terminalPointerPositionProvider = StateProvider.autoDispose<Offset?>((ref) => null);
 
 class RiveBotDisplay extends ConsumerStatefulWidget {
   const RiveBotDisplay({super.key});
