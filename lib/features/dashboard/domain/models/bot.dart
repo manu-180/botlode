@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 
 enum BotStatus { active, maintenance, disabled, creditSuspended }
 
-// MODO TURBO ACTIVO (30 seg = 1 mes)
-const bool IS_TURBO_MODE = true; 
+/// Por defecto ciclo real (30 días). Turbo (30 seg = 1 mes) se inyecta por usuario vía [useTurboMode].
+const bool _defaultTurboMode = false;
 
 class Bot {
   final String id;
@@ -15,10 +15,17 @@ class Bot {
   final BotStatus status;
   final Color primaryColor;
   final DateTime lastActive;
-  final double currentBalance; 
+  final double currentBalance;
   final DateTime cycleStartDate;
-  final String themeMode; 
+  final String themeMode;
   final bool showOfflineAlert;
+  final String? accessPin;
+  final String? initialMessage;
+  final bool wpp;
+  final String? telefono;
+  final double bubbleSize; // Tamaño de las burbujas flotantes (bot + WhatsApp) en píxeles
+  /// Si true, ciclo en velocidad aumentada (30 seg = 1 mes). Inyectado por provider según usuario.
+  final bool? useTurboMode;
 
   const Bot({
     required this.id,
@@ -33,7 +40,15 @@ class Bot {
     required this.cycleStartDate,
     this.themeMode = 'dark',
     this.showOfflineAlert = true,
+    this.accessPin,
+    this.initialMessage,
+    this.wpp = false,
+    this.telefono,
+    this.bubbleSize = 86.0, // Tamaño por defecto (86px)
+    this.useTurboMode,
   });
+
+  bool get _effectiveTurbo => useTurboMode ?? _defaultTurboMode;
 
   // --- LÓGICA DE NEGOCIO ---
 
@@ -52,7 +67,7 @@ class Bot {
     if (ms < 0) return 0.0;
 
     double days;
-    if (IS_TURBO_MODE) {
+    if (_effectiveTurbo) {
       days = ms / 1000.0; // En modo turbo, segundos = días
     } else {
       days = ms / 86400000.0; // Días reales
@@ -86,10 +101,10 @@ class Bot {
     if (elapsedSeconds <= 0) return currentBalance;
 
     double totalCycleSeconds;
-    if (IS_TURBO_MODE) {
-      totalCycleSeconds = 30.0; 
+    if (_effectiveTurbo) {
+      totalCycleSeconds = 30.0;
     } else {
-      totalCycleSeconds = 2592000.0; 
+      totalCycleSeconds = 2592000.0;
     }
     
     // 🔧 FIX: Limitar a UN ciclo máximo de deuda acumulada
@@ -130,6 +145,11 @@ class Bot {
           : DateTime.now(),
       themeMode: map['theme_mode'] ?? 'dark',
       showOfflineAlert: map['show_offline_alert'] ?? true,
+      accessPin: map['access_pin'] as String?,
+      initialMessage: map['initial_message'] as String?,
+      wpp: map['wpp'] == true || map['wpp'] == 'true',
+      telefono: map['telefono'] as String?,
+      bubbleSize: (map['bubble_size'] as num?)?.toDouble() ?? 86.0,
     );
   }
 
@@ -156,6 +176,10 @@ class Bot {
       'cycle_start_date': cycleStartDate.toIso8601String(),
       'theme_mode': themeMode,
       'show_offline_alert': showOfflineAlert,
+      'initial_message': initialMessage,
+      'wpp': wpp,
+      'telefono': telefono,
+      'bubble_size': bubbleSize,
     };
   }
 
@@ -163,6 +187,9 @@ class Bot {
     String? name, String? description, String? category, String? systemPrompt,
     BotStatus? status, Color? primaryColor, double? currentBalance,
     DateTime? cycleStartDate, DateTime? lastActive, String? themeMode, bool? showOfflineAlert,
+    String? accessPin, String? initialMessage, bool? wpp, String? telefono,
+    double? bubbleSize,
+    bool? useTurboMode,
   }) {
     return Bot(
       id: id,
@@ -177,6 +204,12 @@ class Bot {
       cycleStartDate: cycleStartDate ?? this.cycleStartDate,
       themeMode: themeMode ?? this.themeMode,
       showOfflineAlert: showOfflineAlert ?? this.showOfflineAlert,
+      accessPin: accessPin ?? this.accessPin,
+      initialMessage: initialMessage ?? this.initialMessage,
+      wpp: wpp ?? this.wpp,
+      telefono: telefono ?? this.telefono,
+      bubbleSize: bubbleSize ?? this.bubbleSize,
+      useTurboMode: useTurboMode ?? this.useTurboMode,
     );
   }
 }

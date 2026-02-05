@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:botslode/core/providers/supabase_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
+import 'package:botslode/features/dashboard/domain/exceptions/credit_limit_reached_exception.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/presentation/providers/bots_repository_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -10,17 +11,16 @@ import 'package:flutter/material.dart';
 
 part 'bots_provider.g.dart';
 
-const bool USE_TURBO_TIMER = true; 
-
 @riverpod
 class Bots extends _$Bots {
+  bool get _useTurboTimer => ref.read(useTurboTimerProvider);
   Timer? _timer;
   bool _isAutoPaying = false;
   
   // Enfriamiento para evitar loops de pago
   DateTime? _lastAutoPayAttempt;
 
-  static const double CYCLE_PRICE = 0.10; // 🧪 MODO PRUEBAS: $0.10 por ciclo
+  static const double CYCLE_PRICE = 20.00; // Cada ciclo carga $20 al pozo
   static const int CYCLE_SECONDS_REAL = 2592000; 
 
   @override
@@ -36,9 +36,11 @@ class Bots extends _$Bots {
       
       _enforceCreditLimit(bots);
       var currentBots = await _syncOfflineCharges(bots);
-      
+      final useTurbo = ref.read(useTurboTimerProvider);
+      currentBots = currentBots.map((b) => b.copyWith(useTurboMode: useTurbo)).toList();
+
       _startTimer();
-      
+
       ref.onDispose(() => _timer?.cancel());
       return currentBots;
     } catch (e) {
@@ -54,7 +56,7 @@ class Bots extends _$Bots {
   }
 
   void _startTimer() {
-    final duration = USE_TURBO_TIMER ? const Duration(seconds: 1) : const Duration(minutes: 1);
+    final duration = _useTurboTimer ? const Duration(seconds: 1) : const Duration(minutes: 1);
     
     _timer = Timer.periodic(duration, (timer) {
       // 🚀 OPTIMIZACIÓN: Timer NO-BLOQUEANTE
@@ -98,7 +100,7 @@ class Bots extends _$Bots {
     final double creditLimit = billing.creditLimit;
     final repository = ref.read(botsRepositoryProvider);
     final now = DateTime.now();
-    final cycleLimit = USE_TURBO_TIMER ? 30 : CYCLE_SECONDS_REAL;
+    final cycleLimit = _useTurboTimer ? 30 : CYCLE_SECONDS_REAL;
 
     for (var bot in currentList) {
       bool isLimitReached = runningTotalDebt >= (creditLimit - 0.01);
@@ -181,6 +183,7 @@ class Bots extends _$Bots {
     if (backgroundTasks.isNotEmpty) {
       Future.wait(backgroundTasks).catchError((e) {
         // Error silenciado
+        return <void>[];
       });
     }
 
@@ -209,7 +212,7 @@ class Bots extends _$Bots {
 
   Future<List<Bot>> _syncOfflineCharges(List<Bot> bots) async {
     final List<Bot> updatedList = [];
-    final cycleLimit = USE_TURBO_TIMER ? 30 : CYCLE_SECONDS_REAL; 
+    final cycleLimit = _useTurboTimer ? 30 : CYCLE_SECONDS_REAL; 
     
     for (var bot in bots) {
       if (bot.status == BotStatus.active) {
@@ -245,15 +248,16 @@ class Bots extends _$Bots {
     final repository = ref.read(botsRepositoryProvider);
 
     final newBot = await repository.createBot(
-      userId: userId, 
-      name: name, 
-      description: description, 
-      systemPrompt: systemPrompt, 
+      userId: userId,
+      name: name,
+      description: description,
+      systemPrompt: systemPrompt,
       color: color
     );
 
     final currentList = state.value ?? [];
-    state = AsyncData([newBot, ...currentList]);
+    final useTurbo = ref.read(useTurboTimerProvider);
+    state = AsyncData([newBot.copyWith(useTurboMode: useTurbo), ...currentList]);
     
     ref.invalidate(billingProvider);
     
@@ -289,17 +293,17 @@ class Bots extends _$Bots {
 
     final isTurningOff = bot.status == BotStatus.active;
     
-    if (!isTurningOff) { 
-       final billing = ref.read(billingProvider).valueOrNull;
-       if (billing != null && billing.totalDebt >= billing.creditLimit) {
-         throw Exception("Has alcanzado tu límite de crédito. Realiza un pago para poder activar más bots.");
-       }
+    if (!isTurningOff) {
+      final billing = ref.read(billingProvider).valueOrNull;
+      if (billing != null && billing.totalDebt >= billing.creditLimit) {
+        throw const CreditLimitReachedException();
+      }
     }
     
     final newStatus = isTurningOff ? BotStatus.disabled : BotStatus.active;
     double newBalance;
     DateTime newStartDate;
-    final cycleLimit = USE_TURBO_TIMER ? 30 : CYCLE_SECONDS_REAL;
+    final cycleLimit = _useTurboTimer ? 30 : CYCLE_SECONDS_REAL;
 
     if (isTurningOff) {
       newBalance = bot.calculatedDebt; 
@@ -383,5 +387,39 @@ class Bots extends _$Bots {
     
     final currentList = state.value ?? [];
     state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(showOfflineAlert: enabled) : b).toList());
+  }
+
+  Future<void> updateInitialMessage(String id, String newMessage) async {
+    final repository = ref.read(botsRepositoryProvider);
+    await repository.patchBot(id, {'initial_message': newMessage});
+    
+    final currentList = state.value ?? [];
+    state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(initialMessage: newMessage) : b).toList());
+  }
+
+  /// Actualiza la configuración de la burbuja WhatsApp.
+  /// Si [wpp] es true, [telefono] es obligatorio (no null ni vacío).
+  Future<void> updateWppConfig(String id, bool wpp, String? telefono) async {
+    if (wpp && (telefono == null || telefono.trim().isEmpty)) {
+      throw Exception("Cuando la burbuja WhatsApp está activa, el número de contacto es obligatorio.");
+    }
+    final repository = ref.read(botsRepositoryProvider);
+    await repository.patchBot(id, {
+      'wpp': wpp,
+      'telefono': wpp ? telefono!.trim() : null,
+    });
+    final currentList = state.value ?? [];
+    state = AsyncData(currentList.map((b) => b.id == id
+        ? b.copyWith(wpp: wpp, telefono: wpp ? telefono!.trim() : null)
+        : b).toList());
+  }
+
+  /// Actualiza el tamaño de las burbujas flotantes (bot + WhatsApp).
+  Future<void> updateBubbleSize(String id, double size) async {
+    final repository = ref.read(botsRepositoryProvider);
+    await repository.patchBot(id, {'bubble_size': size});
+    
+    final currentList = state.value ?? [];
+    state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(bubbleSize: size) : b).toList());
   }
 }

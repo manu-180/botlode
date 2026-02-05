@@ -1,4 +1,5 @@
 // Archivo: lib/features/dashboard/presentation/views/bot_detail_view.dart
+import 'dart:async';
 import 'dart:ui';
 import 'package:botslode/core/config/app_config.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
@@ -10,6 +11,8 @@ import 'package:botslode/features/bot_engine/presentation/widgets/rive_bot_displ
 import 'package:botslode/features/bot_engine/presentation/widgets/status_indicator.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/presentation/providers/bots_provider.dart';
+import 'package:botslode/features/dashboard/domain/exceptions/credit_limit_reached_exception.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/credit_limit_reached_dialog.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/delete_protocol_dialog.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/edit_color_dialog.dart';
 import 'package:flutter/material.dart';
@@ -74,6 +77,14 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     );
     overlayState.insert(overlayEntry);
     Future.delayed(const Duration(seconds: 2), () => overlayEntry.remove());
+  }
+
+  void _handleEnergyToggle(BuildContext context, String botId) {
+    ref.read(botsProvider.notifier).toggleStatus(botId).catchError((e, _) {
+      if (e is CreditLimitReachedException && context.mounted) {
+        CreditLimitReachedDialog.show(context);
+      }
+    });
   }
 
   // --- DIÁLOGOS ---
@@ -194,6 +205,100 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     );
   }
 
+  void _showPinDialog(Bot bot) {
+    final pin = bot.accessPin ?? '0000';
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Row(
+          children: [
+            Icon(Icons.lock_rounded, color: AppColors.success, size: 24),
+            const SizedBox(width: 12),
+            const Text(
+              "PIN DE ACCESO AL HISTORIAL",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ],
+        ),
+        content: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.success.withValues(alpha: 0.5)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.success.withValues(alpha: 0.2),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Comparte este PIN con tu cliente para que pueda acceder al historial de conversaciones:",
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontFamily: 'Courier',
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.success.withValues(alpha: 0.5),
+                    width: 2,
+                  ),
+                ),
+                child: Text(
+                  pin,
+                  style: TextStyle(
+                    color: AppColors.success,
+                    fontSize: 32,
+                    fontFamily: 'Courier',
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 8.0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("CERRAR", style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: pin));
+              Navigator.pop(context);
+              _showEpicNotify("PIN COPIADO");
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.success,
+              foregroundColor: Colors.black,
+            ),
+            child: const Text("COPIAR PIN"),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showEditPromptDialog(Bot bot) {
     // ⬅️ SIMPLIFICADO: Usar solo system_prompt (todo en un solo campo)
     final TextEditingController promptCtrl = TextEditingController(text: bot.systemPrompt);
@@ -284,6 +389,299 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     );
   }
 
+  void _showWppPhoneDialog(Bot bot) {
+    final TextEditingController phoneCtrl = TextEditingController(
+      text: bot.telefono ?? '',
+    );
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: 420,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: AppColors.surface.withValues(alpha: 0.98),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.5)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF25D366).withValues(alpha: 0.15),
+                  blurRadius: 30,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF25D366).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFF25D366).withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.chat_rounded,
+                          color: Color(0xFF25D366),
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Text(
+                          "NÚMERO DE WHATSAPP",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Oxanium',
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "Número con código de país, sin espacios ni símbolos. Ej: 1134272488",
+                    style: TextStyle(
+                      color: AppColors.textSecondary.withValues(alpha: 0.9),
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  TextFormField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    autofocus: true,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Courier',
+                      fontSize: 16,
+                      letterSpacing: 1.5,
+                    ),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.black.withValues(alpha: 0.5),
+                      hintText: "1134272488",
+                      hintStyle: TextStyle(
+                        color: AppColors.textSecondary.withValues(alpha: 0.4),
+                      ),
+                      prefixIcon: Icon(
+                        Icons.phone_android_rounded,
+                        color: const Color(0xFF25D366).withValues(alpha: 0.8),
+                        size: 20,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF25D366),
+                          width: 2,
+                        ),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.error),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
+                    ),
+                    validator: (value) {
+                      final v = value?.trim() ?? '';
+                      if (v.isEmpty) return "El número es obligatorio.";
+                      if (!RegExp(r'^[0-9]{10,15}$').hasMatch(v)) {
+                        return "Solo dígitos, 10 a 15 caracteres.";
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 28),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          "CANCELAR",
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          if (!formKey.currentState!.validate()) return;
+                          final phone = phoneCtrl.text.trim();
+                          try {
+                            await ref
+                                .read(botsProvider.notifier)
+                                .updateWppConfig(bot.id, true, phone);
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              _showEpicNotify("WHATSAPP CONFIGURADO");
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(e.toString().replaceFirst('Exception: ', '')),
+                                  backgroundColor: AppColors.error,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF25D366),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 14,
+                          ),
+                        ),
+                        icon: const Icon(Icons.check_rounded, size: 20),
+                        label: const Text("GUARDAR NÚMERO"),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showEditInitialMessageDialog(Bot bot) {
+    final TextEditingController messageCtrl = TextEditingController(
+      text: bot.initialMessage ?? 'Sistema en línea. ¿En qué puedo ayudarte hoy?'
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: 500,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: AppColors.surface.withValues(alpha: 0.95),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.secondary.withValues(alpha: 0.5)),
+              boxShadow: [
+                BoxShadow(color: AppColors.secondary.withValues(alpha: 0.1), blurRadius: 30, spreadRadius: 2),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.chat_bubble_outline_rounded, color: AppColors.secondary, size: 28),
+                    const SizedBox(width: 12),
+                    const Text(
+                      "MENSAJE INICIAL",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Oxanium',
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Este es el primer mensaje que verá el usuario al iniciar una conversación con el bot.",
+                  style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.8), fontSize: 12),
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: messageCtrl,
+                  maxLines: 3,
+                  style: const TextStyle(color: Colors.white, fontFamily: 'Courier', height: 1.5),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.black.withValues(alpha: 0.5),
+                    hintText: "Ej: '¡Hola! ¿En qué puedo ayudarte?' o 'Bienvenido, ¿cómo puedo asistirte hoy?'",
+                    hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.3)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.secondary)),
+                    contentPadding: const EdgeInsets.all(20),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("CANCELAR", style: TextStyle(color: AppColors.textSecondary)),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        final newMessage = messageCtrl.text.trim();
+                        if (newMessage.isEmpty) return;
+                        try {
+                          await ref.read(botsProvider.notifier).updateInitialMessage(bot.id, newMessage);
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            _showEpicNotify("MENSAJE ACTUALIZADO");
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString().replaceFirst('Exception: ', '')),
+                                backgroundColor: AppColors.error,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.secondary,
+                        foregroundColor: Colors.black,
+                      ),
+                      icon: const Icon(Icons.save_as_rounded),
+                      label: const Text("GUARDAR MENSAJE"),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final botsAsync = ref.watch(botsProvider);
@@ -359,10 +757,24 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                       ),
                       Container(width: 1, height: 20, color: AppColors.borderGlass),
                       _ActionButton(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        color: AppColors.secondary,
+                        tooltip: "Editar Mensaje Inicial",
+                        onTap: () => _showEditInitialMessageDialog(bot),
+                      ),
+                      Container(width: 1, height: 20, color: AppColors.borderGlass),
+                      _ActionButton(
                         icon: Icons.code_rounded,
                         color: AppColors.primary,
                         tooltip: "Código Web",
                         onTap: () => _showEmbedDialog(bot),
+                      ),
+                      Container(width: 1, height: 20, color: AppColors.borderGlass),
+                      _ActionButton(
+                        icon: Icons.lock_rounded,
+                        color: AppColors.success,
+                        tooltip: "PIN de Acceso",
+                        onTap: () => _showPinDialog(bot),
                       ),
                       Container(width: 1, height: 20, color: AppColors.borderGlass),
                       _ActionButton(
@@ -402,24 +814,56 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
               children: [
                 Expanded(
                   flex: 5,
-                  child: Container(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeInOut,
                     margin: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.3), 
-                      borderRadius: BorderRadius.circular(32), 
-                      border: Border.all(color: AppColors.borderGlass)
+                      color: bot.themeMode == 'light'
+                          ? const Color(0xFFE8EAED)
+                          : const Color(0xFF181818),
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(
+                        color: bot.themeMode == 'light'
+                            ? Colors.black.withValues(alpha: 0.12)
+                            : AppColors.borderGlass,
+                        width: 1.0,
+                      ),
+                      boxShadow: [
+                        if (bot.themeMode == 'light')
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            blurRadius: 28,
+                            spreadRadius: -6,
+                            offset: const Offset(0, 4),
+                          )
+                        else
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
+                          ),
+                        if (bot.themeMode == 'light')
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.06),
+                            blurRadius: 40,
+                            spreadRadius: -8,
+                            offset: Offset.zero,
+                          ),
+                      ],
                     ),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        const RiveBotDisplay(), 
+                        const RiveBotDisplay(),
                         Positioned(
                           top: 24,
                           right: 24,
                           child: StatusIndicator(
-                            isLoading: false, 
-                            isOnline: isOnline, 
-                            moodIndex: currentMoodIndex, 
+                            isLoading: false,
+                            isOnline: isOnline,
+                            moodIndex: currentMoodIndex,
+                            isDarkMode: bot.themeMode == 'dark',
                           ),
                         ),
                       ],
@@ -441,7 +885,13 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                           child: AnimatedSwitcher(
                             duration: const Duration(milliseconds: 300),
                             child: _selectedTab == 0
-                                ? _MonitorPanel(bot: bot, isActive: isActive, ref: ref)
+                                ? _MonitorPanel(
+                                    bot: bot,
+                                    isActive: isActive,
+                                    ref: ref,
+                                    onOpenWppPhoneDialog: () => _showWppPhoneDialog(bot),
+                                    onEnergyToggle: _handleEnergyToggle,
+                                  )
                                 : BotChatConsole(botName: bot.name, botColor: AppColors.primary, botId: bot.id),
                           ),
                         ),
@@ -549,7 +999,6 @@ class _ActionButton extends StatefulWidget {
   final bool isDangerous; 
 
   const _ActionButton({
-    super.key, 
     required this.icon,
     required this.color,
     required this.tooltip,
@@ -712,27 +1161,43 @@ class _MonitorPanel extends StatelessWidget {
   final Bot bot;
   final bool isActive;
   final WidgetRef ref;
+  final VoidCallback? onOpenWppPhoneDialog;
+  final void Function(BuildContext context, String botId)? onEnergyToggle;
 
-  const _MonitorPanel({required this.bot, required this.isActive, required this.ref});
+  const _MonitorPanel({
+    required this.bot,
+    required this.isActive,
+    required this.ref,
+    this.onOpenWppPhoneDialog,
+    this.onEnergyToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _StatCard(title: "CICLO OPERATIVO", valueWidget: AnimatedTicker(value: bot.daysActive.toDouble(), suffix: ' DÍAS', decimals: 0), subValue: "de 30 Días", icon: Icons.calendar_today_rounded, color: AppColors.secondary, progress: bot.cycleProgress),
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderGlass)),
-          child: Column(
-            children: [
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        children: [
+          _StatCard(title: "CICLO OPERATIVO", valueWidget: AnimatedTicker(value: bot.daysActive.toDouble(), suffix: ' DÍAS', decimals: 0), subValue: "de 30 Días", icon: Icons.calendar_today_rounded, color: AppColors.secondary, progress: bot.cycleProgress),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderGlass)),
+            child: Column(
+              children: [
               _ConfigSwitch(
-                label: "ESTADO DE ENERGÍA", 
-                value: isActive, 
-                onChanged: (val) => ref.read(botsProvider.notifier).toggleStatus(bot.id), 
-                activeText: "ACTIVADO", 
-                inactiveText: "DESACTIVADO", 
-                activeColor: AppColors.success
+                label: "ESTADO DE ENERGÍA",
+                value: isActive,
+                onChanged: (val) {
+                  if (onEnergyToggle != null) {
+                    onEnergyToggle!(context, bot.id);
+                  } else {
+                    ref.read(botsProvider.notifier).toggleStatus(bot.id);
+                  }
+                },
+                activeText: "ACTIVADO",
+                inactiveText: "DESACTIVADO",
+                activeColor: AppColors.success,
               ),
               const Divider(height: 32, color: AppColors.borderGlass),
               _ConfigSwitch(
@@ -741,7 +1206,7 @@ class _MonitorPanel extends StatelessWidget {
                 onChanged: (val) => ref.read(botsProvider.notifier).updateOfflineAlert(bot.id, val), 
                 activeText: "NOTIFICAR", 
                 inactiveText: "SILENCIADO", 
-                activeColor: AppColors.success // 1. COLOR VERDE
+                activeColor: AppColors.success
               ),
               const Divider(height: 32, color: AppColors.borderGlass),
               _ConfigSwitch(
@@ -751,10 +1216,221 @@ class _MonitorPanel extends StatelessWidget {
                 activeText: "MODO CLARO", 
                 inactiveText: "MODO OSCURO", 
                 activeColor: Colors.white,
-                activeIcon: Icons.wb_sunny_rounded, // 1. ICONO SOL
-                inactiveIcon: Icons.nightlight_round, // 1. ICONO LUNA
+                activeIcon: Icons.wb_sunny_rounded,
+                inactiveIcon: Icons.nightlight_round,
               ),
-            ],
+              const Divider(height: 32, color: AppColors.borderGlass),
+              _WppSection(
+                bot: bot,
+                ref: ref,
+                onOpenWppPhoneDialog: onOpenWppPhoneDialog,
+              ),
+              const Divider(height: 32, color: AppColors.borderGlass),
+              _BubbleSizeSlider(
+                bot: bot,
+                ref: ref,
+              ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WppSection extends StatelessWidget {
+  final Bot bot;
+  final WidgetRef ref;
+  final VoidCallback? onOpenWppPhoneDialog;
+
+  const _WppSection({
+    required this.bot,
+    required this.ref,
+    this.onOpenWppPhoneDialog,
+  });
+
+  static const Color _wppGreen = Color(0xFF25D366);
+
+  Future<void> _onWppSwitchChanged(bool value) async {
+    final notifier = ref.read(botsProvider.notifier);
+    if (value) {
+      final hasPhone = bot.telefono != null && bot.telefono!.trim().isNotEmpty;
+      if (!hasPhone) {
+        onOpenWppPhoneDialog?.call();
+        return;
+      }
+      await notifier.updateWppConfig(bot.id, true, bot.telefono);
+    } else {
+      await notifier.updateWppConfig(bot.id, false, null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ConfigSwitch(
+          label: "BURBUJA WHATSAPP",
+          value: bot.wpp,
+          onChanged: _onWppSwitchChanged,
+          activeText: "VISIBLE",
+          inactiveText: "OCULTA",
+          activeColor: _wppGreen,
+          activeIcon: Icons.chat_rounded,
+          inactiveIcon: Icons.chat_bubble_outline_rounded,
+        ),
+        if (bot.wpp) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: _wppGreen.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _wppGreen.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.phone_android_rounded, color: _wppGreen.withValues(alpha: 0.9), size: 18),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    bot.telefono ?? "—",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Courier',
+                      fontSize: 14,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: onOpenWppPhoneDialog,
+                  style: TextButton.styleFrom(
+                    foregroundColor: _wppGreen,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text("EDITAR", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// --- CONFIG SWITCH REFACTORIZADO PARA SOPORTAR ICONOS ---
+class _BubbleSizeSlider extends StatefulWidget {
+  final Bot bot;
+  final WidgetRef ref;
+
+  const _BubbleSizeSlider({
+    required this.bot,
+    required this.ref,
+  });
+
+  @override
+  State<_BubbleSizeSlider> createState() => _BubbleSizeSliderState();
+}
+
+class _BubbleSizeSliderState extends State<_BubbleSizeSlider> {
+  late double _currentSize;
+  Timer? _debounceTimer;
+
+  static const double _minSize = 60.0;
+  static const double _maxSize = 100.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentSize = widget.bot.bubbleSize.clamp(_minSize, _maxSize);
+  }
+
+  @override
+  void didUpdateWidget(_BubbleSizeSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.bot.bubbleSize != oldWidget.bot.bubbleSize) {
+      _currentSize = widget.bot.bubbleSize.clamp(_minSize, _maxSize);
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onSizeChanged(double value) {
+    setState(() => _currentSize = value);
+    
+    // Debounce: solo guardar en BD después de 500ms sin cambios
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      widget.ref.read(botsProvider.notifier).updateBubbleSize(widget.bot.id, value);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.circle_outlined, color: AppColors.primary.withValues(alpha: 0.8), size: 20),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                "TAMAÑO DE BURBUJAS",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                "${_currentSize.round()}px",
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontFamily: 'Courier',
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SliderTheme(
+          data: SliderThemeData(
+            activeTrackColor: AppColors.primary.withValues(alpha: 0.8),
+            inactiveTrackColor: AppColors.borderGlass,
+            thumbColor: AppColors.primary,
+            overlayColor: AppColors.primary.withValues(alpha: 0.2),
+            trackHeight: 4,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+          ),
+          child: Slider(
+            value: _currentSize,
+            min: _minSize,
+            max: _maxSize,
+            divisions: 40,
+            onChanged: _onSizeChanged,
           ),
         ),
       ],
@@ -762,7 +1438,6 @@ class _MonitorPanel extends StatelessWidget {
   }
 }
 
-// --- CONFIG SWITCH REFACTORIZADO PARA SOPORTAR ICONOS ---
 class _ConfigSwitch extends StatelessWidget {
   final String label; 
   final bool value; 

@@ -39,12 +39,9 @@ class Billing extends _$Billing {
       final double dollarRate = results[2] as double;
       final int qualifiedBotCount = results[3] as int;
 
-      // 2. Lógica de Negocio (Cálculo de Límites)
-      const double baseLimit = 500.0;
-      const double incrementPerBlock = 500.0;
-      
-      final int blocksOfTen = (qualifiedBotCount / 10).floor(); 
-      final double botsBasedLimit = baseLimit + (blocksOfTen * incrementPerBlock);
+      // 2. Límite = cantidad de bots ACTIVOS × 60 (solo status = 'active')
+      const double limitPerBot = 60.0;
+      final double finalLimit = qualifiedBotCount * limitPerBot;
 
       // 3. Cálculo de Deuda
       double runningBalance = 0.0;
@@ -52,23 +49,11 @@ class Billing extends _$Billing {
         if (tx.type == TransactionType.cycleCharge) runningBalance += tx.amount;
         else if (tx.type == TransactionType.liquidation) {
           runningBalance -= tx.amount;
-          if (runningBalance < 0) runningBalance = 0; 
+          if (runningBalance < 0) runningBalance = 0;
         }
       }
 
-      // 4. Ajuste dinámico de límite basado en deuda (Lógica de expansión de crédito)
-      double adjustedDebt = runningBalance - 25.0; 
-      if (adjustedDebt < 0) adjustedDebt = 0;
-
-      double debtBasedLimit = baseLimit;
-      if (adjustedDebt > baseLimit) {
-         final double debtTiers = (adjustedDebt / incrementPerBlock).ceilToDouble();
-         debtBasedLimit = debtTiers * incrementPerBlock;
-      }
-
-      final double finalLimit = (botsBasedLimit > debtBasedLimit) ? botsBasedLimit : debtBasedLimit;
-
-      // 5. Selección de Tarjeta Principal
+      // 4. Selección de Tarjeta Principal
       CardInfo? primaryCard;
       if (allCards.isNotEmpty) {
         primaryCard = allCards.firstWhere((c) => c.isPrimary, orElse: () => allCards.first);
@@ -90,7 +75,7 @@ class Billing extends _$Billing {
         primaryCard: null, 
         allCards: [], 
         dollarRate: 1200.0, 
-        creditLimit: 500.0 
+        creditLimit: 0.0
       );
     }
   }
