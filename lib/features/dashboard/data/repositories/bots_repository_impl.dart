@@ -11,6 +11,23 @@ class BotsRepositoryImpl implements BotsRepository {
 
   BotsRepositoryImpl(this._supabase);
 
+  /// Maneja errores de Supabase diferenciando entre conexión, auth y errores de DB.
+  Never _handleSupabaseError(Object e, String fallbackMessage) {
+    debugPrint('[BotsRepository] Error: $e');
+    if (e is PostgrestException) {
+      final code = e.code ?? '';
+      if (code.contains('PGRST301') || e.message.toLowerCase().contains('jwt') || e.message.toLowerCase().contains('unauthorized')) {
+        throw Exception('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+      }
+      throw Exception(e.message.isNotEmpty ? e.message : fallbackMessage);
+    }
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('socket') || msg.contains('connection') || msg.contains('timeout') || msg.contains('failed host') || msg.contains('network')) {
+      throw Exception(fallbackMessage);
+    }
+    throw Exception(fallbackMessage);
+  }
+
   @override
   Future<List<Bot>> getBots() async {
     try {
@@ -21,7 +38,7 @@ class BotsRepositoryImpl implements BotsRepository {
       
       return (response as List).map((m) => Bot.fromMap(m)).toList();
     } catch (e) {
-      throw Exception("No pudimos cargar tus bots. Verifica tu conexión a internet.");
+      _handleSupabaseError(e, "No pudimos cargar tus bots. Verifica tu conexión a internet.");
     }
   }
 
@@ -82,7 +99,7 @@ class BotsRepositoryImpl implements BotsRepository {
       
       return Bot.fromMap(response);
     } catch (e) {
-      throw Exception("No pudimos crear el bot. Por favor, intenta nuevamente.");
+      _handleSupabaseError(e, "No pudimos crear el bot. Por favor, intenta nuevamente.");
     }
   }
 
@@ -99,7 +116,7 @@ class BotsRepositoryImpl implements BotsRepository {
         'tech_color': '#${bot.primaryColor.value.toRadixString(16).substring(2).toUpperCase()}',
       }).eq('id', bot.id);
     } catch (e) {
-      throw Exception("No pudimos actualizar el bot. Verifica tu conexión.");
+      _handleSupabaseError(e, "No pudimos actualizar el bot. Verifica tu conexión.");
     }
   }
 
@@ -108,7 +125,7 @@ class BotsRepositoryImpl implements BotsRepository {
     try {
       await _supabase.from('bots').update(data).eq('id', botId);
     } catch (e) {
-       throw Exception("No pudimos guardar los cambios. Verifica tu conexión.");
+      _handleSupabaseError(e, "No pudimos guardar los cambios. Verifica tu conexión.");
     }
   }
 
@@ -117,7 +134,7 @@ class BotsRepositoryImpl implements BotsRepository {
     try {
       await _supabase.from('bots').delete().eq('id', botId);
     } catch (e) {
-      throw Exception("No pudimos eliminar el bot. Por favor, intenta nuevamente.");
+      _handleSupabaseError(e, "No pudimos eliminar el bot. Por favor, intenta nuevamente.");
     }
   }
 }

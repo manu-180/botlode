@@ -6,7 +6,9 @@ import 'package:botslode/features/bots_library/presentation/views/bots_library_v
 import 'package:botslode/features/dashboard/presentation/views/bot_detail_view.dart';
 import 'package:botslode/features/dashboard/presentation/views/dashboard_view.dart';
 import 'package:botslode/features/dashboard/presentation/views/main_layout.dart';
+import 'package:botslode/features/hunter_bot/presentation/views/hunter_view.dart';
 import 'package:botslode/features/settings/presentation/views/settings_view.dart';
+import 'package:botslode/features/store/presentation/views/store_view.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -96,6 +98,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/settings',
                 name: SettingsView.routeName,
                 pageBuilder: (context, state) => const NoTransitionPage(child: SettingsView()),
+              ),
+            ],
+          ),
+          // RAMA 5: STORE (TIENDA)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/store',
+                name: StoreView.routeName,
+                pageBuilder: (context, state) => const NoTransitionPage(child: StoreView()),
+              ),
+            ],
+          ),
+          // RAMA 6: HUNTER BOT
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/hunter',
+                name: HunterView.routeName,
+                pageBuilder: (context, state) => const NoTransitionPage(child: HunterView()),
               ),
             ],
           ),

@@ -26,7 +26,7 @@ class DashboardView extends ConsumerWidget {
 
     final billingState = billingAsync.valueOrNull;
     final totalDebt = billingState?.totalDebt ?? 0.0;
-    final limit = billingState?.creditLimit ?? 500.0;
+    final limit = billingState?.creditLimit ?? 0.0;
     final dollarRate = billingState?.dollarRate ?? 1200.0;
     
     final statusColor = billingState?.statusColor ?? AppColors.primary;

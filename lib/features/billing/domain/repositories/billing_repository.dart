@@ -12,7 +12,7 @@ abstract class BillingRepository {
   /// Obtiene la cotización del Dólar Blue (para referencia UI).
   Future<double> getDolarBlueRate();
 
-  /// Cuenta los bots activos o en mantenimiento para calcular el límite de crédito.
+  /// Cuenta solo los bots con status = 'active' para calcular el límite del pozo (activos × 60).
   Future<int> getQualifiedBotCount();
 
   /// Actualiza el límite de autopago de una tarjeta específica.
