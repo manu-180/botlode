@@ -55,6 +55,12 @@ class HunterState {
   int get failedCount => stats['failed'] ?? 0;
   int get totalCount => stats['total'] ?? 0;
   int get emailsFoundCount => stats['emails_found'] ?? 0;
+  /// Escaneados + en cola + enviando (para que TOTAL = PEND + ENVÍO + FAIL + otherCount)
+  int get otherCount =>
+      (stats['scraping'] ?? 0) +
+      (stats['scraped'] ?? 0) +
+      (stats['queued_for_send'] ?? 0) +
+      (stats['sending'] ?? 0);
 }
 
 /// Notifier para manejar el estado del HunterBot
@@ -108,7 +114,9 @@ class HunterNotifier extends StateNotifier<HunterState> {
     });
   }
   
-  /// Refresca las estadísticas (con throttle de 3s)
+  /// Refresca las estadísticas (con throttle de 3s).
+  /// ENVÍO (sent) nunca baja en pantalla: si el servidor devuelve menos por
+  /// un snapshot viejo o replicación, se mantiene el máximo para no confundir.
   Future<void> _refreshStats() async {
     // Throttle: no actualizar si se actualizó hace menos de 3 segundos
     final now = DateTime.now();
@@ -122,8 +130,15 @@ class HunterNotifier extends StateNotifier<HunterState> {
     _lastStatsUpdate = now;
     
     final repo = _ref.read(hunterRepositoryProvider);
-    final stats = await repo.getStats();
-    state = state.copyWith(stats: stats);
+    final newStats = await repo.getStats();
+    // Que ENVÍO nunca disminuya (evita flicker por snapshots/replicación atrasada)
+    final currentSent = state.stats['sent'] ?? 0;
+    final serverSent = newStats['sent'] ?? 0;
+    final merged = Map<String, int>.from(newStats);
+    if (serverSent < currentSent) {
+      merged['sent'] = currentSent;
+    }
+    state = state.copyWith(stats: merged);
   }
   
   /// Guarda la configuración

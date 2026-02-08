@@ -88,102 +88,327 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
   }
 
   // --- DIÁLOGOS ---
+  /// Código completo del embed (igual que botlode_web / APEX): iframe + hitzones + script.
   void _showEmbedDialog(Bot bot) {
-    final String embedCode = '''<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        #botlode-wrapper { position: fixed; bottom: 35px; right: 35px; z-index: 9999; }
-        
-        #backdrop {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            display: none; z-index: 9998;
-        }
+    final String baseUrl = AppConfig.playerBaseUrl;
+    final String botId = bot.id;
+    final String embedCode = '''
+  <!-- BotLode - Burbuja flotante embebida -->
+  <!-- Pegar antes del </body> en cualquier HTML -->
 
-        #botlode-iframe { 
-            position: absolute; 
-            width: 450px; 
-            height: 750px; 
-            max-height: 85vh; 
-            bottom: -40px; 
-            right: -40px; 
-            border: none; 
-            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); 
-            pointer-events: auto;
-        }
-        
-        #botlode-wrapper.expanded #botlode-iframe { 
-            width: 400px; 
-            bottom: 0; right: 0; 
-            border-radius: 28px; 
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5); 
-        }
-        body.chat-open #backdrop { display: block; }
-    </style>
-</head>
-<body>
-    <div id="backdrop"></div>
-    <div id="botlode-wrapper">
-        <iframe 
-            id="botlode-iframe" 
-            src="${AppConfig.playerBaseUrl}/?botId=${bot.id}" 
-            allow="microphone; clipboard-write"
-        ></iframe>
-    </div>
-    <script>
-        const wrapper = document.getElementById('botlode-wrapper');
-        const iframe = document.getElementById('botlode-iframe');
-        const backdrop = document.getElementById('backdrop');
+  <style>
+    #botlode-player {
+      background: none !important;
+      background-color: transparent !important;
+      -webkit-background-color: transparent !important;
+      touch-action: manipulation !important;
+      -webkit-tap-highlight-color: transparent !important;
+    }
+  </style>
 
-        // 1. RASTREO DE MOUSE GLOBAL (Coordenadas relativas al iframe)
-        document.addEventListener('mousemove', (e) => {
-            try {
-                const iframeRect = iframe.getBoundingClientRect();
-                const relativeX = e.clientX - iframeRect.left;
-                const relativeY = e.clientY - iframeRect.top;
-                iframe.contentWindow.postMessage({
-                    type: 'MOUSE_MOVE',
-                    x: relativeX,
-                    y: relativeY
-                }, '*');
-            } catch (err) {}
+  <link rel="preconnect" href="$baseUrl">
+  <link rel="dns-prefetch" href="$baseUrl">
+
+  <iframe
+    id="botlode-player"
+    src="$baseUrl?botId=$botId&v=2.6"
+    style="
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: 140px;
+      height: 140px;
+      border: none;
+      z-index: 100001;
+      pointer-events: none;
+      background: transparent !important;
+      opacity: 1;
+      will-change: width, height;
+      transform: translateZ(0);
+      touch-action: manipulation;
+    "
+    allow="clipboard-write"
+    loading="eager"
+    allowtransparency="true">
+  </iframe>
+
+  <div id="botlode-hitzone-bot" style="
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 100px;
+    height: 100px;
+    z-index: 100002;
+    pointer-events: auto;
+    cursor: pointer;
+    border-radius: 50%;
+  "></div>
+
+  <div id="botlode-hitzone-wpp" style="
+    position: fixed;
+    bottom: 168px;
+    right: 28px;
+    width: 100px;
+    height: 100px;
+    z-index: 100002;
+    pointer-events: auto;
+    cursor: pointer;
+    border-radius: 50%;
+    display: none;
+  "></div>
+
+  <script>
+  (function() {
+    const iframe = document.getElementById('botlode-player');
+    const hitzoneBotEl = document.getElementById('botlode-hitzone-bot');
+    const hitzoneWppEl = document.getElementById('botlode-hitzone-wpp');
+    if (!iframe) return;
+
+    let isExpanded = false;
+    let isAnimatingBubble = false;
+    const BUBBLE_HEIGHT_SOLO_BOT = 140;
+    const BUBBLE_HEIGHT_WITH_WPP = 290;
+    let bubbleHeight = BUBBLE_HEIGHT_SOLO_BOT;
+
+    function forwardEventToIframe(event, eventType) {
+      try {
+        if (!iframe.contentWindow) return;
+        const iframeRect = iframe.getBoundingClientRect();
+        iframe.contentWindow.postMessage({
+          type: eventType,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          iframeX: iframeRect.left,
+          iframeY: iframeRect.top,
+        }, '*');
+      } catch (e) {}
+    }
+
+    if (hitzoneBotEl) {
+      hitzoneBotEl.addEventListener('click', function(e) {
+        forwardEventToIframe(e, 'HITZONE_CLICK_BOT');
+      });
+      hitzoneBotEl.addEventListener('mouseenter', function(e) {
+        forwardEventToIframe(e, 'HITZONE_ENTER_BOT');
+      });
+      hitzoneBotEl.addEventListener('mouseleave', function(e) {
+        forwardEventToIframe(e, 'HITZONE_LEAVE_BOT');
+      });
+    }
+
+    if (hitzoneWppEl) {
+      hitzoneWppEl.addEventListener('click', function(e) {
+        forwardEventToIframe(e, 'HITZONE_CLICK_WPP');
+      });
+    }
+
+    function updateHitzones(show) {
+      if (hitzoneBotEl) hitzoneBotEl.style.display = show ? 'block' : 'none';
+    }
+
+    function updateWppHitzone(show) {
+      if (hitzoneWppEl) hitzoneWppEl.style.display = show ? 'block' : 'none';
+    }
+
+    function isNarrowScreen() {
+      return window.innerWidth < 600;
+    }
+
+    function applyBubblePosition() {
+      iframe.style.left = 'auto';
+      iframe.style.top = 'auto';
+      iframe.style.right = '16px';
+      iframe.style.bottom = '16px';
+      iframe.style.width = '140px';
+      iframe.style.height = bubbleHeight + 'px';
+    }
+
+    const T = {
+      closeFadeOut: 120,
+      closeWaitChat: 380,
+      pauseBeforeEntrance: 100,
+      entranceDelay: 60,
+      entranceMain: 380,
+      entranceBounce2: 180,
+      entranceSettle: 120,
+      resetAfter: 80
+    };
+
+    function animateBubbleEntrance() {
+      isAnimatingBubble = true;
+      iframe.style.opacity = '0';
+      iframe.style.transform = 'translateZ(0) scale(0.3) rotate(-15deg)';
+      iframe.style.filter = 'blur(8px) brightness(2)';
+
+      setTimeout(function() {
+        iframe.style.transition = 'opacity ' + (T.entranceMain * 0.4) + 'ms cubic-bezier(0.34, 1.56, 0.64, 1), transform ' + T.entranceMain + 'ms cubic-bezier(0.34, 1.56, 0.64, 1), filter ' + (T.entranceMain * 0.5) + 'ms ease-out';
+        requestAnimationFrame(function() {
+          iframe.style.opacity = '1';
+          iframe.style.transform = 'translateZ(0) scale(1.1) rotate(3deg)';
+          iframe.style.filter = 'blur(0px) brightness(1.3)';
         });
-        
-        document.addEventListener('mouseleave', () => {
-            try {
-                iframe.contentWindow.postMessage({
-                    type: 'MOUSE_LEAVE'
-                }, '*');
-            } catch (err) {}
-        });
 
-        // 2. ESCUCHA DE EVENTOS DE FLUTTER
-        window.addEventListener('message', (event) => {
-            const cmd = event.data;
-            if (cmd === 'CMD_CLOSE') closeChat();
-            if (cmd === 'CMD_OPEN') openChat();
-        });
+        setTimeout(function() {
+          iframe.style.transition = 'transform ' + T.entranceBounce2 + 'ms cubic-bezier(0.25, 0.46, 0.45, 0.94), filter ' + T.entranceBounce2 + 'ms ease-out';
+          iframe.style.transform = 'translateZ(0) scale(0.95) rotate(-1deg)';
+          iframe.style.filter = 'blur(0px) brightness(1.1)';
 
-        function openChat() {
-            wrapper.classList.add('expanded');
-            document.body.classList.add('chat-open');
-            setTimeout(() => { 
-                iframe.contentWindow.postMessage('CMD_OPEN', '*'); 
-            }, 100);
+          setTimeout(function() {
+            iframe.style.transition = 'transform ' + T.entranceSettle + 'ms ease-out, filter ' + T.entranceSettle + 'ms ease-out';
+            iframe.style.transform = 'translateZ(0) scale(1) rotate(0deg)';
+            iframe.style.filter = 'blur(0px) brightness(1)';
+            setTimeout(function() {
+              iframe.style.transition = '';
+              iframe.style.filter = '';
+              isAnimatingBubble = false;
+            }, T.resetAfter);
+          }, T.entranceBounce2 * 0.6);
+        }, T.entranceMain);
+      }, T.entranceDelay);
+    }
+
+    window.addEventListener('message', function(event) {
+      const data = event.data;
+
+      if (data === 'CMD_OPEN') {
+        if (!isExpanded) {
+          isAnimatingBubble = false;
+          iframe.style.filter = '';
+          iframe.style.opacity = '1';
+          iframe.style.transform = 'translateZ(0)';
+          iframe.style.transition = 'none';
+          iframe.style.pointerEvents = 'auto';
+          updateHitzones(false);
+          updateWppHitzone(false);
+          if (isNarrowScreen()) {
+            iframe.style.left = '0';
+            iframe.style.top = '0';
+            iframe.style.right = '0';
+            iframe.style.bottom = '0';
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+          } else {
+            iframe.style.left = 'auto';
+            iframe.style.top = 'auto';
+            iframe.style.right = '16px';
+            iframe.style.bottom = '16px';
+            iframe.style.width = '450px';
+            iframe.style.height = 'calc(100vh - 32px)';
+          }
+          iframe.offsetHeight;
+          isExpanded = true;
         }
+      } else if (data === 'CMD_CLOSE') {
+        if (isExpanded) {
+          iframe.style.transition = 'opacity ' + (T.closeFadeOut / 1000) + 's ease-out';
+          iframe.style.opacity = '0';
+          iframe.style.pointerEvents = 'none';
+          updateHitzones(true);
 
-        function closeChat() {
-            wrapper.classList.remove('expanded');
-            document.body.classList.remove('chat-open');
-            iframe.contentWindow.postMessage('CMD_CLOSE', '*');
+          setTimeout(function() {
+            iframe.style.transition = 'none';
+            if (isNarrowScreen()) {
+              applyBubblePosition();
+            } else {
+              iframe.style.width = '140px';
+              iframe.style.height = bubbleHeight + 'px';
+            }
+            iframe.offsetHeight;
+            setTimeout(animateBubbleEntrance, T.pauseBeforeEntrance);
+          }, T.closeWaitChat);
+
+          isExpanded = false;
         }
-        
-        backdrop.addEventListener('click', closeChat);
-    </script>
-</body>
-</html>''';
+      } else if (data === 'CMD_WPP_VISIBLE') {
+        bubbleHeight = BUBBLE_HEIGHT_WITH_WPP;
+        updateWppHitzone(true);
+        if (!isExpanded) {
+          iframe.style.transition = 'height 0.25s ease-out';
+          iframe.style.width = '140px';
+          iframe.style.height = BUBBLE_HEIGHT_WITH_WPP + 'px';
+        }
+      } else if (data === 'CMD_WPP_HIDDEN') {
+        bubbleHeight = BUBBLE_HEIGHT_SOLO_BOT;
+        updateWppHitzone(false);
+        if (!isExpanded) {
+          iframe.style.transition = 'height 0.25s ease-out';
+          iframe.style.width = '140px';
+          iframe.style.height = BUBBLE_HEIGHT_SOLO_BOT + 'px';
+        }
+      } else if (data === 'CMD_HOVER_START') {
+        if (!isExpanded && !isAnimatingBubble) {
+          iframe.style.transition = 'width 0.25s ease-out, height 0.25s ease-out';
+          requestAnimationFrame(function() {
+            iframe.style.width = '350px';
+            iframe.style.height = bubbleHeight + 'px';
+          });
+        }
+      } else if (data === 'CMD_HOVER_END') {
+        if (!isExpanded && !isAnimatingBubble) {
+          iframe.style.transition = 'width 0.25s ease-in, height 0.25s ease-in';
+          requestAnimationFrame(function() {
+            iframe.style.width = '140px';
+            iframe.style.height = bubbleHeight + 'px';
+          });
+        }
+      }
+    });
+
+    let lastMouseUpdate = 0;
+    const MOUSE_THROTTLE_MS = 16;
+
+    function onMouseMove(event) {
+      const now = Date.now();
+      if (now - lastMouseUpdate < MOUSE_THROTTLE_MS) return;
+      lastMouseUpdate = now;
+      try {
+        if (!iframe.contentWindow) return;
+        const iframeRect = iframe.getBoundingClientRect();
+        iframe.contentWindow.postMessage({
+          type: 'MOUSE_MOVE',
+          x: event.clientX,
+          y: event.clientY,
+          iframeX: iframeRect.left,
+          iframeY: iframeRect.top,
+          iframeWidth: iframeRect.width,
+          iframeHeight: iframeRect.height
+        }, '*');
+      } catch (e) {}
+    }
+
+    function onMouseLeave() {
+      try {
+        if (iframe.contentWindow) {
+          iframe.contentWindow.postMessage({ type: 'MOUSE_LEAVE' }, '*');
+        }
+      } catch (e) {}
+    }
+
+    document.addEventListener('mousemove', onMouseMove, true);
+    document.addEventListener('mouseleave', onMouseLeave, true);
+    document.documentElement.addEventListener('mouseleave', onMouseLeave, true);
+
+    function updateHitzonePositions() {
+      const isMobile = window.innerWidth < 600;
+      const padBottom = isMobile ? 12 : 28;
+      const padRight = isMobile ? 16 : 28;
+      const bubbleSize = 100;
+      const gap = 12;
+      if (hitzoneBotEl) {
+        hitzoneBotEl.style.bottom = (padBottom + 16) + 'px';
+        hitzoneBotEl.style.right = (padRight + 4) + 'px';
+      }
+      if (hitzoneWppEl) {
+        hitzoneWppEl.style.bottom = (padBottom + 16 + bubbleSize + gap) + 'px';
+        hitzoneWppEl.style.right = (padRight + 4) + 'px';
+      }
+    }
+
+    updateHitzonePositions();
+    window.addEventListener('resize', updateHitzonePositions);
+  })();
+  </script>
+''';
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

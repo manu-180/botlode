@@ -92,16 +92,17 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
     );
   }
   
-  /// Layout para pantallas anchas (dos columnas)
+  /// Layout para pantallas anchas (dos columnas).
+  /// Izquierda con más peso para stats y tabla; logs más estrecho pero legible.
   Widget _buildWideLayout(HunterState state, double padding) {
     return Padding(
       padding: EdgeInsets.all(padding),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // PANEL IZQUIERDO (Control del Bot + Stats + Tabla)
+          // PANEL IZQUIERDO (Control del Bot + Stats + Tabla) — más terreno
           Expanded(
-            flex: 1,
+            flex: 5,
             child: Column(
               children: [
                 const BotControlButton(),
@@ -117,9 +118,9 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
           
           SizedBox(width: padding),
           
-          // PANEL DERECHO (Logs)
+          // PANEL DERECHO (Logs) — más flaco, suficiente para leer
           const Expanded(
-            flex: 1,
+            flex: 3,
             child: RealtimeLogs(),
           ),
         ],
@@ -355,8 +356,12 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
   Widget _buildStatsPanel(HunterState state) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Si el ancho es menor a 500px, usar layout compacto (2x2 grid)
-        if (constraints.maxWidth < 500) {
+        // Evitar constraints inválidos (ancho 0 o negativo)
+        final maxW = constraints.maxWidth.isFinite && constraints.maxWidth > 0
+            ? constraints.maxWidth
+            : 400.0;
+        // Si el ancho es menor a 500px, usar layout compacto (2x2 + 1)
+        if (maxW < 500) {
           return Column(
             children: [
               Row(
@@ -374,21 +379,33 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
                   _buildStatCardCompact('FAIL', state.failedCount.toString(), Icons.error_outline, AppColors.error),
                 ],
               ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _buildStatCardCompact('Repetidos', state.otherCount.toString(), Icons.search, AppColors.primary),
+                ],
+              ),
             ],
           );
         }
         
-        // Layout normal
-        return Row(
-          children: [
-            _buildStatCard('TOTAL', state.totalCount.toString(), Icons.list_alt, AppColors.textSecondary),
+        // Layout normal: todas las cards con el mismo ancho (flex: 1).
+        // Solo limitamos maxWidth para no forzar mínimo y evitar constraints inválidos.
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxW),
+          child: Row(
+            children: [
+              _buildStatCard('TOTAL', state.totalCount.toString(), Icons.list_alt, AppColors.textSecondary, flex: 1),
             const SizedBox(width: 8),
-            _buildStatCard('PEND', state.pendingCount.toString(), Icons.schedule, AppColors.warning),
+            _buildStatCard('PEND', state.pendingCount.toString(), Icons.schedule, AppColors.warning, flex: 1),
             const SizedBox(width: 8),
-            _buildStatCard('ENVÍO', state.sentCount.toString(), Icons.done_all, AppColors.success),
+            _buildStatCard('ENVÍO', state.sentCount.toString(), Icons.done_all, AppColors.success, flex: 1),
             const SizedBox(width: 8),
-            _buildStatCard('FAIL', state.failedCount.toString(), Icons.error_outline, AppColors.error),
-          ],
+            _buildStatCard('FAIL', state.failedCount.toString(), Icons.error_outline, AppColors.error, flex: 1),
+            const SizedBox(width: 8),
+            _buildStatCard('Repetidos', state.otherCount.toString(), Icons.search, AppColors.primary, flex: 1, tooltip: 'En cola, escaneando o enviando'),
+            ],
+          ),
         );
       },
     );
@@ -434,25 +451,28 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
     );
   }
   
-  /// Stat card normal (layout horizontal con icono y texto)
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.2)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: color, size: 16),
-                const SizedBox(width: 6),
-                Text(
+  /// Stat card normal: mismo tamaño para todas (flex). Sin width infinito para evitar BoxConstraints inválidos.
+  /// Tooltip va DENTRO del Expanded para que Expanded sea siempre hijo directo del Row (evita ParentDataWidget).
+  Widget _buildStatCard(String label, String value, IconData icon, Color color, {String? tooltip, int flex = 1}) {
+    final content = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
                   value,
                   style: TextStyle(
                     color: color,
@@ -460,23 +480,31 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
                     fontWeight: FontWeight.bold,
                     fontFamily: 'Oxanium',
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: AppColors.textSecondary.withOpacity(0.6),
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-                fontFamily: 'Oxanium',
               ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: AppColors.textSecondary.withOpacity(0.6),
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+              fontFamily: 'Oxanium',
             ),
-          ],
-        ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
+    );
+    return Expanded(
+      flex: flex,
+      child: tooltip != null
+          ? Tooltip(message: tooltip, child: content)
+          : content,
     );
   }
   
