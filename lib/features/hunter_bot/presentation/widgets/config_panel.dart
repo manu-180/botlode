@@ -23,9 +23,6 @@ class _ConfigPanelState extends ConsumerState<ConfigPanel> {
   late TextEditingController _fromEmailController;
   late TextEditingController _fromNameController;
   late TextEditingController _calendarLinkController;
-  late TextEditingController _nichoController;
-  late TextEditingController _ciudadesController;
-  late TextEditingController _paisController;
   
   bool _isApiKeyVisible = false;
   bool _isSaving = false;
@@ -39,11 +36,6 @@ class _ConfigPanelState extends ConsumerState<ConfigPanel> {
     _fromEmailController = TextEditingController(text: config?.fromEmail ?? '');
     _fromNameController = TextEditingController(text: config?.fromName ?? 'Mi Empresa');
     _calendarLinkController = TextEditingController(text: config?.calendarLink ?? '');
-    _nichoController = TextEditingController(text: config?.nicho ?? 'inmobiliarias');
-    _ciudadesController = TextEditingController(
-      text: config?.ciudades.join(', ') ?? 'Buenos Aires, Córdoba, Rosario'
-    );
-    _paisController = TextEditingController(text: config?.pais ?? 'Argentina');
   }
 
   @override
@@ -52,9 +44,6 @@ class _ConfigPanelState extends ConsumerState<ConfigPanel> {
     _fromEmailController.dispose();
     _fromNameController.dispose();
     _calendarLinkController.dispose();
-    _nichoController.dispose();
-    _ciudadesController.dispose();
-    _paisController.dispose();
     super.dispose();
   }
 
@@ -149,14 +138,14 @@ class _ConfigPanelState extends ConsumerState<ConfigPanel> {
                         child: Row(
                           children: [
                             Icon(
-                              Icons.info_outline,
+                              Icons.auto_awesome,
                               color: AppColors.success,
                               size: 20,
                             ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'El bot buscará dominios en Google automáticamente',
+                                'El bot rotará automáticamente entre 50+ nichos y 100+ ciudades de Latinoamérica para encontrar la mayor cantidad de leads posibles',
                                 style: TextStyle(
                                   color: AppColors.textSecondary,
                                   fontSize: 12,
@@ -168,27 +157,44 @@ class _ConfigPanelState extends ConsumerState<ConfigPanel> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _buildTextField(
-                        controller: _nichoController,
-                        label: 'Nicho / Industria',
-                        hint: 'inmobiliarias, agencias de marketing, etc.',
-                        icon: Icons.business_outlined,
-                        helperText: 'Qué tipo de negocios buscar',
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: _ciudadesController,
-                        label: 'Ciudades (separadas por coma)',
-                        hint: 'Buenos Aires, Córdoba, Rosario',
-                        icon: Icons.location_city_outlined,
-                        helperText: 'Más ciudades = más resultados',
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: _paisController,
-                        label: 'País',
-                        hint: 'Argentina',
-                        icon: Icons.flag_outlined,
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.borderGlass),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.public, color: AppColors.success, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Cobertura Geográfica',
+                                    style: TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'Oxanium',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '17 países de Latinoamérica • 100+ ciudades principales',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 11,
+                                      fontFamily: 'Oxanium',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -544,22 +550,11 @@ class _ConfigPanelState extends ConsumerState<ConfigPanel> {
     try {
       final currentConfig = ref.read(hunterProvider).config;
       
-      // Parsear ciudades (separadas por coma)
-      final ciudadesStr = _ciudadesController.text.trim();
-      final ciudades = ciudadesStr
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-      
       final newConfig = (currentConfig ?? HunterConfig.empty('')).copyWith(
         resendApiKey: _apiKeyController.text.trim(),
         fromEmail: _fromEmailController.text.trim(),
         fromName: _fromNameController.text.trim(),
         calendarLink: _calendarLinkController.text.trim(),
-        nicho: _nichoController.text.trim(),
-        ciudades: ciudades.isNotEmpty ? ciudades : ['Buenos Aires'],
-        pais: _paisController.text.trim(),
         isActive: true,
       );
       
@@ -573,7 +568,7 @@ class _ConfigPanelState extends ConsumerState<ConfigPanel> {
           context,
           title: '¡HUNTER BOT CONFIGURADO!',
           message: 'Tu configuración ha sido guardada correctamente. Activa el bot para comenzar a buscar dominios automáticamente.',
-          subtitle: 'Nicho: ${_nichoController.text.trim()} en ${_paisController.text.trim()}',
+          subtitle: 'Rotación automática entre 50+ nichos y 100+ ciudades',
         );
       }
     } catch (e) {

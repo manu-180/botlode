@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
-import 'package:botslode/core/ui/widgets/page_title.dart';
 import 'package:botslode/features/store/domain/models/store_product.dart';
 import 'package:botslode/features/store/presentation/widgets/product_card.dart';
 
