@@ -4,6 +4,7 @@ import 'package:botslode/features/billing/presentation/views/billing_view.dart';
 import 'package:botslode/features/bots_library/presentation/views/bots_library_view.dart';
 import 'package:botslode/features/dashboard/presentation/views/dashboard_view.dart';
 import 'package:botslode/features/hunter_bot/presentation/views/hunter_view.dart';
+import 'package:botslode/features/seeder_bot/presentation/views/seeder_view.dart';
 import 'package:botslode/features/settings/presentation/views/settings_view.dart';
 import 'package:botslode/features/store/presentation/views/store_view.dart';
 import 'package:flutter/material.dart';
@@ -71,6 +72,13 @@ class Sidebar extends StatelessWidget {
             label: "HUNTER",
             isActive: location == '/hunter',
             onTap: () => context.goNamed(HunterView.routeName),
+          ),
+          const SizedBox(height: 24),
+          _SidebarItem(
+            icon: FontAwesomeIcons.seedling,
+            label: "SEEDER",
+            isActive: location == '/seeder',
+            onTap: () => context.goNamed(SeederView.routeName),
           ),
           
           const Spacer(),
