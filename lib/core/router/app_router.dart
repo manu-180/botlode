@@ -7,6 +7,7 @@ import 'package:botslode/features/dashboard/presentation/views/bot_detail_view.d
 import 'package:botslode/features/dashboard/presentation/views/dashboard_view.dart';
 import 'package:botslode/features/dashboard/presentation/views/main_layout.dart';
 import 'package:botslode/features/hunter_bot/presentation/views/hunter_view.dart';
+import 'package:botslode/features/seeder_bot/presentation/views/seeder_view.dart';
 import 'package:botslode/features/settings/presentation/views/settings_view.dart';
 import 'package:botslode/features/store/presentation/views/store_view.dart';
 import 'package:flutter/foundation.dart';
@@ -118,6 +119,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/hunter',
                 name: HunterView.routeName,
                 pageBuilder: (context, state) => const NoTransitionPage(child: HunterView()),
+              ),
+            ],
+          ),
+          // RAMA 7: SEEDER BOT
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/seeder',
+                name: SeederView.routeName,
+                pageBuilder: (context, state) => const NoTransitionPage(child: SeederView()),
               ),
             ],
           ),
