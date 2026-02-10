@@ -25,64 +25,68 @@ class Sidebar extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 32),
-          
-          // LOGO FLOTANTE (REDUCCIÓN TÁCTICA DE TAMAÑO)
+          // Logo fijo arriba
           SizedBox(
-            width: 40, 
+            width: 40,
             height: 40,
             child: Image.asset(
               'assets/icon/botlode_logo.png',
               fit: BoxFit.contain,
             ),
           ),
-          
-          const SizedBox(height: 48),
-
-          // ÍTEMS DE NAVEGACIÓN
-          _SidebarItem(
-            icon: FontAwesomeIcons.robot,
-            label: "BOTS",
-            isActive: location.startsWith('/dashboard') || location == '/',
-            onTap: () => context.goNamed(DashboardView.routeName),
+          const SizedBox(height: 32),
+          // Zona central scrolleable (evita overflow)
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _SidebarItem(
+                    icon: FontAwesomeIcons.robot,
+                    label: "BOTS",
+                    isActive: location.startsWith('/dashboard') || location == '/',
+                    onTap: () => context.goNamed(DashboardView.routeName),
+                  ),
+                  const SizedBox(height: 24),
+                  _SidebarItem(
+                    icon: Icons.layers_sharp,
+                    label: "PROTOTIPOS",
+                    isActive: location.startsWith('/bots'),
+                    onTap: () => context.goNamed(BotsLibraryView.routeName),
+                  ),
+                  const SizedBox(height: 24),
+                  _SidebarItem(
+                    icon: Icons.credit_card_rounded,
+                    label: "PAGOS",
+                    isActive: location == '/billing',
+                    onTap: () => context.goNamed(BillingView.routeName),
+                  ),
+                  const SizedBox(height: 24),
+                  _SidebarItem(
+                    icon: FontAwesomeIcons.store,
+                    label: "TIENDA",
+                    isActive: location == '/store',
+                    onTap: () => context.goNamed(StoreView.routeName),
+                  ),
+                  const SizedBox(height: 24),
+                  _SidebarItem(
+                    icon: FontAwesomeIcons.crosshairs,
+                    label: "HUNTER",
+                    isActive: location == '/hunter',
+                    onTap: () => context.goNamed(HunterView.routeName),
+                  ),
+                  const SizedBox(height: 24),
+                  _SidebarItem(
+                    icon: FontAwesomeIcons.seedling,
+                    label: "SEEDER",
+                    isActive: location == '/seeder',
+                    onTap: () => context.goNamed(SeederView.routeName),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 24),
-          _SidebarItem(
-            icon: Icons.layers_sharp, 
-            label: "PROTOTIPOS", 
-            isActive: location.startsWith('/bots'), 
-            onTap: () => context.goNamed(BotsLibraryView.routeName),
-          ),
-          const SizedBox(height: 24),
-          _SidebarItem(
-            icon: Icons.credit_card_rounded,
-            label: "PAGOS",
-            isActive: location == '/billing',
-            onTap: () => context.goNamed(BillingView.routeName),
-          ),
-          const SizedBox(height: 24),
-          _SidebarItem(
-            icon: FontAwesomeIcons.store,
-            label: "TIENDA",
-            isActive: location == '/store',
-            onTap: () => context.goNamed(StoreView.routeName),
-          ),
-          const SizedBox(height: 24),
-          _SidebarItem(
-            icon: FontAwesomeIcons.crosshairs,
-            label: "HUNTER",
-            isActive: location == '/hunter',
-            onTap: () => context.goNamed(HunterView.routeName),
-          ),
-          const SizedBox(height: 24),
-          _SidebarItem(
-            icon: FontAwesomeIcons.seedling,
-            label: "SEEDER",
-            isActive: location == '/seeder',
-            onTap: () => context.goNamed(SeederView.routeName),
-          ),
-          
-          const Spacer(),
-          
+          // AJUSTES fijo abajo
           _SidebarItem(
             icon: Icons.settings_rounded,
             label: "AJUSTES",

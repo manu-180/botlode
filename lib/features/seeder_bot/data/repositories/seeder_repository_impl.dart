@@ -8,7 +8,9 @@ import 'package:botslode/features/seeder_bot/domain/repositories/seeder_reposito
 class SeederRepositoryImpl implements SeederRepository {
   final SupabaseClient _supabase;
   final _logsController = StreamController<List<SeederLogEntry>>.broadcast();
+  final _statsInvalidatedController = StreamController<void>.broadcast();
   RealtimeChannel? _logsChannel;
+  RealtimeChannel? _targetsChannel;
 
   SeederRepositoryImpl(this._supabase) {
     _initializeRealtimeSubscriptions();
@@ -25,6 +27,33 @@ class SeederRepositoryImpl implements SeederRepository {
             final logs = await getLogs(limit: 100);
             if (!_logsController.isClosed) {
               _logsController.add(logs);
+            }
+            if (!_statsInvalidatedController.isClosed) {
+              _statsInvalidatedController.add(null);
+            }
+          },
+        )
+        .subscribe();
+
+    _targetsChannel = _supabase
+        .channel('seeder_propagation_targets')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'propagation_targets',
+          callback: (_) {
+            if (!_statsInvalidatedController.isClosed) {
+              _statsInvalidatedController.add(null);
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'propagation_targets',
+          callback: (_) {
+            if (!_statsInvalidatedController.isClosed) {
+              _statsInvalidatedController.add(null);
             }
           },
         )
@@ -54,10 +83,14 @@ class SeederRepositoryImpl implements SeederRepository {
   Future<void> updateBotEnabled(bool enabled) async {
     final config = await getConfig();
     if (config == null) return;
-    await _supabase.from('seeder_config').update({
+    final payload = <String, dynamic>{
       'bot_enabled': enabled,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', config.id);
+    };
+    if (enabled) {
+      payload['run_now'] = true;
+    }
+    await _supabase.from('seeder_config').update(payload).eq('id', config.id);
   }
 
   @override
@@ -101,13 +134,18 @@ class SeederRepositoryImpl implements SeederRepository {
   }
 
   @override
+  Stream<void> watchStatsInvalidated() => _statsInvalidatedController.stream;
+
+  @override
   Future<bool> hasSeederBotAccess() async {
-    // Visible para todos los autenticados
     return _supabase.auth.currentUser != null;
   }
 
+  @override
   void dispose() {
     _logsChannel?.unsubscribe();
+    _targetsChannel?.unsubscribe();
     _logsController.close();
+    _statsInvalidatedController.close();
   }
 }
