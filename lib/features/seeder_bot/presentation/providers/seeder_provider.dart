@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:botslode/features/seeder_bot/domain/models/seeder_config.dart';
 import 'package:botslode/features/seeder_bot/presentation/providers/seeder_repository_provider.dart';
@@ -45,6 +46,7 @@ class SeederState {
 /// Notifier del Seeder Bot
 class SeederNotifier extends StateNotifier<SeederState> {
   final Ref _ref;
+  StreamSubscription<void>? _statsInvalidatedSub;
 
   SeederNotifier(this._ref) : super(const SeederState()) {
     _initialize();
@@ -64,12 +66,22 @@ class SeederNotifier extends StateNotifier<SeederState> {
         config: results[1] as SeederConfig?,
         stats: results[2] as Map<String, int>,
       );
+      _statsInvalidatedSub = repo.watchStatsInvalidated().listen((_) async {
+        final stats = await repo.getStats();
+        state = state.copyWith(stats: stats);
+      });
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         error: 'Error al cargar: $e',
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _statsInvalidatedSub?.cancel();
+    super.dispose();
   }
 
   Future<void> updateBotEnabled(bool enabled) async {

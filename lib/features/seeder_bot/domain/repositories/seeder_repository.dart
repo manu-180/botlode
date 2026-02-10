@@ -21,6 +21,9 @@ abstract class SeederRepository {
   /// Stream de logs (Realtime propagation_logs + refetch con nombres).
   Stream<List<SeederLogEntry>> watchLogs();
 
+  /// Emite cuando las stats pueden haber cambiado (p. ej. propagation_targets insert/update).
+  Stream<void> watchStatsInvalidated();
+
   /// Opcional: verificar acceso (por ahora todos los autenticados).
   Future<bool> hasSeederBotAccess();
 
