@@ -4,7 +4,7 @@
 // en el feature auth. Mantiene compatibilidad con código existente mientras
 // respeta Clean Architecture.
 
-export 'package:botslode/features/auth/presentation/providers/auth_state_provider.dart' show authStateProvider, AuthStateData;
+export 'package:botslode/features/auth/presentation/providers/auth_state_provider.dart' show authStateProvider, AuthStateData, authUserIdProvider;
 
 // Alias para retrocompatibilidad
 import 'package:botslode/features/auth/presentation/providers/auth_state_provider.dart';

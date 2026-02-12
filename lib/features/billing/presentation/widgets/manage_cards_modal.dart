@@ -3,7 +3,12 @@ import 'package:botslode/features/billing/domain/models/card_info.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/billing/presentation/widgets/add_card_modal.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class _DialogSubmitIntent extends Intent {
+  const _DialogSubmitIntent();
+}
 
 class ManageCardsModal extends ConsumerWidget {
   const ManageCardsModal({super.key});
@@ -221,17 +226,28 @@ class ManageCardsModal extends ConsumerWidget {
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref, String cardId) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => Shortcuts(
+        shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+        child: Actions(
+          actions: {
+            _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
+              Navigator.pop(ctx, true);
+              return null;
+            }),
+          },
+          child: AlertDialog(
         backgroundColor: const Color(0xFF09090B),
         title: const Text("ELIMINAR TARJETA", style: TextStyle(color: Colors.white)),
         content: const Text("¿Estás seguro? Esta acción no se puede deshacer.", style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCELAR")),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true), 
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text("ELIMINAR", style: TextStyle(color: Colors.red))
           ),
         ],
+          ),
+        ),
       ),
     );
 

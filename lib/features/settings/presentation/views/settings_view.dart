@@ -3,6 +3,7 @@ import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/providers/auth_provider.dart';
 import 'package:botslode/features/settings/presentation/widgets/change_password_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -166,8 +167,16 @@ class _SecurityActionButtonState extends State<_SecurityActionButton> {
   @override
   Widget build(BuildContext context) {
     final baseColor = widget.color;
-    
-    return MouseRegion(
+
+    return Focus(
+      onKeyEvent: (_, KeyEvent event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
@@ -234,6 +243,7 @@ class _SecurityActionButtonState extends State<_SecurityActionButton> {
           ),
         ),
       ),
+    ),
     );
   }
 }

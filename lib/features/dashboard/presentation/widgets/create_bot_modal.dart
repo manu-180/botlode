@@ -9,7 +9,11 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart'; 
+import 'package:go_router/go_router.dart';
+
+class _DialogSubmitIntent extends Intent {
+  const _DialogSubmitIntent();
+}
 
 class CreateBotModal extends ConsumerStatefulWidget {
   final BotBlueprint? template;
@@ -104,7 +108,16 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (context) => Shortcuts(
+        shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+        child: Actions(
+          actions: {
+            _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
+              Navigator.of(context).pop();
+              return null;
+            }),
+          },
+          child: AlertDialog(
         backgroundColor: AppColors.surface,
         title: Row(
           children: [
@@ -190,6 +203,8 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
             child: const Text("ENTENDIDO"),
           ),
         ],
+          ),
+        ),
       ),
     );
   }

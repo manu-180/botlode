@@ -8,6 +8,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+class _DialogSubmitIntent extends Intent {
+  const _DialogSubmitIntent();
+}
+
 class EditColorDialog extends ConsumerStatefulWidget {
   final Bot bot;
 
@@ -74,7 +78,16 @@ class _EditColorDialogState extends ConsumerState<EditColorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return BackdropFilter(
+    return Shortcuts(
+      shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+      child: Actions(
+        actions: {
+          _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
+            _saveColor();
+            return null;
+          }),
+        },
+        child: BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
       child: Dialog(
         backgroundColor: Colors.transparent,
@@ -272,6 +285,8 @@ class _EditColorDialogState extends ConsumerState<EditColorDialog> {
               ),
             ],
           ),
+        ),
+      ),
         ),
       ),
     );

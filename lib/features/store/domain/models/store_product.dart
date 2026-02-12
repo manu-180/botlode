@@ -44,6 +44,8 @@ class StoreProduct {
   final String description;
   final ProductCategory category;
   final double price;
+  /// Si false, no se muestra un precio concreto (ej. "Consultar")
+  final bool priceDefined;
   final String? riveAsset;
   final IconData icon;
   final Color accentColor;
@@ -57,6 +59,7 @@ class StoreProduct {
     required this.description,
     required this.category,
     required this.price,
+    this.priceDefined = true,
     this.riveAsset,
     required this.icon,
     required this.accentColor,
@@ -66,7 +69,10 @@ class StoreProduct {
   });
 
   /// Precio formateado para mostrar
-  String get formattedPrice => price == 0 ? 'GRATIS' : '\$${price.toStringAsFixed(2)} USD';
+  String get formattedPrice {
+    if (!priceDefined) return 'Consultar';
+    return price == 0 ? 'GRATIS' : '\$${price.toStringAsFixed(2)} USD';
+  }
 
   /// Catálogo de productos disponibles
   static List<StoreProduct> get catalog => [
@@ -75,10 +81,12 @@ class StoreProduct {
       name: 'HUNTER BOT',
       description: 'Encuentra emails de contacto en cualquier sitio web y envía campañas de outreach automatizadas.',
       category: ProductCategory.marketing,
-      price: 29.99,
+      price: 0,
+      priceDefined: false,
       riveAsset: null, // TODO: Agregar animación Rive
       icon: FontAwesomeIcons.crosshairs,
       accentColor: AppColors.success,
+      isAvailable: false,
       features: [
         'Scraping inteligente de sitios web',
         'Detección automática de emails',
@@ -86,40 +94,6 @@ class StoreProduct {
         'Logs en tiempo real',
         'Templates de email personalizables',
         'Estadísticas de campañas',
-      ],
-    ),
-    const StoreProduct(
-      id: 'ANALYTICS-PRO',
-      name: 'ANALYTICS PRO',
-      description: 'Dashboard avanzado con métricas detalladas de tus bots y conversaciones.',
-      category: ProductCategory.analytics,
-      price: 0,
-      riveAsset: null,
-      icon: FontAwesomeIcons.chartLine,
-      accentColor: AppColors.secondary,
-      isAvailable: false, // Próximamente
-      features: [
-        'Métricas de conversación',
-        'Análisis de sentimiento',
-        'Reportes exportables',
-        'Alertas personalizadas',
-      ],
-    ),
-    const StoreProduct(
-      id: 'WHATSAPP-BRIDGE',
-      name: 'WHATSAPP BRIDGE',
-      description: 'Conecta tus bots directamente a WhatsApp Business para atender clientes 24/7.',
-      category: ProductCategory.integration,
-      price: 49.99,
-      riveAsset: null,
-      icon: FontAwesomeIcons.whatsapp,
-      accentColor: Color(0xFF25D366),
-      isAvailable: false, // Próximamente
-      features: [
-        'Conexión API oficial',
-        'Mensajes ilimitados',
-        'Multimedia soportado',
-        'Respuestas automáticas',
       ],
     ),
   ];
@@ -135,6 +109,7 @@ class StoreProduct {
       description: description,
       category: category,
       price: price,
+      priceDefined: priceDefined,
       riveAsset: riveAsset,
       icon: icon,
       accentColor: accentColor,

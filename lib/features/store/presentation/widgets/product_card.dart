@@ -1,6 +1,5 @@
 // Archivo: lib/features/store/presentation/widgets/product_card.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
@@ -278,15 +277,17 @@ class _ProductCardState extends State<ProductCard> {
               Text(
                 product.formattedPrice,
                 style: TextStyle(
-                  color: product.price == 0 
-                      ? AppColors.success 
-                      : AppColors.textPrimary,
+                  color: !product.priceDefined
+                      ? AppColors.textSecondary.withOpacity(0.8)
+                      : product.price == 0
+                          ? AppColors.success
+                          : AppColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'Oxanium',
                 ),
               ),
-              if (product.price > 0)
+              if (product.priceDefined && product.price > 0)
                 Text(
                   'pago único',
                   style: TextStyle(

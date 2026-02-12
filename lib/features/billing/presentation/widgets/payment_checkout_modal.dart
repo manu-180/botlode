@@ -5,9 +5,14 @@ import 'package:botslode/features/billing/domain/services/payment_error_service.
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/billing/presentation/widgets/add_card_modal.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
+class _DialogSubmitIntent extends Intent {
+  const _DialogSubmitIntent();
+}
 
 class PaymentCheckoutModal extends ConsumerStatefulWidget {
   final double amount;      
@@ -106,6 +111,19 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
     return Colors.black.withOpacity(0.5);
   }
 
+  void _onEnterPrimaryAction(bool hasCard) {
+    if (_isCardProcessing) return;
+    if (_hasSucceeded) {
+      Navigator.of(context).pop();
+    } else if (_hasFailed) {
+      setState(() => _hasFailed = false);
+    } else if (hasCard) {
+      _startCardPaymentSequence();
+    } else {
+      _openPaymentLink();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final billingState = ref.watch(billingProvider);
@@ -115,7 +133,16 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
 
     const mpBlue = Color(0xFF009EE3);
 
-    return BackdropFilter(
+    return Shortcuts(
+      shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+      child: Actions(
+        actions: {
+          _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
+            _onEnterPrimaryAction(hasCard);
+            return null;
+          }),
+        },
+        child: BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
       child: Dialog(
         backgroundColor: Colors.transparent,
@@ -147,6 +174,8 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
             ),
             child: _buildContent(hasCard, card, mpBlue, approxARS),
           ),
+        ),
+      ),
         ),
       ),
     );

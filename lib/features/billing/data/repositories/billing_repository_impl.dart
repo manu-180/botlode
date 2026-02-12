@@ -85,11 +85,10 @@ class BillingRepositoryImpl implements BillingRepository {
   @override
   Future<int> getQualifiedBotCount() async {
     try {
-      // Límite = cantidad de bots ACTIVOS × 60 (solo status = 'active')
+      // Límite = total de bots (activos + desactivados) × 60 — todos cuentan para el tope a pagar
       final response = await _supabase
           .from('bots')
-          .select('id')
-          .eq('status', 'active');
+          .select('id');
       return (response as List).length;
     } catch (e) {
       return 0;
