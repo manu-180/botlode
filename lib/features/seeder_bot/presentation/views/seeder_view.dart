@@ -235,7 +235,11 @@ class _SeederViewState extends ConsumerState<SeederView> with SingleTickerProvid
             children: [
               Row(
                 children: [
-                  _buildStatCardCompact('OK', state.okCount.toString(), Icons.done_all, AppColors.success),
+                  _buildStatCardCompact('TOTAL', state.totalLogs.toString(), Icons.list_alt, AppColors.textSecondary),
+                  const SizedBox(width: 8),
+                  _buildStatCardCompact('PEND', state.pendingTargets.toString(), Icons.schedule, AppColors.warning),
+                  const SizedBox(width: 8),
+                  _buildStatCardCompact('REINT.', state.retryTargets.toString(), Icons.replay, AppColors.primary),
                   const SizedBox(width: 8),
                   _buildStatCardCompact('FAIL', state.errorCount.toString(), Icons.error_outline, AppColors.error),
                 ],
@@ -243,9 +247,7 @@ class _SeederViewState extends ConsumerState<SeederView> with SingleTickerProvid
               const SizedBox(height: 8),
               Row(
                 children: [
-                  _buildStatCardCompact('TOTAL', state.totalLogs.toString(), Icons.list_alt, AppColors.textSecondary),
-                  const SizedBox(width: 8),
-                  _buildStatCardCompact('PEND', state.pendingTargets.toString(), Icons.schedule, AppColors.warning),
+                  _buildStatCardCompact('ENVIADOS', state.submittedTargets.toString(), Icons.done_all, AppColors.success),
                 ],
               ),
             ],
@@ -255,15 +257,15 @@ class _SeederViewState extends ConsumerState<SeederView> with SingleTickerProvid
           constraints: BoxConstraints(maxWidth: maxW),
           child: Row(
             children: [
-              _buildStatCard('OK', state.okCount.toString(), Icons.done_all, AppColors.success, flex: 1),
+              _buildStatCard('TOTAL', state.totalLogs.toString(), Icons.list_alt, AppColors.textSecondary, flex: 1, tooltip: 'Total de intentos (logs)'),
+              const SizedBox(width: 8),
+              _buildStatCard('PEND', state.pendingTargets.toString(), Icons.schedule, AppColors.warning, flex: 1, tooltip: 'Por intentar por primera vez'),
+              const SizedBox(width: 8),
+              _buildStatCard('REINTENTAR', state.retryTargets.toString(), Icons.replay, AppColors.primary, flex: 1, tooltip: 'Ya intentados, pendientes de reintento'),
               const SizedBox(width: 8),
               _buildStatCard('FAIL', state.errorCount.toString(), Icons.error_outline, AppColors.error, flex: 1),
               const SizedBox(width: 8),
-              _buildStatCard('TOTAL', state.totalLogs.toString(), Icons.list_alt, AppColors.textSecondary, flex: 1),
-              const SizedBox(width: 8),
-              _buildStatCard('PEND', state.pendingTargets.toString(), Icons.schedule, AppColors.warning, flex: 1),
-              const SizedBox(width: 8),
-              _buildStatCard('ENVIADOS', state.submittedTargets.toString(), Icons.check_circle, AppColors.primary, flex: 1, tooltip: 'Targets con envío exitoso'),
+              _buildStatCard('ENVIADOS', state.submittedTargets.toString(), Icons.done_all, AppColors.success, flex: 1, tooltip: 'Directorios con al menos un envío OK'),
             ],
           ),
         );

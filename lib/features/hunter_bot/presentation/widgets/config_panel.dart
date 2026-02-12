@@ -1,5 +1,6 @@
 // Archivo: lib/features/hunter_bot/presentation/widgets/config_panel.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -7,6 +8,10 @@ import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/features/hunter_bot/domain/models/hunter_config.dart';
 import 'package:botslode/features/hunter_bot/presentation/providers/hunter_provider.dart';
 import 'package:botslode/features/hunter_bot/presentation/widgets/success_dialog.dart';
+
+class _DialogSubmitIntent extends Intent {
+  const _DialogSubmitIntent();
+}
 
 /// Panel de configuración de Resend para HunterBot
 class ConfigPanel extends ConsumerStatefulWidget {
@@ -49,7 +54,16 @@ class _ConfigPanelState extends ConsumerState<ConfigPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return Shortcuts(
+      shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+      child: Actions(
+        actions: {
+          _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) async {
+            await _handleSave();
+            return null;
+          }),
+        },
+        child: Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
         width: 500,
@@ -206,6 +220,8 @@ class _ConfigPanelState extends ConsumerState<ConfigPanel> {
             _buildFooter(),
           ],
         ),
+      ),
+    ),
       ),
     );
   }

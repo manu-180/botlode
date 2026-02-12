@@ -1,5 +1,7 @@
 // Archivo: lib/features/dashboard/presentation/widgets/sidebar.dart
+import 'package:botslode/core/config/restricted_bots_config.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/providers/supabase_provider.dart';
 import 'package:botslode/features/billing/presentation/views/billing_view.dart';
 import 'package:botslode/features/bots_library/presentation/views/bots_library_view.dart';
 import 'package:botslode/features/dashboard/presentation/views/dashboard_view.dart';
@@ -8,16 +10,19 @@ import 'package:botslode/features/seeder_bot/presentation/views/seeder_view.dart
 import 'package:botslode/features/settings/presentation/views/settings_view.dart';
 import 'package:botslode/features/store/presentation/views/store_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 
-class Sidebar extends StatelessWidget {
+class Sidebar extends ConsumerWidget {
   const Sidebar({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final String location = GoRouterState.of(context).uri.path;
+    final userId = ref.watch(currentUserIdProvider);
+    final canSeeRestrictedBots = RestrictedBotsConfig.canUserSeeRestrictedBots(userId);
 
     return Container(
       width: 80,
@@ -68,20 +73,22 @@ class Sidebar extends StatelessWidget {
                     isActive: location == '/store',
                     onTap: () => context.goNamed(StoreView.routeName),
                   ),
-                  const SizedBox(height: 24),
-                  _SidebarItem(
-                    icon: FontAwesomeIcons.crosshairs,
-                    label: "HUNTER",
-                    isActive: location == '/hunter',
-                    onTap: () => context.goNamed(HunterView.routeName),
-                  ),
-                  const SizedBox(height: 24),
-                  _SidebarItem(
-                    icon: FontAwesomeIcons.seedling,
-                    label: "SEEDER",
-                    isActive: location == '/seeder',
-                    onTap: () => context.goNamed(SeederView.routeName),
-                  ),
+                  if (canSeeRestrictedBots) ...[
+                    const SizedBox(height: 24),
+                    _SidebarItem(
+                      icon: FontAwesomeIcons.crosshairs,
+                      label: "HUNTER",
+                      isActive: location == '/hunter',
+                      onTap: () => context.goNamed(HunterView.routeName),
+                    ),
+                    const SizedBox(height: 24),
+                    _SidebarItem(
+                      icon: FontAwesomeIcons.seedling,
+                      label: "SEEDER",
+                      isActive: location == '/seeder',
+                      onTap: () => context.goNamed(SeederView.routeName),
+                    ),
+                  ],
                 ],
               ),
             ),

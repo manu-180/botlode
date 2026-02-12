@@ -148,7 +148,7 @@ class _SeederBotControlButtonState extends ConsumerState<SeederBotControlButton>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              isEnabled ? 'BOT ACTIVO' : 'BOT DETENIDO',
+                              isEnabled ? 'SEEDER BOT ACTIVO' : 'SEEDER BOT DETENIDO',
                               style: TextStyle(
                                 color: isEnabled ? AppColors.success : AppColors.textSecondary,
                                 fontSize: 18,

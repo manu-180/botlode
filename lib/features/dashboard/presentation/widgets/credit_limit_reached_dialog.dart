@@ -3,7 +3,12 @@ import 'dart:ui';
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/features/billing/presentation/views/billing_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+
+class _DialogSubmitIntent extends Intent {
+  const _DialogSubmitIntent();
+}
 
 /// Diálogo de diseño sci-fi que informa que se alcanzó el límite de crédito
 /// y no se puede activar el bot. Incluye CTA para ir a Pagos.
@@ -20,7 +25,17 @@ class CreditLimitReachedDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BackdropFilter(
+    return Shortcuts(
+      shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+      child: Actions(
+        actions: {
+          _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
+            Navigator.of(context).pop();
+            context.goNamed(BillingView.routeName);
+            return null;
+          }),
+        },
+        child: BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
       child: Dialog(
         backgroundColor: Colors.transparent,
@@ -165,6 +180,8 @@ class CreditLimitReachedDialog extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
         ),
       ),
     );

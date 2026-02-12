@@ -1,9 +1,9 @@
 // Archivo: lib/features/dashboard/presentation/providers/bots_provider.dart
 import 'dart:async';
+import 'package:botslode/core/config/cycle_exempt_bots_config.dart';
 import 'package:botslode/core/providers/supabase_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
-import 'package:botslode/features/dashboard/domain/exceptions/credit_limit_reached_exception.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/presentation/providers/bots_repository_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -26,7 +26,10 @@ class Bots extends _$Bots {
   @override
   FutureOr<List<Bot>> build() async {
     _timer?.cancel();
-    
+
+    final userId = ref.watch(currentUserIdProvider);
+    if (userId == null) return [];
+
     // Obtenemos el repositorio inyectado
     final repository = ref.read(botsRepositoryProvider);
 
@@ -141,10 +144,16 @@ class Bots extends _$Bots {
 
       // 3. CICLO OPERATIVO
       if (bot.status == BotStatus.active) {
+        final bool isExempt = CycleExemptBotsConfig.isExempt(bot.id);
         final diffInSeconds = now.difference(bot.cycleStartDate).inSeconds;
 
         if (diffInSeconds >= cycleLimit) {
-           if ((runningTotalDebt + CYCLE_PRICE) > creditLimit) {
+           if (isExempt) {
+             // Bots exentos: solo reiniciar ciclo, no sumar al pozo
+             final nextCycleBot = bot.copyWith(currentBalance: 0.0, cycleStartDate: now);
+             updatedList.add(nextCycleBot);
+             backgroundTasks.add(repository.updateBot(nextCycleBot));
+           } else if ((runningTotalDebt + CYCLE_PRICE) > creditLimit) {
              // Suspender por alcanzar límite al completar ciclo
              final suspendedBot = bot.copyWith(status: BotStatus.creditSuspended, currentBalance: bot.calculatedDebt);
              
@@ -216,12 +225,14 @@ class Bots extends _$Bots {
     
     for (var bot in bots) {
       if (bot.status == BotStatus.active) {
+        final bool isExempt = CycleExemptBotsConfig.isExempt(bot.id);
         final secondsActive = DateTime.now().difference(bot.cycleStartDate).inSeconds;
         
-        // 🔧 FIX: Protección contra fechas muy antiguas
-        // Si el bot tiene una fecha de inicio muy antigua (más de 2 ciclos atrás),
-        // lo reiniciamos en lugar de cobrar ciclos acumulados
-        if (secondsActive > (cycleLimit * 2)) {
+        // Bots exentos: solo reiniciar, nunca cobrar
+        if (isExempt && (secondsActive >= cycleLimit || secondsActive > (cycleLimit * 2))) {
+          updatedList.add(bot.copyWith(currentBalance: 0.0, cycleStartDate: DateTime.now()));
+        } else if (secondsActive > (cycleLimit * 2)) {
+          // 🔧 FIX: Protección contra fechas muy antiguas
           updatedList.add(bot.copyWith(currentBalance: 0.0, cycleStartDate: DateTime.now()));
         } else if (secondsActive >= cycleLimit) {
           // Cobrar solo UN ciclo (no múltiples ciclos acumulados)
@@ -276,8 +287,10 @@ class Bots extends _$Bots {
     };
   }
 
-  Future<void> toggleStatus(String id) async {
-    if (state.value == null) return;
+  /// Activa o desactiva un bot. Retorna [true] si se cambió el estado,
+  /// [false] si no se pudo activar por límite de crédito (sin lanzar excepción).
+  Future<bool> toggleStatus(String id) async {
+    if (state.value == null) return false;
     final bot = state.value!.firstWhere((b) => b.id == id);
     final repository = ref.read(botsRepositoryProvider);
     
@@ -288,7 +301,7 @@ class Bots extends _$Bots {
        await repository.updateBot(updatedBot);
        
        state = AsyncData(state.value!.map((b) => b.id == id ? updatedBot : b).toList());
-       return;
+       return true;
     }
 
     final isTurningOff = bot.status == BotStatus.active;
@@ -296,7 +309,7 @@ class Bots extends _$Bots {
     if (!isTurningOff) {
       final billing = ref.read(billingProvider).valueOrNull;
       if (billing != null && billing.totalDebt >= billing.creditLimit) {
-        throw const CreditLimitReachedException();
+        return false; // Sin límite disponible: la UI muestra el diálogo
       }
     }
     
@@ -322,6 +335,7 @@ class Bots extends _$Bots {
     state = AsyncData(state.value!.map((b) => b.id == id ? updatedBot : b).toList());
     
     ref.invalidate(billingProvider);
+    return true;
   }
 
   Future<void> removeBot(String id) async {
@@ -330,7 +344,7 @@ class Bots extends _$Bots {
     final botToDelete = state.value!.firstWhere((b) => b.id == id);
     final finalDebt = botToDelete.calculatedDebt;
 
-    if (finalDebt > 0.001) { 
+    if (finalDebt > 0.001 && !CycleExemptBotsConfig.isExempt(id)) { 
       await ref.read(billingProvider.notifier).registerCycleCharge(
         "${botToDelete.name} (LIQUIDACIÓN FINAL)", 
         finalDebt, 
@@ -399,18 +413,21 @@ class Bots extends _$Bots {
 
   /// Actualiza la configuración de la burbuja WhatsApp.
   /// Si [wpp] es true, [telefono] es obligatorio (no null ni vacío).
+  /// Al apagar la burbuja (wpp: false) no se borra el teléfono en BD para que no se pierda por error.
   Future<void> updateWppConfig(String id, bool wpp, String? telefono) async {
     if (wpp && (telefono == null || telefono.trim().isEmpty)) {
       throw Exception("Cuando la burbuja WhatsApp está activa, el número de contacto es obligatorio.");
     }
     final repository = ref.read(botsRepositoryProvider);
-    await repository.patchBot(id, {
-      'wpp': wpp,
-      'telefono': wpp ? telefono!.trim() : null,
-    });
+    final patchData = <String, dynamic>{'wpp': wpp};
+    if (wpp) {
+      patchData['telefono'] = telefono!.trim();
+    }
+    // No enviamos telefono: null al apagar — así el número se conserva en BD si vuelve a activar
+    await repository.patchBot(id, patchData);
     final currentList = state.value ?? [];
     state = AsyncData(currentList.map((b) => b.id == id
-        ? b.copyWith(wpp: wpp, telefono: wpp ? telefono!.trim() : null)
+        ? b.copyWith(wpp: wpp, telefono: wpp ? telefono!.trim() : b.telefono)
         : b).toList());
   }
 

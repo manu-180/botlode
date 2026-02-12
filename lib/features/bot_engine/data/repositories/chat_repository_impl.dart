@@ -30,6 +30,7 @@ class ChatRepositoryImpl implements ChatRepository {
           'sessionId': sessionId,
           'botId': botId,
           'message': message,
+          'saveToHistory': false, // Terminal de prueba: no guardar en botlode_history
         }),
       );
 

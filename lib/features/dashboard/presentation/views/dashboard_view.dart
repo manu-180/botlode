@@ -10,9 +10,14 @@ import 'package:botslode/features/dashboard/presentation/widgets/bot_card.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/create_bot_modal.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/dashboard_toolbar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
+
+class _DialogSubmitIntent extends Intent {
+  const _DialogSubmitIntent();
+}
 
 class DashboardView extends ConsumerWidget {
   static const String routeName = 'dashboard';
@@ -215,7 +220,17 @@ class DashboardView extends ConsumerWidget {
   void _confirmPayment(BuildContext context, WidgetRef ref, double amount) {
     showDialog(
       context: context,
-      builder: (c) => AlertDialog(
+      builder: (c) => Shortcuts(
+        shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+        child: Actions(
+          actions: {
+            _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
+              Navigator.pop(c);
+              ref.read(billingProvider.notifier).processPayment(amount);
+              return null;
+            }),
+          },
+          child: AlertDialog(
         backgroundColor: const Color(0xFF09090B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: AppColors.success)),
         title: const Text("CONFIRMAR PAGO RÁPIDO", style: TextStyle(color: Colors.white, fontFamily: 'Oxanium', fontWeight: FontWeight.bold)),
@@ -242,6 +257,8 @@ class DashboardView extends ConsumerWidget {
             child: const Text("PAGAR AHORA", style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
+          ),
+        ),
       ),
     );
   }

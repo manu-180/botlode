@@ -5,6 +5,10 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
 
+class _DialogSubmitIntent extends Intent {
+  const _DialogSubmitIntent();
+}
+
 /// Prompt recomendado para conseguir dominios con la IA
 const String _aiPrompt = '''
 Necesito un listado de 50 dominios (solo el dominio, sin https://) de empresas o negocios reales que cumplan con estos criterios:
@@ -52,7 +56,16 @@ class _TipsDialogState extends State<TipsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return Shortcuts(
+      shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+      child: Actions(
+        actions: {
+          _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
+            Navigator.pop(context);
+            return null;
+          }),
+        },
+        child: Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
         width: 600,
@@ -93,6 +106,8 @@ class _TipsDialogState extends State<TipsDialog> {
             _buildFooter(),
           ],
         ),
+      ),
+    ),
       ),
     ).animate()
       .fadeIn(duration: 200.ms)

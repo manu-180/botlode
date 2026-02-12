@@ -11,7 +11,6 @@ import 'package:botslode/features/bot_engine/presentation/widgets/rive_bot_displ
 import 'package:botslode/features/bot_engine/presentation/widgets/status_indicator.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/presentation/providers/bots_provider.dart';
-import 'package:botslode/features/dashboard/domain/exceptions/credit_limit_reached_exception.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/credit_limit_reached_dialog.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/delete_protocol_dialog.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/edit_color_dialog.dart';
@@ -20,6 +19,11 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+/// Intent para que Enter dispare la acción principal en diálogos.
+class _DialogSubmitIntent extends Intent {
+  const _DialogSubmitIntent();
+}
 
 class BotDetailView extends ConsumerStatefulWidget {
   static const String routeName = 'bot_detail';
@@ -80,8 +84,8 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
   }
 
   void _handleEnergyToggle(BuildContext context, String botId) {
-    ref.read(botsProvider.notifier).toggleStatus(botId).catchError((e, _) {
-      if (e is CreditLimitReachedException && context.mounted) {
+    ref.read(botsProvider.notifier).toggleStatus(botId).then((success) {
+      if (!success && context.mounted) {
         CreditLimitReachedDialog.show(context);
       }
     });
@@ -111,24 +115,24 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
 
   <iframe
     id="botlode-player"
-    src="$baseUrl?botId=$botId&v=2.6"
+    src="$baseUrl?botId=$botId&v=2.5"
     style="
       position: fixed;
       bottom: 16px;
       right: 16px;
-      width: 140px;
-      height: 140px;
+      width: 150px;
+      height: 150px;
       border: none;
       z-index: 100001;
-      pointer-events: none;
+      pointer-events: auto;
       background: transparent !important;
-      opacity: 1;
+      opacity: 0;
       will-change: width, height;
       transform: translateZ(0);
       touch-action: manipulation;
     "
     allow="clipboard-write"
-    loading="eager"
+    loading="lazy"
     allowtransparency="true">
   </iframe>
 
@@ -139,9 +143,10 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     width: 100px;
     height: 100px;
     z-index: 100002;
-    pointer-events: auto;
+    pointer-events: none;
     cursor: pointer;
     border-radius: 50%;
+    display: none;
   "></div>
 
   <div id="botlode-hitzone-wpp" style="
@@ -151,7 +156,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     width: 100px;
     height: 100px;
     z-index: 100002;
-    pointer-events: auto;
+    pointer-events: none;
     cursor: pointer;
     border-radius: 50%;
     display: none;
@@ -159,55 +164,84 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
 
   <script>
   (function() {
+    console.log('🎯 IFRAME SCRIPT v3.0 - pointer-events: auto permanente, taps directos a Flutter');
     const iframe = document.getElementById('botlode-player');
     const hitzoneBotEl = document.getElementById('botlode-hitzone-bot');
     const hitzoneWppEl = document.getElementById('botlode-hitzone-wpp');
     if (!iframe) return;
 
     let isExpanded = false;
+    let isOpening = false; // ⬅️ Evita carreras visuales durante apertura
     let isAnimatingBubble = false;
-    const BUBBLE_HEIGHT_SOLO_BOT = 140;
+    let botDisabled = false;
+    const BUBBLE_HEIGHT_SOLO_BOT = 150;
     const BUBBLE_HEIGHT_WITH_WPP = 290;
+    const BUBBLE_HEIGHT_OFF = 0;
+    const BUBBLE_WIDTH_SOLO_BOT = 150;
+    const BUBBLE_WIDTH_WITH_WPP = 140;
     let bubbleHeight = BUBBLE_HEIGHT_SOLO_BOT;
+    let bubbleWidth = BUBBLE_WIDTH_SOLO_BOT;
+    let iframeReady = false;
+    let justClosedTimestamp = 0; // ⬅️ Para bloquear comandos justo después de cerrar
+    let firstOpenWarmupDone = false; // ⬅️ Oculta glitch del primer render
+    const FIRST_OPEN_REVEAL_DELAY_MS = 45;
+    let firstOpenLayoutPrimed = false; // ⬅️ Precalentamiento de layout (open->close oculto)
 
-    function forwardEventToIframe(event, eventType) {
-      try {
-        if (!iframe.contentWindow) return;
-        const iframeRect = iframe.getBoundingClientRect();
-        iframe.contentWindow.postMessage({
-          type: eventType,
-          clientX: event.clientX,
-          clientY: event.clientY,
-          iframeX: iframeRect.left,
-          iframeY: iframeRect.top,
-        }, '*');
-      } catch (e) {}
+    // ⬅️ PROTECCIÓN MÁXIMA: Guardamos el estado expandido del iframe
+    let expandedStyleCache = null;
+    
+    function cacheExpandedStyle() {
+      if (isExpanded) {
+        expandedStyleCache = {
+          width: iframe.style.width,
+          height: iframe.style.height,
+          left: iframe.style.left,
+          top: iframe.style.top,
+          right: iframe.style.right,
+          bottom: iframe.style.bottom
+        };
+        console.log('💾 Cache de estilo expandido guardado:', expandedStyleCache);
+      }
+    }
+    
+    function restoreExpandedStyle() {
+      if (isExpanded && expandedStyleCache) {
+        console.log('🔄 Restaurando estilo expandido desde cache');
+        iframe.style.transition = 'none';
+        Object.keys(expandedStyleCache).forEach(function(key) {
+          iframe.style[key] = expandedStyleCache[key];
+        });
+        iframe.offsetHeight;
+        iframe.style.transition = '';
+      }
     }
 
-    if (hitzoneBotEl) {
-      hitzoneBotEl.addEventListener('click', function(e) {
-        forwardEventToIframe(e, 'HITZONE_CLICK_BOT');
-      });
-      hitzoneBotEl.addEventListener('mouseenter', function(e) {
-        forwardEventToIframe(e, 'HITZONE_ENTER_BOT');
-      });
-      hitzoneBotEl.addEventListener('mouseleave', function(e) {
-        forwardEventToIframe(e, 'HITZONE_LEAVE_BOT');
-      });
-    }
-
-    if (hitzoneWppEl) {
-      hitzoneWppEl.addEventListener('click', function(e) {
-        forwardEventToIframe(e, 'HITZONE_CLICK_WPP');
-      });
-    }
-
-    function updateHitzones(show) {
-      if (hitzoneBotEl) hitzoneBotEl.style.display = show ? 'block' : 'none';
-    }
-
-    function updateWppHitzone(show) {
-      if (hitzoneWppEl) hitzoneWppEl.style.display = show ? 'block' : 'none';
+    function activateIframe(source) {
+      if (iframeReady) return;
+      console.log('✅ BotLode Player LISTO (' + source + ') - Activando iframe con pointer-events: auto');
+      iframeReady = true;
+      
+      // ⬅️ CAMBIO ARQUITECTURAL v3: El iframe pasa a pointer-events: auto PERMANENTE.
+      // Flutter maneja los taps DIRECTAMENTE (GestureDetector en la burbuja).
+      iframe.style.pointerEvents = 'auto';
+      
+      // ⬅️ Desactivar hitzones: ya no son necesarias como intermediario.
+      if (hitzoneBotEl) {
+        hitzoneBotEl.style.pointerEvents = 'none';
+        hitzoneBotEl.style.display = 'none';
+      }
+      if (hitzoneWppEl) {
+        hitzoneWppEl.style.pointerEvents = 'none';
+        hitzoneWppEl.style.display = 'none';
+      }
+      
+      // ⬅️ Fade-in del iframe (estaba oculto con opacity:0 para evitar flash blanco)
+      iframe.style.transition = 'opacity 0.3s ease-out';
+      iframe.style.opacity = '1';
+      setTimeout(function() {
+        iframe.style.transition = '';
+        primeFirstOpenLayout();
+      }, 350);
     }
 
     function isNarrowScreen() {
@@ -215,12 +249,64 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     }
 
     function applyBubblePosition() {
+      // ⬅️ PROTECCIÓN: No cambiar a tamaño burbuja si el chat está expandido
+      if (isExpanded) {
+        console.warn('⚠️ applyBubblePosition() ignorado: el chat está expandido');
+        return;
+      }
+      
       iframe.style.left = 'auto';
       iframe.style.top = 'auto';
       iframe.style.right = '16px';
       iframe.style.bottom = '16px';
-      iframe.style.width = '140px';
+      iframe.style.width = bubbleWidth + 'px';
       iframe.style.height = bubbleHeight + 'px';
+    }
+
+    function primeFirstOpenLayout() {
+      if (firstOpenLayoutPrimed) return;
+      firstOpenLayoutPrimed = true;
+
+      // Precalentar layout de chat abierto en oculto para evitar
+      // el frame glitch (flash arriba-izquierda) del primer CMD_OPEN.
+      const prevTransition = iframe.style.transition;
+      const prevVisibility = iframe.style.visibility;
+      const prevOpacity = iframe.style.opacity;
+      const prevFilter = iframe.style.filter;
+      const prevTransform = iframe.style.transform;
+
+      iframe.style.transition = 'none';
+      iframe.style.visibility = 'hidden';
+      iframe.style.opacity = '0';
+      iframe.style.filter = '';
+      iframe.style.transform = 'translateZ(0)';
+
+      if (isNarrowScreen()) {
+        iframe.style.left = '0';
+        iframe.style.top = '0';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+      } else {
+        iframe.style.left = 'auto';
+        iframe.style.top = 'auto';
+        iframe.style.right = '16px';
+        iframe.style.bottom = '16px';
+        iframe.style.width = '450px';
+        iframe.style.height = 'calc(100vh - 32px)';
+      }
+      iframe.offsetHeight;
+
+      applyBubblePosition();
+      iframe.offsetHeight;
+
+      iframe.style.transition = prevTransition || 'none';
+      iframe.style.visibility = prevVisibility || 'visible';
+      iframe.style.opacity = prevOpacity || '1';
+      iframe.style.filter = prevFilter || '';
+      iframe.style.transform = prevTransform || 'translateZ(0)';
+      console.log('🧊 First-open layout primed');
     }
 
     const T = {
@@ -261,6 +347,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
               iframe.style.transition = '';
               iframe.style.filter = '';
               isAnimatingBubble = false;
+              console.log('✨ Animación de burbuja completada');
             }, T.resetAfter);
           }, T.entranceBounce2 * 0.6);
         }, T.entranceMain);
@@ -269,17 +356,96 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
 
     window.addEventListener('message', function(event) {
       const data = event.data;
-
-      if (data === 'CMD_OPEN') {
-        if (!isExpanded) {
-          isAnimatingBubble = false;
-          iframe.style.filter = '';
+      
+      // ⬅️ Log detallado de todos los comandos para debug
+      if (typeof data === 'string' && data.startsWith('CMD_')) {
+        console.log('📨 Comando recibido:', data, '| isExpanded:', isExpanded, '| botDisabled:', botDisabled);
+      }
+      
+      // ⬅️ PROTECCIÓN: Bloquear comandos que cambien tamaño cuando está expandido
+      if ((isExpanded || isOpening) && (data === 'CMD_WPP_VISIBLE' || data === 'CMD_WPP_HIDDEN')) {
+        console.warn('⚠️ Comando', data, 'bloqueado: chat está expandido');
+        return; // Ignorar estos comandos cuando está expandido
+      }
+      
+      // ⬅️ PROTECCIÓN: Bloquear comandos problemáticos justo después de cerrar
+      const timeSinceClose = Date.now() - justClosedTimestamp;
+      if (justClosedTimestamp > 0 && timeSinceClose < 500 && 
+          (data === 'CMD_WPP_VISIBLE' || data === 'CMD_WPP_HIDDEN' || data === 'CMD_OPEN')) {
+        console.warn('⚠️ Comando', data, 'bloqueado: acabamos de cerrar hace', timeSinceClose, 'ms');
+        return;
+      }
+      
+      if (data === 'CMD_READY') {
+        activateIframe('CMD_READY');
+        return;
+      }
+      
+      if (data === 'CMD_BOT_DISABLED') {
+        botDisabled = true;
+        isExpanded = false; // ⬅️ Resetear estado expandido
+        bubbleHeight = BUBBLE_HEIGHT_OFF;
+        iframe.style.transition = 'height 0.25s ease-out, width 0.25s ease-out, opacity 0.25s ease-out';
+        iframe.style.height = '0px';
+        iframe.style.width = '0px';
+        iframe.style.minWidth = '0px';
+        iframe.style.minHeight = '0px';
+        iframe.style.opacity = '0';
+        iframe.style.pointerEvents = 'none';
+        iframe.style.visibility = 'hidden';
+        iframe.style.overflow = 'hidden';
+        iframe.style.display = 'none';
+        if (hitzoneBotEl) { hitzoneBotEl.style.display = 'none'; }
+        if (hitzoneWppEl) { hitzoneWppEl.style.display = 'none'; }
+        return;
+      }
+      
+      if (data === 'CMD_BOT_ENABLED') {
+        // ⬅️ SOLO procesar si el bot estaba realmente deshabilitado
+        if (botDisabled) {
+          console.log('🔄 CMD_BOT_ENABLED - Reactivando bot desde modo REALMENTE deshabilitado');
+          botDisabled = false;
+          isExpanded = false; // ⬅️ Resetear SOLO si venía de deshabilitado
+          bubbleHeight = BUBBLE_HEIGHT_SOLO_BOT;
+          bubbleWidth = BUBBLE_WIDTH_SOLO_BOT;
+          iframe.style.display = '';
+          iframe.style.visibility = '';
+          iframe.style.overflow = '';
+          iframe.style.minWidth = '';
+          iframe.style.minHeight = '';
+          iframe.style.transition = 'height 0.25s ease-out, width 0.25s ease-out, opacity 0.25s ease-out';
+          iframe.style.width = bubbleWidth + 'px';
+          iframe.style.height = bubbleHeight + 'px';
           iframe.style.opacity = '1';
+          if (iframeReady) iframe.style.pointerEvents = 'auto';
+          applyBubblePosition(); // Ahora respeta isExpanded
+        } else {
+          console.log('⚠️ CMD_BOT_ENABLED ignorado: el bot ya estaba habilitado (isExpanded=' + isExpanded + ')');
+        }
+        return;
+      }
+      
+      if (data === 'CMD_OPEN') {
+        if (botDisabled) return;
+        if (!isExpanded && !isOpening) {
+          console.log('🚀 CMD_OPEN recibido - Expandiendo iframe');
+          isOpening = true;
+          isExpanded = true; // marcar temprano para bloquear CMD_WPP_* durante apertura
+          isAnimatingBubble = false;
+          
+          // Usar la misma secuencia estable que index.html
+          iframe.style.filter = '';
           iframe.style.transform = 'translateZ(0)';
           iframe.style.transition = 'none';
-          iframe.style.pointerEvents = 'auto';
-          updateHitzones(false);
-          updateWppHitzone(false);
+          iframe.style.opacity = '0';
+          const isFirstOpen = !firstOpenWarmupDone;
+          if (isFirstOpen) {
+            // Blindaje corto SOLO en primera apertura para tapar el frame fantasma
+            iframe.style.visibility = 'hidden';
+            iframe.style.clipPath = 'inset(100% 100% 100% 100%)';
+            iframe.style.webkitClipPath = 'inset(100% 100% 100% 100%)';
+          }
+
           if (isNarrowScreen()) {
             iframe.style.left = '0';
             iframe.style.top = '0';
@@ -295,147 +461,453 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
             iframe.style.width = '450px';
             iframe.style.height = 'calc(100vh - 32px)';
           }
+
           iframe.offsetHeight;
-          isExpanded = true;
+
+          const revealDelay = isFirstOpen ? FIRST_OPEN_REVEAL_DELAY_MS : 0;
+          setTimeout(function() {
+            requestAnimationFrame(function() {
+              requestAnimationFrame(function() {
+                iframe.style.transition = 'opacity 100ms ease-out';
+                if (isFirstOpen) {
+                  iframe.style.visibility = 'visible';
+                  iframe.style.clipPath = 'none';
+                  iframe.style.webkitClipPath = 'none';
+                }
+                iframe.style.opacity = '1';
+                setTimeout(function() {
+                  iframe.style.transition = 'none';
+                  isOpening = false;
+                }, 150);
+              });
+            });
+          }, revealDelay);
+          firstOpenWarmupDone = true;
+          
+          // ⬅️ Guardar el estilo expandido en cache
+          setTimeout(cacheExpandedStyle, 50);
         }
       } else if (data === 'CMD_CLOSE') {
+        if (botDisabled) return;
         if (isExpanded) {
+          console.log('🎭 CMD_CLOSE recibido - Cerrando con animación de burbuja');
+
+          // Marcar cierre inmediatamente para que protecciones/estados sean consistentes
+          isExpanded = false;
+          isOpening = false;
+          expandedStyleCache = null;
+          justClosedTimestamp = Date.now();
+          isAnimatingBubble = false;
+
+          // Limpiar residuos visuales del chat y hacer fade-out corto
+          iframe.style.filter = 'none';
+          iframe.style.transform = 'none';
           iframe.style.transition = 'opacity ' + (T.closeFadeOut / 1000) + 's ease-out';
           iframe.style.opacity = '0';
-          iframe.style.pointerEvents = 'none';
-          updateHitzones(true);
 
+          // Pasar a tamaño burbuja y ejecutar la animación épica de entrada
           setTimeout(function() {
+            if (botDisabled) return;
             iframe.style.transition = 'none';
             if (isNarrowScreen()) {
               applyBubblePosition();
             } else {
-              iframe.style.width = '140px';
+              iframe.style.width = bubbleWidth + 'px';
               iframe.style.height = bubbleHeight + 'px';
             }
             iframe.offsetHeight;
             setTimeout(animateBubbleEntrance, T.pauseBeforeEntrance);
           }, T.closeWaitChat);
-
-          isExpanded = false;
         }
       } else if (data === 'CMD_WPP_VISIBLE') {
+        if (botDisabled) return;
+        console.log('📱 CMD_WPP_VISIBLE - isExpanded:', isExpanded);
         bubbleHeight = BUBBLE_HEIGHT_WITH_WPP;
-        updateWppHitzone(true);
+        bubbleWidth = BUBBLE_WIDTH_WITH_WPP;
+        // ⬅️ Solo cambiar tamaño si NO está expandido
         if (!isExpanded) {
-          iframe.style.transition = 'height 0.25s ease-out';
-          iframe.style.width = '140px';
+          iframe.style.transition = 'height 0.25s ease-out, width 0.25s ease-out';
+          iframe.style.width = bubbleWidth + 'px';
           iframe.style.height = BUBBLE_HEIGHT_WITH_WPP + 'px';
         }
       } else if (data === 'CMD_WPP_HIDDEN') {
+        if (botDisabled) return;
+        console.log('📱 CMD_WPP_HIDDEN - isExpanded:', isExpanded);
         bubbleHeight = BUBBLE_HEIGHT_SOLO_BOT;
-        updateWppHitzone(false);
+        bubbleWidth = BUBBLE_WIDTH_SOLO_BOT;
+        // ⬅️ Solo cambiar tamaño si NO está expandido
         if (!isExpanded) {
-          iframe.style.transition = 'height 0.25s ease-out';
-          iframe.style.width = '140px';
+          iframe.style.transition = 'height 0.25s ease-out, width 0.25s ease-out';
+          iframe.style.width = bubbleWidth + 'px';
           iframe.style.height = BUBBLE_HEIGHT_SOLO_BOT + 'px';
-        }
-      } else if (data === 'CMD_HOVER_START') {
-        if (!isExpanded && !isAnimatingBubble) {
-          iframe.style.transition = 'width 0.25s ease-out, height 0.25s ease-out';
-          requestAnimationFrame(function() {
-            iframe.style.width = '350px';
-            iframe.style.height = bubbleHeight + 'px';
-          });
-        }
-      } else if (data === 'CMD_HOVER_END') {
-        if (!isExpanded && !isAnimatingBubble) {
-          iframe.style.transition = 'width 0.25s ease-in, height 0.25s ease-in';
-          requestAnimationFrame(function() {
-            iframe.style.width = '140px';
-            iframe.style.height = bubbleHeight + 'px';
-          });
         }
       }
     });
 
-    let lastMouseUpdate = 0;
-    const MOUSE_THROTTLE_MS = 16;
+    setTimeout(function() {
+      if (!iframeReady) {
+        console.warn('⚠️ Timeout: iframe no envió CMD_READY en 8s. Activando de todos modos...');
+        activateIframe('timeout');
+      }
+    }, 8000);
 
-    function onMouseMove(event) {
+    // ⬅️ PROTECCIÓN GLOBAL: Vigilar cambios de tamaño inesperados cuando está expandido
+    let lastExpandedCheck = 0;
+    const sizeObserver = new MutationObserver(function(mutations) {
       const now = Date.now();
-      if (now - lastMouseUpdate < MOUSE_THROTTLE_MS) return;
-      lastMouseUpdate = now;
-      try {
-        if (!iframe.contentWindow) return;
-        const iframeRect = iframe.getBoundingClientRect();
-        iframe.contentWindow.postMessage({
-          type: 'MOUSE_MOVE',
-          x: event.clientX,
-          y: event.clientY,
-          iframeX: iframeRect.left,
-          iframeY: iframeRect.top,
-          iframeWidth: iframeRect.width,
-          iframeHeight: iframeRect.height
-        }, '*');
-      } catch (e) {}
-    }
-
-    function onMouseLeave() {
-      try {
-        if (iframe.contentWindow) {
-          iframe.contentWindow.postMessage({ type: 'MOUSE_LEAVE' }, '*');
+      if (now - lastExpandedCheck < 50) return; // Throttle reducido a 50ms
+      lastExpandedCheck = now;
+      
+      if (isExpanded && !isAnimatingBubble && !isOpening) {
+        const currentWidth = parseInt(iframe.style.width) || iframe.offsetWidth;
+        const currentHeight = parseInt(iframe.style.height) || iframe.offsetHeight;
+        const isNarrow = isNarrowScreen();
+        
+        // Si está expandido, verificar que tenga el tamaño correcto
+        const expectedMinWidth = isNarrow ? 300 : 400;
+        const expectedMinHeight = isNarrow ? 400 : 500;
+        
+        if (currentWidth < expectedMinWidth || currentHeight < expectedMinHeight) {
+          console.error('🚨 [MutationObserver] IFRAME ACHICADO INESPERADAMENTE');
+          console.error('   Estado: isExpanded=', isExpanded, 'Tamaño actual:', currentWidth, 'x', currentHeight);
+          restoreExpandedStyle();
         }
-      } catch (e) {}
-    }
-
-    document.addEventListener('mousemove', onMouseMove, true);
-    document.addEventListener('mouseleave', onMouseLeave, true);
-    document.documentElement.addEventListener('mouseleave', onMouseLeave, true);
-
-    function updateHitzonePositions() {
-      const isMobile = window.innerWidth < 600;
-      const padBottom = isMobile ? 12 : 28;
-      const padRight = isMobile ? 16 : 28;
-      const bubbleSize = 100;
-      const gap = 12;
-      if (hitzoneBotEl) {
-        hitzoneBotEl.style.bottom = (padBottom + 16) + 'px';
-        hitzoneBotEl.style.right = (padRight + 4) + 'px';
       }
-      if (hitzoneWppEl) {
-        hitzoneWppEl.style.bottom = (padBottom + 16 + bubbleSize + gap) + 'px';
-        hitzoneWppEl.style.right = (padRight + 4) + 'px';
+    });
+    
+    // Observar cambios en el atributo style del iframe
+    sizeObserver.observe(iframe, { 
+      attributes: true, 
+      attributeFilter: ['style'] 
+    });
+    console.log('🛡️ Protección de tamaño activada - vigilando iframe');
+    
+    // ⬅️ PROTECCIÓN ADICIONAL: Verificación periódica cada 16ms (~60fps) cuando está expandido
+    setInterval(function() {
+      if (isExpanded && !isAnimatingBubble && !isOpening) {
+        const currentWidth = parseInt(iframe.style.width) || iframe.offsetWidth;
+        const currentHeight = parseInt(iframe.style.height) || iframe.offsetHeight;
+        const isNarrow = isNarrowScreen();
+        const expectedMinWidth = isNarrow ? 300 : 400;
+        const expectedMinHeight = isNarrow ? 400 : 500;
+        
+        if (currentWidth < expectedMinWidth || currentHeight < expectedMinHeight) {
+          console.error('🚨 [Interval] IFRAME ACHICADO - Restaurando');
+          restoreExpandedStyle();
+        }
       }
-    }
+    }, 16);
 
-    updateHitzonePositions();
-    window.addEventListener('resize', updateHitzonePositions);
+    // Mouse tracking para RIV (solo desktop)
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (!isTouchDevice) {
+      let lastMouseUpdate = 0;
+      const MOUSE_THROTTLE_MS = 50;
+      
+      function onMouseMove(event) {
+        const now = Date.now();
+        if (now - lastMouseUpdate < MOUSE_THROTTLE_MS) return;
+        lastMouseUpdate = now;
+        
+        try {
+          if (!iframe.contentWindow) return;
+          const iframeRect = iframe.getBoundingClientRect();
+          iframe.contentWindow.postMessage({
+            type: 'MOUSE_MOVE',
+            x: event.clientX,
+            y: event.clientY,
+            iframeX: iframeRect.left,
+            iframeY: iframeRect.top,
+            iframeWidth: iframeRect.width,
+            iframeHeight: iframeRect.height
+          }, '*');
+        } catch (e) {}
+      }
+      
+      function onMouseLeave() {
+        try {
+          if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage({ type: 'MOUSE_LEAVE' }, '*');
+          }
+        } catch (e) {}
+      }
+      
+      document.addEventListener('mousemove', onMouseMove, true);
+      document.addEventListener('mouseleave', onMouseLeave, true);
+      document.documentElement.addEventListener('mouseleave', onMouseLeave, true);
+      console.log('🖱️ Mouse tracking activado');
+    }
+  })();
+  </script>
+
+  <!-- Snackbars de conectividad (show_offline_alert): sin WiFi / reconexión -->
+  <script>
+  (function() {
+    'use strict';
+    console.log('[BotLode Connectivity] Inicializando sistema de notificaciones...');
+    
+    var C = 'botlode-connectivity-snackbars', O = 'botlode-snackbar-offline', N = 'botlode-snackbar-online';
+    var showOfflineAlert = true;
+    var currentNetworkStatus = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    var onlineTimeout = null, lastOnlineCallTime = 0, DEBOUNCE_MS = 500;
+    
+    var SVG_OFFLINE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/><line x1="2" y1="2" x2="22" y2="22" stroke-dasharray="2 2"/></svg>';
+    var SVG_ONLINE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    
+    function injectStyles() {
+      if (document.getElementById('botlode-connectivity-styles')) return;
+      var s = document.createElement('style'); 
+      s.id = 'botlode-connectivity-styles';
+      s.textContent = '#' + C + '{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none}' +
+        '.botlode-snackbar{position:relative;display:flex;align-items:center;gap:16px;padding:18px 26px;min-width:320px;max-width:min(90vw,480px);border-radius:16px;font-family:Oxanium,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px;font-weight:600;letter-spacing:.6px;box-sizing:border-box;pointer-events:auto;opacity:0;transform:translateY(24px) scale(.94);transition:opacity .45s cubic-bezier(.34,1.56,.64,1),transform .45s cubic-bezier(.34,1.56,.64,1),box-shadow .35s ease;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.2)}' +
+        '.botlode-snackbar.show{opacity:1;transform:translateY(0) scale(1)}' +
+        '.botlode-snackbar.hide{opacity:0;transform:translateY(-16px) scale(.92);transition-duration:.32s}' +
+        '.botlode-snackbar-offline{background:linear-gradient(135deg,rgba(25,14,10,.92) 0%,rgba(18,10,6,.95) 100%);border:1.5px solid rgba(255,145,70,.6);color:#ffc299;box-shadow:0 0 28px rgba(255,120,50,.22),inset 0 1px 0 rgba(255,200,120,.12),0 12px 40px rgba(0,0,0,.35)}' +
+        '.botlode-snackbar-offline .snackbar-glow{position:absolute;inset:-2px;border-radius:16px;padding:2px;background:linear-gradient(135deg,rgba(255,145,70,.3) 0%,transparent 50%,rgba(220,70,50,.2) 100%);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;animation:botlode-pulse-off 2.8s ease-in-out infinite}' +
+        '@keyframes botlode-pulse-off{0%,100%{opacity:.65}50%{opacity:1}}' +
+        '.botlode-snackbar-online{background:linear-gradient(135deg,rgba(10,28,18,.92) 0%,rgba(6,20,14,.95) 100%);border:1.5px solid rgba(90,230,150,.55);color:#a0ffcc;box-shadow:0 0 28px rgba(70,230,130,.18),inset 0 1px 0 rgba(140,255,200,.14),0 12px 40px rgba(0,0,0,.35)}' +
+        '.botlode-snackbar-online .snackbar-glow{position:absolute;inset:-2px;border-radius:16px;padding:2px;background:linear-gradient(135deg,rgba(90,230,150,.25) 0%,transparent 50%,rgba(70,190,110,.15) 100%);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;animation:botlode-pulse-on 2.8s ease-in-out infinite}' +
+        '@keyframes botlode-pulse-on{0%,100%{opacity:.55}50%{opacity:1}}' +
+        '.botlode-snackbar .snackbar-icon{flex-shrink:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;animation:botlode-icon-pop .5s cubic-bezier(.34,1.56,.64,1)}' +
+        '@keyframes botlode-icon-pop{0%{transform:scale(.4) rotate(-12deg);opacity:0}60%{transform:scale(1.12) rotate(4deg)}100%{transform:scale(1) rotate(0deg);opacity:1}}' +
+        '.botlode-snackbar .snackbar-icon svg{width:100%;height:100%}' +
+        '.botlode-snackbar-offline .snackbar-icon{color:#ff9d6e;filter:drop-shadow(0 0 8px rgba(255,140,80,.4))}' +
+        '.botlode-snackbar-online .snackbar-icon{color:#70f0a0;filter:drop-shadow(0 0 8px rgba(100,240,160,.45))}' +
+        '.botlode-snackbar .snackbar-text{flex:1;line-height:1.5;text-shadow:0 1px 2px rgba(0,0,0,.3)}';
+      (document.head || document.documentElement).appendChild(s);
+      console.log('[BotLode Connectivity] ✓ Estilos inyectados');
+    }
+    
+    function createSnackbars() {
+      if (document.getElementById(C)) return;
+      var w = document.createElement('div'); 
+      w.id = C; 
+      w.setAttribute('aria-live', 'polite');
+      w.innerHTML = '<div id="' + O + '" class="botlode-snackbar botlode-snackbar-offline" role="status" hidden>' +
+        '<span class="snackbar-glow"></span>' +
+        '<span class="snackbar-icon" aria-hidden="true">' + SVG_OFFLINE + '</span>' +
+        '<span class="snackbar-text">Conexión perdida. Comprueba tu red.</span>' +
+        '</div>' +
+        '<div id="' + N + '" class="botlode-snackbar botlode-snackbar-online" role="status" hidden>' +
+        '<span class="snackbar-glow"></span>' +
+        '<span class="snackbar-icon" aria-hidden="true">' + SVG_ONLINE + '</span>' +
+        '<span class="snackbar-text">Reconexión exitosa</span>' +
+        '</div>';
+      document.body.appendChild(w);
+      console.log('[BotLode Connectivity] ✓ Contenedores de snackbar creados');
+    }
+    
+    function showOffline() {
+      currentNetworkStatus = false;
+      console.log('[BotLode Connectivity] 📡 Mostrando alerta OFFLINE (showOfflineAlert=' + showOfflineAlert + ')');
+      if (!showOfflineAlert) return;
+      var so = document.getElementById(O), son = document.getElementById(N);
+      if (!so) { console.warn('[BotLode Connectivity] ⚠️ Elemento offline no encontrado'); return; }
+      if (onlineTimeout) { clearTimeout(onlineTimeout); onlineTimeout = null; }
+      if (son) { son.classList.remove('show'); son.classList.add('hide'); son.setAttribute('hidden', ''); }
+      so.removeAttribute('hidden'); 
+      so.classList.remove('hide'); 
+      requestAnimationFrame(function() { 
+        so.classList.add('show'); 
+        console.log('[BotLode Connectivity] ✓ Snackbar offline visible');
+      });
+    }
+    
+    function showOnline() {
+      currentNetworkStatus = true;
+      console.log('[BotLode Connectivity] 📶 Mostrando alerta ONLINE (showOfflineAlert=' + showOfflineAlert + ')');
+      if (!showOfflineAlert) return;
+      var now = Date.now(); 
+      if (now - lastOnlineCallTime < DEBOUNCE_MS) { console.log('[BotLode Connectivity] ⏱️ Debounce activo, ignorando'); return; }
+      lastOnlineCallTime = now;
+      var so = document.getElementById(O), son = document.getElementById(N);
+      if (!son || !so) { console.warn('[BotLode Connectivity] ⚠️ Elementos no encontrados'); return; }
+      so.classList.remove('show'); 
+      so.classList.add('hide'); 
+      setTimeout(function() { so.setAttribute('hidden', ''); so.classList.remove('hide'); }, 300);
+      son.removeAttribute('hidden'); 
+      son.classList.remove('hide'); 
+      requestAnimationFrame(function() { 
+        son.classList.add('show'); 
+        console.log('[BotLode Connectivity] ✓ Snackbar online visible');
+      });
+      if (onlineTimeout) clearTimeout(onlineTimeout);
+      onlineTimeout = setTimeout(function() {
+        if (son) { 
+          son.classList.remove('show'); 
+          son.classList.add('hide'); 
+          setTimeout(function() { 
+            if (son) { son.setAttribute('hidden', ''); son.classList.remove('show', 'hide'); } 
+            console.log('[BotLode Connectivity] ✓ Snackbar online ocultado');
+          }, 300); 
+        }
+        onlineTimeout = null;
+      }, 3000);
+    }
+    
+    function onMessage(ev) {
+      var d = ev.data;
+      if (d && typeof d === 'object' && d.type === 'BOT_CONFIG') {
+        var prev = showOfflineAlert; 
+        showOfflineAlert = d.showOfflineAlert === true;
+        console.log('[BotLode Connectivity] 📩 BOT_CONFIG recibido: showOfflineAlert=' + showOfflineAlert);
+        if (!showOfflineAlert) {
+          var so = document.getElementById(O);
+          if (so && so.classList.contains('show')) { 
+            so.classList.remove('show'); 
+            so.classList.add('hide'); 
+            setTimeout(function() { so.setAttribute('hidden', ''); }, 300); 
+          }
+        } else if (showOfflineAlert && !prev && !currentNetworkStatus) { 
+          if (!navigator.onLine) showOffline(); 
+        }
+        return;
+      }
+      if (d && typeof d === 'object' && d.type === 'connectivity') { 
+        console.log('[BotLode Connectivity] 📩 Mensaje connectivity recibido: online=' + d.online);
+        if (d.online) showOnline(); else showOffline(); 
+        return; 
+      }
+      if (d === 'NETWORK_OFFLINE') { console.log('[BotLode Connectivity] 📩 Mensaje NETWORK_OFFLINE (legacy)'); showOffline(); return; }
+      if (d === 'NETWORK_ONLINE') { console.log('[BotLode Connectivity] 📩 Mensaje NETWORK_ONLINE (legacy)'); showOnline(); return; }
+    }
+    
+    function onWindowOffline() {
+      currentNetworkStatus = false;
+      console.log('[BotLode Connectivity] 🌐 Evento window.offline detectado');
+      if (showOfflineAlert) showOffline();
+    }
+    
+    function onWindowOnline() {
+      currentNetworkStatus = true;
+      console.log('[BotLode Connectivity] 🌐 Evento window.online detectado');
+      var so = document.getElementById(O);
+      if (so && so.classList.contains('show')) showOnline();
+    }
+    
+    function init() {
+      injectStyles(); 
+      createSnackbars();
+      window.addEventListener('message', onMessage);
+      window.addEventListener('online', onWindowOnline);
+      window.addEventListener('offline', onWindowOffline);
+      console.log('[BotLode Connectivity] ✓ Sistema inicializado. Estado inicial: ' + (currentNetworkStatus ? 'ONLINE' : 'OFFLINE'));
+      console.log('[BotLode Connectivity] 💡 Para probar: abre DevTools > Network > marca "Offline"');
+    }
+    
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   })();
   </script>
 ''';
+    bool isFullscreen = false;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text("CÓDIGO DE ENLACE NEURAL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Container(
-          height: 150, padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.borderGlass)),
-          child: SingleChildScrollView(child: Text(embedCode, style: const TextStyle(color: AppColors.success, fontFamily: 'Courier', fontSize: 10))),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CERRAR")),
-          ElevatedButton(
-            onPressed: () { Clipboard.setData(ClipboardData(text: embedCode)); Navigator.pop(context); _showEpicNotify("PROTOCOLO COPIADO"); },
-            child: const Text("COPIAR PROTOCOLO"),
+      builder: (context) => Shortcuts(
+        shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+        child: Actions(
+          actions: {
+            _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
+              Clipboard.setData(ClipboardData(text: embedCode));
+              Navigator.pop(context);
+              _showEpicNotify("PROTOCOLO COPIADO");
+              return null;
+            }),
+          },
+          child: StatefulBuilder(
+        builder: (context, setModalState) {
+          final size = MediaQuery.of(context).size;
+          final padding = MediaQuery.of(context).padding;
+          // En fullscreen dejar espacio para la barra de la ventana (cerrar, minimizar, etc.)
+          const double windowBarHeight = 40.0;
+          final topInset = isFullscreen ? (windowBarHeight + padding.top) : 0.0;
+          final availableHeight = isFullscreen ? (size.height - topInset) : null;
+          return Dialog(
+            backgroundColor: AppColors.surface,
+            insetPadding: isFullscreen
+                ? EdgeInsets.only(top: topInset, left: 0, right: 0, bottom: 0)
+                : const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Container(
+              width: isFullscreen ? size.width : null,
+              height: isFullscreen ? availableHeight : null,
+              constraints: isFullscreen ? BoxConstraints(maxWidth: size.width, maxHeight: availableHeight!) : null,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: isFullscreen ? MainAxisSize.max : MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text("CÓDIGO DE ENLACE NEURAL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                      IconButton(
+                        icon: Icon(isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: AppColors.primary, size: 22),
+                        tooltip: isFullscreen ? "Salir de pantalla completa" : "Pantalla completa",
+                        onPressed: () => setModalState(() => isFullscreen = !isFullscreen),
+                        padding: const EdgeInsets.all(8),
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (isFullscreen)
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.borderGlass)),
+                        child: SingleChildScrollView(
+                          child: Text(embedCode, style: const TextStyle(color: AppColors.success, fontFamily: 'Courier', fontSize: 10)),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      height: 150,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.borderGlass)),
+                      child: SingleChildScrollView(
+                        child: Text(embedCode, style: const TextStyle(color: AppColors.success, fontFamily: 'Courier', fontSize: 10)),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text("CERRAR")),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () { Clipboard.setData(ClipboardData(text: embedCode)); Navigator.pop(context); _showEpicNotify("PROTOCOLO COPIADO"); },
+                        child: const Text("COPIAR PROTOCOLO"),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
           ),
-        ],
+        ),
       ),
     );
   }
 
   void _showPinDialog(Bot bot) {
     final pin = bot.accessPin ?? '0000';
-    
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => Shortcuts(
+        shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+        child: Actions(
+          actions: {
+            _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
+              Clipboard.setData(ClipboardData(text: pin));
+              Navigator.pop(context);
+              _showEpicNotify("PIN COPIADO");
+              return null;
+            }),
+          },
+          child: AlertDialog(
         backgroundColor: AppColors.surface,
         title: Row(
           children: [
@@ -520,6 +992,8 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
             child: const Text("COPIAR PIN"),
           ),
         ],
+          ),
+        ),
       ),
     );
   }
@@ -527,86 +1001,144 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
   void _showEditPromptDialog(Bot bot) {
     // ⬅️ SIMPLIFICADO: Usar solo system_prompt (todo en un solo campo)
     final TextEditingController promptCtrl = TextEditingController(text: bot.systemPrompt);
+    bool isFullscreen = false;
 
     showDialog(
       context: context,
       builder: (context) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            width: 600,
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: AppColors.surface.withValues(alpha: 0.95),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
-              boxShadow: [
-                BoxShadow(color: AppColors.primary.withValues(alpha: 0.1), blurRadius: 30, spreadRadius: 2),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+        child: Shortcuts(
+          shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+          child: Actions(
+            actions: {
+              _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) async {
+                await ref.read(botsProvider.notifier).updateBotPrompt(bot.id, promptCtrl.text);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  _showEpicNotify("NÚCLEO REPROGRAMADO");
+                }
+                return null;
+              }),
+            },
+            child: StatefulBuilder(
+          builder: (context, setModalState) {
+            final size = MediaQuery.of(context).size;
+            final padding = MediaQuery.of(context).padding;
+            // En fullscreen dejar espacio para la barra de la ventana (cerrar, minimizar, etc.)
+            const double windowBarHeight = 40.0;
+            final topInset = isFullscreen ? (windowBarHeight + padding.top) : 0.0;
+            final availableHeight = isFullscreen ? (size.height - topInset) : null;
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: isFullscreen
+                  ? EdgeInsets.only(top: topInset, left: 0, right: 0, bottom: 0)
+                  : const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: Container(
+                width: isFullscreen ? size.width : 600,
+                height: isFullscreen ? availableHeight : null,
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: AppColors.surface.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
+                  boxShadow: [
+                    BoxShadow(color: AppColors.primary.withValues(alpha: 0.1), blurRadius: 30, spreadRadius: 2),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: isFullscreen ? MainAxisSize.max : MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 28),
-                    const SizedBox(width: 12),
-                    const Text(
-                      "REPROGRAMACIÓN DE NÚCLEO",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'Oxanium',
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                    Row(
+                      children: [
+                        Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 28),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            "REPROGRAMACIÓN DE NÚCLEO",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'Oxanium',
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: AppColors.primary, size: 22),
+                          tooltip: isFullscreen ? "Salir de pantalla completa" : "Pantalla completa",
+                          onPressed: () => setModalState(() => isFullscreen = !isFullscreen),
+                          padding: const EdgeInsets.all(8),
+                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Modifique las directivas primarias de la unidad. Aquí defines TODO: comportamiento, personalidad, tono, estilo...",
+                      style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.8), fontSize: 12),
+                    ),
+                    const SizedBox(height: 24),
+                    if (isFullscreen)
+                      Expanded(
+                        child: TextField(
+                          controller: promptCtrl,
+                          maxLines: null,
+                          minLines: 8,
+                          style: const TextStyle(color: Colors.white, fontFamily: 'Courier', height: 1.5),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.black.withValues(alpha: 0.5),
+                            hintText: "Ej: 'Comportate serio y profesional' o 'Sé relajado y amigable. Responde de forma casual.'",
+                            hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.3)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary)),
+                            contentPadding: const EdgeInsets.all(20),
+                          ),
+                        ),
+                      )
+                    else
+                      TextField(
+                        controller: promptCtrl,
+                        maxLines: 8,
+                        style: const TextStyle(color: Colors.white, fontFamily: 'Courier', height: 1.5),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.black.withValues(alpha: 0.5),
+                          hintText: "Ej: 'Comportate serio y profesional' o 'Sé relajado y amigable. Responde de forma casual.'",
+                          hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.3)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary)),
+                          contentPadding: const EdgeInsets.all(20),
+                        ),
                       ),
+                    const SizedBox(height: 32),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("CANCELAR", style: TextStyle(color: AppColors.textSecondary)),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            await ref.read(botsProvider.notifier).updateBotPrompt(bot.id, promptCtrl.text);
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              _showEpicNotify("NÚCLEO REPROGRAMADO");
+                            }
+                          },
+                          icon: const Icon(Icons.save_as_rounded),
+                          label: const Text("GUARDAR DIRECTIVAS"),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  "Modifique las directivas primarias de la unidad. Aquí defines TODO: comportamiento, personalidad, tono, estilo...",
-                  style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.8), fontSize: 12),
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: promptCtrl,
-                  maxLines: 8,
-                  style: const TextStyle(color: Colors.white, fontFamily: 'Courier', height: 1.5),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.black.withValues(alpha: 0.5),
-                    hintText: "Ej: 'Comportate serio y profesional' o 'Sé relajado y amigable. Responde de forma casual.'",
-                    hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.3)),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary)),
-                    contentPadding: const EdgeInsets.all(20),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text("CANCELAR", style: TextStyle(color: AppColors.textSecondary)),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        await ref.read(botsProvider.notifier).updateBotPrompt(bot.id, promptCtrl.text);
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          _showEpicNotify("NÚCLEO REPROGRAMADO");
-                        }
-                      },
-                      icon: const Icon(Icons.save_as_rounded),
-                      label: const Text("GUARDAR DIRECTIVAS"),
-                    ),
-                  ],
-                ),
-              ],
+              ),
+            );
+          },
             ),
           ),
         ),
@@ -624,7 +1156,34 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       context: context,
       builder: (context) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Dialog(
+        child: Shortcuts(
+          shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+          child: Actions(
+            actions: {
+              _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) async {
+                if (!formKey.currentState!.validate()) return null;
+                final phone = phoneCtrl.text.trim();
+                try {
+                  await ref.read(botsProvider.notifier).updateWppConfig(bot.id, true, phone);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    _showEpicNotify("WHATSAPP CONFIGURADO");
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(e.toString().replaceFirst('Exception: ', '')),
+                        backgroundColor: AppColors.error,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+                return null;
+              }),
+            },
+            child: Dialog(
           backgroundColor: Colors.transparent,
           child: Container(
             width: 420,
@@ -681,7 +1240,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    "Número con código de país, sin espacios ni símbolos. Ej: 1134272488",
+                    "Número con código de país, sin espacios ni símbolos.\nEj: 1134272488",
                     style: TextStyle(
                       color: AppColors.textSecondary.withValues(alpha: 0.9),
                       fontSize: 12,
@@ -693,6 +1252,9 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                     controller: phoneCtrl,
                     keyboardType: TextInputType.phone,
                     autofocus: true,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
                     style: const TextStyle(
                       color: Colors.white,
                       fontFamily: 'Courier',
@@ -702,7 +1264,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: Colors.black.withValues(alpha: 0.5),
-                      hintText: "1134272488",
+                      hintText: "Teléfono",
                       hintStyle: TextStyle(
                         color: AppColors.textSecondary.withValues(alpha: 0.4),
                       ),
@@ -793,6 +1355,8 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
               ),
             ),
           ),
+            ),
+          ),
         ),
       ),
     );
@@ -807,7 +1371,34 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       context: context,
       builder: (context) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Dialog(
+        child: Shortcuts(
+          shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+          child: Actions(
+            actions: {
+              _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) async {
+                final newMessage = messageCtrl.text.trim();
+                if (newMessage.isEmpty) return null;
+                try {
+                  await ref.read(botsProvider.notifier).updateInitialMessage(bot.id, newMessage);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    _showEpicNotify("MENSAJE ACTUALIZADO");
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(e.toString().replaceFirst('Exception: ', '')),
+                        backgroundColor: AppColors.error,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+                return null;
+              }),
+            },
+            child: Dialog(
           backgroundColor: Colors.transparent,
           child: Container(
             width: 500,
@@ -900,6 +1491,8 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                   ],
                 ),
               ],
+            ),
+          ),
             ),
           ),
         ),
@@ -1244,15 +1837,23 @@ class _ActionButtonState extends State<_ActionButton> {
         ? widget.color.withValues(alpha: 0.25) 
         : widget.color.withValues(alpha: 0.1);
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Tooltip(
-        message: widget.tooltip,
-        child: InkWell(
-          onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: AnimatedContainer(
+    return Focus(
+      onKeyEvent: (_, KeyEvent event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Tooltip(
+          message: '${widget.tooltip} (Enter)',
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -1270,6 +1871,7 @@ class _ActionButtonState extends State<_ActionButton> {
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -1417,7 +2019,11 @@ class _MonitorPanel extends StatelessWidget {
                   if (onEnergyToggle != null) {
                     onEnergyToggle!(context, bot.id);
                   } else {
-                    ref.read(botsProvider.notifier).toggleStatus(bot.id);
+                    ref.read(botsProvider.notifier).toggleStatus(bot.id).then((success) {
+                      if (!success && context.mounted) {
+                        CreditLimitReachedDialog.show(context);
+                      }
+                    });
                   }
                 },
                 activeText: "ACTIVADO",
@@ -1567,8 +2173,8 @@ class _BubbleSizeSliderState extends State<_BubbleSizeSlider> {
   late double _currentSize;
   Timer? _debounceTimer;
 
-  static const double _minSize = 60.0;
-  static const double _maxSize = 100.0;
+  static const double _minSize = 70.0;
+  static const double _maxSize = 120.0;
 
   @override
   void initState() {
@@ -1686,42 +2292,52 @@ class _ConfigSwitch extends StatelessWidget {
 
   @override 
   Widget build(BuildContext context) { 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween, 
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start, 
-          children: [
-            Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)), 
-            const SizedBox(height: 4), 
-            Row(
-              children: [
-                if (value && activeIcon != null) ...[
-                  Icon(activeIcon, color: activeColor, size: 16),
-                  const SizedBox(width: 8),
-                ],
-                if (!value && inactiveIcon != null) ...[
-                  Icon(inactiveIcon, color: AppColors.textSecondary, size: 16),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  value ? activeText : inactiveText, 
-                  style: TextStyle(
-                    color: value ? activeColor : AppColors.textSecondary, 
-                    fontWeight: FontWeight.bold, 
-                    fontSize: 16
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start, 
+                children: [
+                  Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)), 
+                  const SizedBox(height: 4), 
+                  Row(
+                    children: [
+                      if (value && activeIcon != null) ...[
+                        Icon(activeIcon, color: activeColor, size: 16),
+                        const SizedBox(width: 8),
+                      ],
+                      if (!value && inactiveIcon != null) ...[
+                        Icon(inactiveIcon, color: AppColors.textSecondary, size: 16),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(
+                        value ? activeText : inactiveText, 
+                        style: TextStyle(
+                          color: value ? activeColor : AppColors.textSecondary, 
+                          fontWeight: FontWeight.bold, 
+                          fontSize: 16
+                        )
+                      ),
+                    ],
                   )
-                ),
-              ],
-            )
-          ]
-        ), 
-        Switch(
-          value: value, 
-          activeColor: activeColor, 
-          onChanged: onChanged
-        )
-      ]
+                ]
+              ), 
+              Switch(
+                value: value, 
+                activeColor: activeColor, 
+                onChanged: onChanged
+              )
+            ]
+          ),
+        ),
+      ),
     ); 
   }
 }

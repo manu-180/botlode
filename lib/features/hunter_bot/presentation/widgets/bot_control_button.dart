@@ -178,7 +178,7 @@ class _BotControlButtonState extends ConsumerState<BotControlButton>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              isEnabled ? 'BOT ACTIVO' : 'BOT DETENIDO',
+                              isEnabled ? 'HUNTER BOT ACTIVO' : 'HUNTER BOT DETENIDO',
                               style: TextStyle(
                                 color: isEnabled 
                                     ? AppColors.success 

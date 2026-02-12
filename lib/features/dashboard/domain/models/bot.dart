@@ -1,4 +1,5 @@
 // Archivo: lib/features/dashboard/domain/models/bot.dart
+import 'package:botslode/core/config/cycle_exempt_bots_config.dart';
 import 'package:flutter/material.dart';
 
 enum BotStatus { active, maintenance, disabled, creditSuspended }
@@ -54,7 +55,10 @@ class Bot {
 
   static const double _CYCLE_PRICE = 20.00;
 
+  bool get _isCycleExempt => CycleExemptBotsConfig.isExempt(id);
+
   double get daysActivePrecise {
+    if (_isCycleExempt) return 0.0;
     if (status == BotStatus.disabled || status == BotStatus.creditSuspended) {
       final double fraction = currentBalance / _CYCLE_PRICE; 
       return fraction * 30.0;
@@ -83,6 +87,7 @@ class Bot {
   }
 
   double get cycleProgress {
+    if (_isCycleExempt) return 0.0;
     final days = daysActivePrecise; 
     if (days >= 30.0) return 1.0;
     if (days < 0) return 0.0;
@@ -90,6 +95,7 @@ class Bot {
   }
 
   double get calculatedDebt {
+    if (_isCycleExempt) return 0.0;
     if (status == BotStatus.disabled || status == BotStatus.creditSuspended) {
       return currentBalance; 
     }

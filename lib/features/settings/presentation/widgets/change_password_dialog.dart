@@ -4,8 +4,13 @@ import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/providers/auth_provider.dart';
 import 'package:botslode/core/ui/widgets/error_feedback_card.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class _DialogSubmitIntent extends Intent {
+  const _DialogSubmitIntent();
+}
 
 class ChangePasswordDialog extends ConsumerStatefulWidget {
   const ChangePasswordDialog({super.key});
@@ -62,7 +67,16 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
       return _buildSuccessState();
     }
 
-    return BackdropFilter(
+    return Shortcuts(
+      shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+      child: Actions(
+        actions: {
+          _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) async {
+            await _submit();
+            return null;
+          }),
+        },
+        child: BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
       child: Dialog(
         backgroundColor: Colors.transparent,
@@ -175,6 +189,8 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
               ],
             ),
           ),
+        ),
+      ),
         ),
       ),
     );

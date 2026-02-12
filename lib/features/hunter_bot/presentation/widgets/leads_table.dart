@@ -6,6 +6,10 @@ import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/features/hunter_bot/domain/models/lead.dart';
 import 'package:botslode/features/hunter_bot/presentation/providers/hunter_provider.dart';
 
+class _DialogSubmitIntent extends Intent {
+  const _DialogSubmitIntent();
+}
+
 /// Tabla de leads con acciones
 class LeadsTable extends ConsumerWidget {
   final List<Lead> leads;
@@ -277,7 +281,17 @@ class _LeadRow extends ConsumerWidget {
   void _confirmDelete(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => Shortcuts(
+        shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+        child: Actions(
+          actions: {
+            _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
+              ref.read(hunterProvider.notifier).deleteLead(lead.id);
+              Navigator.pop(context);
+              return null;
+            }),
+          },
+          child: AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text(
@@ -308,6 +322,8 @@ class _LeadRow extends ConsumerWidget {
             child: const Text('Eliminar'),
           ),
         ],
+          ),
+        ),
       ),
     );
   }

@@ -1,7 +1,6 @@
 // Archivo: lib/features/auth/presentation/providers/auth_state_provider.dart
 import 'dart:async';
 import 'package:botslode/features/auth/presentation/providers/auth_repository_provider.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -111,6 +110,8 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
 
     try {
       await _ref.read(authRepositoryProvider).signOut();
+      // botsProvider y billingProvider dependen de authUserIdProvider;
+      // al pasar session a null, se reconstruyen automáticamente con datos vacíos
     } catch (e) {
       // Error silenciado
     } finally {
@@ -139,4 +140,12 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
 /// realizar acciones de login/logout/registro.
 final authStateProvider = StateNotifierProvider<AuthNotifier, AuthStateData>((ref) {
   return AuthNotifier(ref);
+});
+
+/// ID del usuario actual desde la sesión de auth.
+/// Fuente de verdad para userId; se actualiza correctamente tras login/logout.
+final authUserIdProvider = Provider<String?>((ref) {
+  final authState = ref.watch(authStateProvider);
+  final session = authState.session;
+  return session?.user.id;
 });

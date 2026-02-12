@@ -3,6 +3,11 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+class _DialogSubmitIntent extends Intent {
+  const _DialogSubmitIntent();
+}
 
 class DeleteProtocolDialog extends StatefulWidget {
   final String botName;
@@ -56,9 +61,21 @@ class _DeleteProtocolDialogState extends State<DeleteProtocolDialog> {
     final isEnabled = _countdown == 0;
     
     // Color "Bordó" (Rojo oscuro industrial) para la acción destructiva
-    final Color deepErrorColor = const Color(0xFF8B0000); 
+    final Color deepErrorColor = const Color(0xFF8B0000);
 
-    return BackdropFilter(
+    return Shortcuts(
+      shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+      child: Actions(
+        actions: {
+          _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
+            if (isEnabled) {
+              widget.onConfirm();
+              Navigator.of(context).pop();
+            }
+            return null;
+          }),
+        },
+        child: BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
       child: Dialog(
         backgroundColor: Colors.transparent,
@@ -224,6 +241,8 @@ class _DeleteProtocolDialogState extends State<DeleteProtocolDialog> {
               ],
             ),
           ),
+        ),
+      ),
         ),
       ),
     );

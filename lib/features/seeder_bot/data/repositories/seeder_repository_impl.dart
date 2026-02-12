@@ -102,6 +102,7 @@ class SeederRepositoryImpl implements SeederRepository {
         'error': 0,
         'total_logs': 0,
         'pending_targets': 0,
+        'retry_targets': 0,
         'submitted_targets': 0,
       };
     }
@@ -111,6 +112,7 @@ class SeederRepositoryImpl implements SeederRepository {
       'error': (map['error'] is int) ? map['error'] as int : int.tryParse(map['error']?.toString() ?? '0') ?? 0,
       'total_logs': (map['total_logs'] is int) ? map['total_logs'] as int : int.tryParse(map['total_logs']?.toString() ?? '0') ?? 0,
       'pending_targets': (map['pending_targets'] is int) ? map['pending_targets'] as int : int.tryParse(map['pending_targets']?.toString() ?? '0') ?? 0,
+      'retry_targets': (map['retry_targets'] is int) ? map['retry_targets'] as int : int.tryParse(map['retry_targets']?.toString() ?? '0') ?? 0,
       'submitted_targets': (map['submitted_targets'] is int) ? map['submitted_targets'] as int : int.tryParse(map['submitted_targets']?.toString() ?? '0') ?? 0,
     };
   }

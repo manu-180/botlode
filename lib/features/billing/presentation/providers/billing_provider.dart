@@ -1,5 +1,6 @@
 // Archivo: lib/features/billing/presentation/providers/billing_provider.dart
 import 'dart:async';
+import 'package:botslode/core/config/cycle_exempt_bots_config.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/providers/supabase_provider.dart';
 import 'package:botslode/features/billing/domain/models/card_info.dart';
@@ -19,6 +20,17 @@ class Billing extends _$Billing {
 
   @override
   FutureOr<BillingState> build() async {
+    final userId = ref.watch(currentUserIdProvider);
+    if (userId == null) {
+      return BillingState(
+        totalDebt: 0,
+        transactions: [],
+        primaryCard: null,
+        allCards: [],
+        dollarRate: 1200.0,
+        creditLimit: 0.0,
+      );
+    }
     return _fetchFinancialData();
   }
 
@@ -39,15 +51,16 @@ class Billing extends _$Billing {
       final double dollarRate = results[2] as double;
       final int qualifiedBotCount = results[3] as int;
 
-      // 2. Límite = cantidad de bots ACTIVOS × 60 (solo status = 'active')
+      // 2. Límite = total de bots (activos + desactivados) × 60 — todos cuentan para el tope (mín. 60)
       const double limitPerBot = 60.0;
-      final double finalLimit = qualifiedBotCount * limitPerBot;
+      final double finalLimit = (qualifiedBotCount > 0 ? qualifiedBotCount : 1) * limitPerBot;
 
-      // 3. Cálculo de Deuda
+      // 3. Cálculo de Deuda (excluye cobros de bots exentos del ciclo)
       double runningBalance = 0.0;
       for (var tx in transactions) {
-        if (tx.type == TransactionType.cycleCharge) runningBalance += tx.amount;
-        else if (tx.type == TransactionType.liquidation) {
+        if (tx.type == TransactionType.cycleCharge) {
+          if (!CycleExemptBotsConfig.isExempt(tx.botId)) runningBalance += tx.amount;
+        } else if (tx.type == TransactionType.liquidation) {
           runningBalance -= tx.amount;
           if (runningBalance < 0) runningBalance = 0;
         }

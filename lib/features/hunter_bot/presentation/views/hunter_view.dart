@@ -374,7 +374,7 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
               const SizedBox(height: 8),
               Row(
                 children: [
-                  _buildStatCardCompact('ENVÍO', state.sentCount.toString(), Icons.done_all, AppColors.success),
+                  _buildStatCardCompact('Repetidos', state.otherCount.toString(), Icons.search, AppColors.primary),
                   const SizedBox(width: 8),
                   _buildStatCardCompact('FAIL', state.failedCount.toString(), Icons.error_outline, AppColors.error),
                 ],
@@ -382,7 +382,7 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
               const SizedBox(height: 8),
               Row(
                 children: [
-                  _buildStatCardCompact('Repetidos', state.otherCount.toString(), Icons.search, AppColors.primary),
+                  _buildStatCardCompact('ENVÍO', state.sentCount.toString(), Icons.done_all, AppColors.success),
                 ],
               ),
             ],
@@ -399,11 +399,11 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
             const SizedBox(width: 8),
             _buildStatCard('PEND', state.pendingCount.toString(), Icons.schedule, AppColors.warning, flex: 1),
             const SizedBox(width: 8),
-            _buildStatCard('ENVÍO', state.sentCount.toString(), Icons.done_all, AppColors.success, flex: 1),
+            _buildStatCard('Repetidos', state.otherCount.toString(), Icons.search, AppColors.primary, flex: 1, tooltip: 'En cola, escaneando o enviando'),
             const SizedBox(width: 8),
             _buildStatCard('FAIL', state.failedCount.toString(), Icons.error_outline, AppColors.error, flex: 1),
             const SizedBox(width: 8),
-            _buildStatCard('Repetidos', state.otherCount.toString(), Icons.search, AppColors.primary, flex: 1, tooltip: 'En cola, escaneando o enviando'),
+            _buildStatCard('ENVÍO', state.sentCount.toString(), Icons.done_all, AppColors.success, flex: 1),
             ],
           ),
         );
