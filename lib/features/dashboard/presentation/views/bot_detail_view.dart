@@ -98,7 +98,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     final String botId = bot.id;
     final String embedCode = '''
   <!-- BotLode - Burbuja flotante embebida -->
-  <!-- Pegar antes del </body> en cualquier HTML -->
+  <!-- Pegar antes del </body> en cualquier HTML. Si no aparece: pegar en HTML crudo (no en editor visual), permitir iframes/scripts, desactivar bloqueadores, revisar consola F12. -->
 
   <style>
     #botlode-player {
@@ -115,6 +115,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
 
   <iframe
     id="botlode-player"
+    tabindex="0"
     src="$baseUrl?botId=$botId&v=2.5"
     style="
       position: fixed;
@@ -123,7 +124,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       width: 150px;
       height: 150px;
       border: none;
-      z-index: 100001;
+      z-index: 100003;
       pointer-events: auto;
       background: transparent !important;
       opacity: 0;
@@ -131,8 +132,8 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       transform: translateZ(0);
       touch-action: manipulation;
     "
+    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation"
     allow="clipboard-write"
-    loading="lazy"
     allowtransparency="true">
   </iframe>
 
@@ -144,9 +145,12 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     height: 100px;
     z-index: 100002;
     pointer-events: none;
-    cursor: pointer;
+    cursor: wait;
     border-radius: 50%;
     display: none;
+    background: transparent !important;
+    -webkit-tap-highlight-color: transparent !important;
+    touch-action: manipulation !important;
   "></div>
 
   <div id="botlode-hitzone-wpp" style="
@@ -157,21 +161,23 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     height: 100px;
     z-index: 100002;
     pointer-events: none;
-    cursor: pointer;
+    cursor: wait;
     border-radius: 50%;
     display: none;
+    background: transparent !important;
+    -webkit-tap-highlight-color: transparent !important;
+    touch-action: manipulation !important;
   "></div>
 
   <script>
   (function() {
-    console.log('🎯 IFRAME SCRIPT v3.0 - pointer-events: auto permanente, taps directos a Flutter');
     const iframe = document.getElementById('botlode-player');
     const hitzoneBotEl = document.getElementById('botlode-hitzone-bot');
     const hitzoneWppEl = document.getElementById('botlode-hitzone-wpp');
     if (!iframe) return;
 
     let isExpanded = false;
-    let isOpening = false; // ⬅️ Evita carreras visuales durante apertura
+    let isOpening = false;
     let isAnimatingBubble = false;
     let botDisabled = false;
     const BUBBLE_HEIGHT_SOLO_BOT = 150;
@@ -182,14 +188,75 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     let bubbleHeight = BUBBLE_HEIGHT_SOLO_BOT;
     let bubbleWidth = BUBBLE_WIDTH_SOLO_BOT;
     let iframeReady = false;
-    let justClosedTimestamp = 0; // ⬅️ Para bloquear comandos justo después de cerrar
-    let firstOpenWarmupDone = false; // ⬅️ Oculta glitch del primer render
+    let pendingOpenWhenReady = false;
+    let justClosedTimestamp = 0;
+    let firstOpenWarmupDone = false;
     const FIRST_OPEN_REVEAL_DELAY_MS = 45;
-    let firstOpenLayoutPrimed = false; // ⬅️ Precalentamiento de layout (open->close oculto)
+    let firstOpenLayoutPrimed = false;
+    let lastClickTime = 0;
+    const CLICK_COOLDOWN_MS = 150;
+    let retryTimer = null;
+    let retryCount = 0;
+    const MAX_RETRIES = 2;
+    const RETRY_DELAY_MS = 250;
+    let touchHandled = false;
+    let mouseHandled = false;
+    let chatOpenViewportHeight = null;
+    let currentKeyboardHeight = 0;
+
+    // ⬅️ FIX MÓVIL v2: El canvas de Flutter Web captura los touches antes del iframe.
+    // Estrategias combinadas: CSS !important (sobreescribe estilos inline de Flutter),
+    // múltiples selectores (flutter-view, flt-glass-pane, flt-scene-host, canvas),
+    // retry con delay (Flutter puede tardar en renderizar), mover iframe al final del body.
+    const FLUTTER_FIX_STYLE_ID = 'botlode-flutter-pointer-fix';
+    let flutterFixRetryTimer = null;
+    let flutterFixRetryCount = 0;
+    const FLUTTER_FIX_RETRY_DELAYS = [0, 50, 150, 300, 600]; // ms
+    
+    function applyFlutterPointerFix() {
+      var styleEl = document.getElementById(FLUTTER_FIX_STYLE_ID);
+      if (styleEl) styleEl.remove();
+      var s = document.createElement('style');
+      s.id = FLUTTER_FIX_STYLE_ID;
+      s.textContent = 'flutter-view, flt-glass-pane, flt-scene-host, flt-glass-pane *, flt-scene-host *, flt-glass-pane canvas, flt-scene-host canvas { pointer-events: none !important; }';
+      document.head.appendChild(s);
+    }
+    
+    function removeFlutterPointerFix() {
+      var styleEl = document.getElementById(FLUTTER_FIX_STYLE_ID);
+      if (styleEl) styleEl.remove();
+      if (flutterFixRetryTimer) { clearTimeout(flutterFixRetryTimer); flutterFixRetryTimer = null; }
+      flutterFixRetryCount = 0;
+    }
+    
+    function moveIframeToTop() {
+      if (iframe && iframe.parentNode === document.body && document.body.lastChild !== iframe) {
+        document.body.appendChild(iframe);
+      }
+    }
+    
+    function setFlutterHostPointerEventsForChat(chatExpanded) {
+      if (!chatExpanded || !isNarrowScreen()) {
+        removeFlutterPointerFix();
+        return;
+      }
+      if (flutterFixRetryTimer) { clearTimeout(flutterFixRetryTimer); flutterFixRetryTimer = null; }
+      flutterFixRetryCount = 0;
+      function doApply() {
+        applyFlutterPointerFix();
+        moveIframeToTop();
+        flutterFixRetryCount++;
+        if (flutterFixRetryCount < FLUTTER_FIX_RETRY_DELAYS.length && isExpanded && isNarrowScreen()) {
+          flutterFixRetryTimer = setTimeout(doApply, FLUTTER_FIX_RETRY_DELAYS[flutterFixRetryCount]);
+        }
+      }
+      doApply();
+    }
 
     // ⬅️ PROTECCIÓN MÁXIMA: Guardamos el estado expandido del iframe
     let expandedStyleCache = null;
-    
+    function dbg() {}
+
     function cacheExpandedStyle() {
       if (isExpanded) {
         expandedStyleCache = {
@@ -200,13 +267,11 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
           right: iframe.style.right,
           bottom: iframe.style.bottom
         };
-        console.log('💾 Cache de estilo expandido guardado:', expandedStyleCache);
       }
     }
     
     function restoreExpandedStyle() {
       if (isExpanded && expandedStyleCache) {
-        console.log('🔄 Restaurando estilo expandido desde cache');
         iframe.style.transition = 'none';
         Object.keys(expandedStyleCache).forEach(function(key) {
           iframe.style[key] = expandedStyleCache[key];
@@ -216,32 +281,179 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       }
     }
 
+    function forwardEventToIframe(event, eventType) {
+      try {
+        if (!iframe.contentWindow) return;
+        const iframeRect = iframe.getBoundingClientRect();
+        iframe.contentWindow.postMessage({
+          type: eventType,
+          clientX: event.clientX || 0,
+          clientY: event.clientY || 0,
+          iframeX: iframeRect.left,
+          iframeY: iframeRect.top,
+        }, '*');
+      } catch (e) {}
+    }
+
+    function sendClickToIframe(source) {
+      const rect = iframe.getBoundingClientRect();
+      try {
+        iframe.contentWindow.postMessage({
+          type: 'HITZONE_CLICK_BOT',
+          clientX: rect.left + rect.width / 2,
+          clientY: rect.bottom - 70,
+          iframeX: rect.left,
+          iframeY: rect.top,
+        }, '*');
+        iframe.contentWindow.postMessage('HITZONE_CLICK_BOT', '*');
+      } catch (e) {}
+    }
+
+    function openBotChat(source) {
+      const now = Date.now();
+      try { window.focus(); } catch(e) {}
+      if (!iframeReady) {
+        pendingOpenWhenReady = true;
+        if (hitzoneBotEl) hitzoneBotEl.style.cursor = 'wait';
+        return;
+      }
+      if (botDisabled || isExpanded) return;
+      if (now - lastClickTime < CLICK_COOLDOWN_MS) return;
+      lastClickTime = now;
+      // Failsafe: desbloquea interacción del iframe desde el primer gesto del usuario.
+      iframe.style.pointerEvents = 'auto';
+      updateHitzones(false);
+      updateWppHitzone(false);
+      sendClickToIframe(source);
+      retryCount = 0;
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = setTimeout(function retryFn() {
+        if (isExpanded) return;
+        retryCount++;
+        if (retryCount <= MAX_RETRIES) {
+          sendClickToIframe('retry-' + retryCount);
+          retryTimer = setTimeout(retryFn, RETRY_DELAY_MS);
+        }
+      }, RETRY_DELAY_MS);
+    }
+
+    function openWppChat(source) {
+      const now = Date.now();
+      if (!iframeReady || botDisabled || isExpanded) return;
+      if (now - lastClickTime < CLICK_COOLDOWN_MS) return;
+      lastClickTime = now;
+      const rect = iframe.getBoundingClientRect();
+      try {
+        iframe.contentWindow.postMessage({
+          type: 'HITZONE_CLICK_WPP',
+          clientX: rect.left + rect.width / 2,
+          clientY: rect.top + 50,
+          iframeX: rect.left,
+          iframeY: rect.top,
+        }, '*');
+      } catch (e) {}
+    }
+
+    function updateHitzones(show) {
+      if (hitzoneBotEl) {
+        // Arquitectura tap-directo: sin capas intermedias que bloqueen el iframe.
+        hitzoneBotEl.style.display = 'none';
+        hitzoneBotEl.style.pointerEvents = 'none';
+      }
+    }
+
+    function updateWppHitzone(show) {
+      if (hitzoneWppEl) {
+        // Arquitectura tap-directo: sin capas intermedias que bloqueen el iframe.
+        hitzoneWppEl.style.display = 'none';
+        hitzoneWppEl.style.pointerEvents = 'none';
+      }
+    }
+
+    if (hitzoneBotEl) {
+      hitzoneBotEl.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.pointerType === 'touch') { touchHandled = true; setTimeout(function() { touchHandled = false; }, 500); }
+        else { mouseHandled = true; setTimeout(function() { mouseHandled = false; }, 500); }
+        openBotChat('pointerdown-' + e.pointerType);
+      }, { passive: false });
+      hitzoneBotEl.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (touchHandled) return;
+        touchHandled = true;
+        openBotChat('touchstart');
+        setTimeout(function() { touchHandled = false; }, 500);
+      }, { passive: false });
+      hitzoneBotEl.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (mouseHandled || touchHandled) return;
+        mouseHandled = true;
+        openBotChat('mousedown');
+        setTimeout(function() { mouseHandled = false; }, 500);
+      }, { passive: false });
+      hitzoneBotEl.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (touchHandled || mouseHandled) return;
+        openBotChat('click');
+      }, { passive: false });
+      hitzoneBotEl.addEventListener('mouseenter', function(e) { if (!isExpanded) forwardEventToIframe(e, 'HITZONE_ENTER_BOT'); });
+      hitzoneBotEl.addEventListener('mouseleave', function(e) { if (!isExpanded) forwardEventToIframe(e, 'HITZONE_LEAVE_BOT'); });
+      hitzoneBotEl.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+      hitzoneBotEl.addEventListener('dragstart', function(e) { e.preventDefault(); });
+    }
+
+    if (hitzoneWppEl) {
+      hitzoneWppEl.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.pointerType === 'touch') { touchHandled = true; setTimeout(function() { touchHandled = false; }, 500); }
+        else { mouseHandled = true; setTimeout(function() { mouseHandled = false; }, 500); }
+        openWppChat('pointerdown-' + e.pointerType);
+      }, { passive: false });
+      hitzoneWppEl.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (touchHandled) return;
+        touchHandled = true;
+        openWppChat('touchstart');
+        setTimeout(function() { touchHandled = false; }, 500);
+      }, { passive: false });
+      hitzoneWppEl.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (mouseHandled || touchHandled) return;
+        mouseHandled = true;
+        openWppChat('mousedown');
+        setTimeout(function() { mouseHandled = false; }, 500);
+      }, { passive: false });
+      hitzoneWppEl.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (touchHandled || mouseHandled) return;
+        openWppChat('click');
+      }, { passive: false });
+      hitzoneWppEl.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+      hitzoneWppEl.addEventListener('dragstart', function(e) { e.preventDefault(); });
+    }
+
     function activateIframe(source) {
       if (iframeReady) return;
-      console.log('✅ BotLode Player LISTO (' + source + ') - Activando iframe con pointer-events: auto');
       iframeReady = true;
-      
-      // ⬅️ CAMBIO ARQUITECTURAL v3: El iframe pasa a pointer-events: auto PERMANENTE.
-      // Flutter maneja los taps DIRECTAMENTE (GestureDetector en la burbuja).
       iframe.style.pointerEvents = 'auto';
-      
-      // ⬅️ Desactivar hitzones: ya no son necesarias como intermediario.
-      if (hitzoneBotEl) {
-        hitzoneBotEl.style.pointerEvents = 'none';
-        hitzoneBotEl.style.display = 'none';
-      }
-      if (hitzoneWppEl) {
-        hitzoneWppEl.style.pointerEvents = 'none';
-        hitzoneWppEl.style.display = 'none';
-      }
-      
-      // ⬅️ Fade-in del iframe (estaba oculto con opacity:0 para evitar flash blanco)
       iframe.style.transition = 'opacity 0.3s ease-out';
       iframe.style.opacity = '1';
       setTimeout(function() {
         iframe.style.transition = '';
         primeFirstOpenLayout();
       }, 350);
+      if (pendingOpenWhenReady) {
+        pendingOpenWhenReady = false;
+        setTimeout(function() { openBotChat('pendingOpen'); }, 200);
+      }
     }
 
     function isNarrowScreen() {
@@ -249,11 +461,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     }
 
     function applyBubblePosition() {
-      // ⬅️ PROTECCIÓN: No cambiar a tamaño burbuja si el chat está expandido
-      if (isExpanded) {
-        console.warn('⚠️ applyBubblePosition() ignorado: el chat está expandido');
-        return;
-      }
+      if (isExpanded) return;
       
       iframe.style.left = 'auto';
       iframe.style.top = 'auto';
@@ -306,7 +514,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       iframe.style.opacity = prevOpacity || '1';
       iframe.style.filter = prevFilter || '';
       iframe.style.transform = prevTransform || 'translateZ(0)';
-      console.log('🧊 First-open layout primed');
     }
 
     const T = {
@@ -345,9 +552,8 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
             iframe.style.filter = 'blur(0px) brightness(1)';
             setTimeout(function() {
               iframe.style.transition = '';
-              iframe.style.filter = '';
-              isAnimatingBubble = false;
-              console.log('✨ Animación de burbuja completada');
+            iframe.style.filter = '';
+            isAnimatingBubble = false;
             }, T.resetAfter);
           }, T.entranceBounce2 * 0.6);
         }, T.entranceMain);
@@ -356,25 +562,11 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
 
     window.addEventListener('message', function(event) {
       const data = event.data;
-      
-      // ⬅️ Log detallado de todos los comandos para debug
-      if (typeof data === 'string' && data.startsWith('CMD_')) {
-        console.log('📨 Comando recibido:', data, '| isExpanded:', isExpanded, '| botDisabled:', botDisabled);
-      }
-      
-      // ⬅️ PROTECCIÓN: Bloquear comandos que cambien tamaño cuando está expandido
-      if ((isExpanded || isOpening) && (data === 'CMD_WPP_VISIBLE' || data === 'CMD_WPP_HIDDEN')) {
-        console.warn('⚠️ Comando', data, 'bloqueado: chat está expandido');
-        return; // Ignorar estos comandos cuando está expandido
-      }
-      
-      // ⬅️ PROTECCIÓN: Bloquear comandos problemáticos justo después de cerrar
+
+      if ((isExpanded || isOpening) && (data === 'CMD_WPP_VISIBLE' || data === 'CMD_WPP_HIDDEN')) return;
       const timeSinceClose = Date.now() - justClosedTimestamp;
       if (justClosedTimestamp > 0 && timeSinceClose < 500 && 
-          (data === 'CMD_WPP_VISIBLE' || data === 'CMD_WPP_HIDDEN' || data === 'CMD_OPEN')) {
-        console.warn('⚠️ Comando', data, 'bloqueado: acabamos de cerrar hace', timeSinceClose, 'ms');
-        return;
-      }
+          (data === 'CMD_WPP_VISIBLE' || data === 'CMD_WPP_HIDDEN' || data === 'CMD_OPEN')) return;
       
       if (data === 'CMD_READY') {
         activateIframe('CMD_READY');
@@ -383,6 +575,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       
       if (data === 'CMD_BOT_DISABLED') {
         botDisabled = true;
+        setFlutterHostPointerEventsForChat(false);
         isExpanded = false; // ⬅️ Resetear estado expandido
         bubbleHeight = BUBBLE_HEIGHT_OFF;
         iframe.style.transition = 'height 0.25s ease-out, width 0.25s ease-out, opacity 0.25s ease-out';
@@ -401,10 +594,9 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       }
       
       if (data === 'CMD_BOT_ENABLED') {
-        // ⬅️ SOLO procesar si el bot estaba realmente deshabilitado
         if (botDisabled) {
-          console.log('🔄 CMD_BOT_ENABLED - Reactivando bot desde modo REALMENTE deshabilitado');
           botDisabled = false;
+          setFlutterHostPointerEventsForChat(false);
           isExpanded = false; // ⬅️ Resetear SOLO si venía de deshabilitado
           bubbleHeight = BUBBLE_HEIGHT_SOLO_BOT;
           bubbleWidth = BUBBLE_WIDTH_SOLO_BOT;
@@ -417,10 +609,10 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
           iframe.style.width = bubbleWidth + 'px';
           iframe.style.height = bubbleHeight + 'px';
           iframe.style.opacity = '1';
-          if (iframeReady) iframe.style.pointerEvents = 'auto';
-          applyBubblePosition(); // Ahora respeta isExpanded
-        } else {
-          console.log('⚠️ CMD_BOT_ENABLED ignorado: el bot ya estaba habilitado (isExpanded=' + isExpanded + ')');
+          iframe.style.pointerEvents = iframeReady ? 'auto' : 'none';
+          updateHitzones(true);
+          updateWppHitzone(bubbleHeight === BUBBLE_HEIGHT_WITH_WPP);
+          applyBubblePosition();
         }
         return;
       }
@@ -428,16 +620,24 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       if (data === 'CMD_OPEN') {
         if (botDisabled) return;
         if (!isExpanded && !isOpening) {
-          console.log('🚀 CMD_OPEN recibido - Expandiendo iframe');
+          if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
           isOpening = true;
           isExpanded = true; // marcar temprano para bloquear CMD_WPP_* durante apertura
           isAnimatingBubble = false;
+          setFlutterHostPointerEventsForChat(true);
           
           // Usar la misma secuencia estable que index.html
           iframe.style.filter = '';
           iframe.style.transform = 'translateZ(0)';
           iframe.style.transition = 'none';
           iframe.style.opacity = '0';
+          iframe.style.pointerEvents = 'auto';
+          try { iframe.focus(); } catch(e) {}
+          updateHitzones(false);
+          updateWppHitzone(false);
+          if (isNarrowScreen() && window.visualViewport) {
+            chatOpenViewportHeight = window.visualViewport.height;
+          }
           const isFirstOpen = !firstOpenWarmupDone;
           if (isFirstOpen) {
             // Blindaje corto SOLO en primera apertura para tapar el frame fantasma
@@ -490,16 +690,17 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       } else if (data === 'CMD_CLOSE') {
         if (botDisabled) return;
         if (isExpanded) {
-          console.log('🎭 CMD_CLOSE recibido - Cerrando con animación de burbuja');
-
-          // Marcar cierre inmediatamente para que protecciones/estados sean consistentes
+          setFlutterHostPointerEventsForChat(false);
           isExpanded = false;
           isOpening = false;
           expandedStyleCache = null;
           justClosedTimestamp = Date.now();
           isAnimatingBubble = false;
-
-          // Limpiar residuos visuales del chat y hacer fade-out corto
+          iframe.style.pointerEvents = iframeReady ? 'auto' : 'none';
+          chatOpenViewportHeight = null;
+          currentKeyboardHeight = 0;
+          updateHitzones(true);
+          updateWppHitzone(bubbleHeight === BUBBLE_HEIGHT_WITH_WPP);
           iframe.style.filter = 'none';
           iframe.style.transform = 'none';
           iframe.style.transition = 'opacity ' + (T.closeFadeOut / 1000) + 's ease-out';
@@ -521,10 +722,9 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
         }
       } else if (data === 'CMD_WPP_VISIBLE') {
         if (botDisabled) return;
-        console.log('📱 CMD_WPP_VISIBLE - isExpanded:', isExpanded);
         bubbleHeight = BUBBLE_HEIGHT_WITH_WPP;
         bubbleWidth = BUBBLE_WIDTH_WITH_WPP;
-        // ⬅️ Solo cambiar tamaño si NO está expandido
+        updateWppHitzone(true);
         if (!isExpanded) {
           iframe.style.transition = 'height 0.25s ease-out, width 0.25s ease-out';
           iframe.style.width = bubbleWidth + 'px';
@@ -532,10 +732,9 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
         }
       } else if (data === 'CMD_WPP_HIDDEN') {
         if (botDisabled) return;
-        console.log('📱 CMD_WPP_HIDDEN - isExpanded:', isExpanded);
         bubbleHeight = BUBBLE_HEIGHT_SOLO_BOT;
         bubbleWidth = BUBBLE_WIDTH_SOLO_BOT;
-        // ⬅️ Solo cambiar tamaño si NO está expandido
+        updateWppHitzone(false);
         if (!isExpanded) {
           iframe.style.transition = 'height 0.25s ease-out, width 0.25s ease-out';
           iframe.style.width = bubbleWidth + 'px';
@@ -545,10 +744,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     });
 
     setTimeout(function() {
-      if (!iframeReady) {
-        console.warn('⚠️ Timeout: iframe no envió CMD_READY en 8s. Activando de todos modos...');
-        activateIframe('timeout');
-      }
+      if (!iframeReady) activateIframe('timeout');
     }, 8000);
 
     // ⬅️ PROTECCIÓN GLOBAL: Vigilar cambios de tamaño inesperados cuando está expandido
@@ -567,11 +763,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
         const expectedMinWidth = isNarrow ? 300 : 400;
         const expectedMinHeight = isNarrow ? 400 : 500;
         
-        if (currentWidth < expectedMinWidth || currentHeight < expectedMinHeight) {
-          console.error('🚨 [MutationObserver] IFRAME ACHICADO INESPERADAMENTE');
-          console.error('   Estado: isExpanded=', isExpanded, 'Tamaño actual:', currentWidth, 'x', currentHeight);
-          restoreExpandedStyle();
-        }
+        if (currentWidth < expectedMinWidth || currentHeight < expectedMinHeight) restoreExpandedStyle();
       }
     });
     
@@ -580,7 +772,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       attributes: true, 
       attributeFilter: ['style'] 
     });
-    console.log('🛡️ Protección de tamaño activada - vigilando iframe');
     
     // ⬅️ PROTECCIÓN ADICIONAL: Verificación periódica cada 16ms (~60fps) cuando está expandido
     setInterval(function() {
@@ -591,12 +782,31 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
         const expectedMinWidth = isNarrow ? 300 : 400;
         const expectedMinHeight = isNarrow ? 400 : 500;
         
-        if (currentWidth < expectedMinWidth || currentHeight < expectedMinHeight) {
-          console.error('🚨 [Interval] IFRAME ACHICADO - Restaurando');
-          restoreExpandedStyle();
-        }
+        if (currentWidth < expectedMinWidth || currentHeight < expectedMinHeight) restoreExpandedStyle();
       }
     }, 16);
+
+    if (window.visualViewport) {
+      function handleKeyboardViewport() {
+        if (!isExpanded || !isNarrowScreen() || !chatOpenViewportHeight) return;
+        const vv = window.visualViewport;
+        const diff = chatOpenViewportHeight - vv.height;
+        if (diff > 80) {
+          currentKeyboardHeight = diff;
+          iframe.style.height = Math.round(vv.height) + 'px';
+          iframe.style.top = Math.round(vv.offsetTop) + 'px';
+          iframe.style.bottom = 'auto';
+        } else if (currentKeyboardHeight > 0) {
+          currentKeyboardHeight = 0;
+          chatOpenViewportHeight = vv.height;
+          iframe.style.height = '100%';
+          iframe.style.top = '0';
+          iframe.style.bottom = '0';
+        }
+      }
+      window.visualViewport.addEventListener('resize', handleKeyboardViewport);
+      window.visualViewport.addEventListener('scroll', handleKeyboardViewport);
+    }
 
     // Mouse tracking para RIV (solo desktop)
     const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
@@ -635,7 +845,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       document.addEventListener('mousemove', onMouseMove, true);
       document.addEventListener('mouseleave', onMouseLeave, true);
       document.documentElement.addEventListener('mouseleave', onMouseLeave, true);
-      console.log('🖱️ Mouse tracking activado');
     }
   })();
   </script>
@@ -644,8 +853,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
   <script>
   (function() {
     'use strict';
-    console.log('[BotLode Connectivity] Inicializando sistema de notificaciones...');
-    
     var C = 'botlode-connectivity-snackbars', O = 'botlode-snackbar-offline', N = 'botlode-snackbar-online';
     var showOfflineAlert = true;
     var currentNetworkStatus = typeof navigator !== 'undefined' ? navigator.onLine : true;
@@ -659,7 +866,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       var s = document.createElement('style'); 
       s.id = 'botlode-connectivity-styles';
       s.textContent = '#' + C + '{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none}' +
-        '.botlode-snackbar{position:relative;display:flex;align-items:center;gap:16px;padding:18px 26px;min-width:320px;max-width:min(90vw,480px);border-radius:16px;font-family:Oxanium,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px;font-weight:600;letter-spacing:.6px;box-sizing:border-box;pointer-events:auto;opacity:0;transform:translateY(24px) scale(.94);transition:opacity .45s cubic-bezier(.34,1.56,.64,1),transform .45s cubic-bezier(.34,1.56,.64,1),box-shadow .35s ease;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.2)}' +
+        '.botlode-snackbar{position:relative;display:flex;align-items:center;gap:16px;padding:18px 26px;min-width:320px;max-width:min(90vw,480px);border-radius:16px;font-family:Oxanium,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px;font-weight:600;letter-spacing:.6px;box-sizing:border-box;pointer-events:none;opacity:0;transform:translateY(24px) scale(.94);transition:opacity .45s cubic-bezier(.34,1.56,.64,1),transform .45s cubic-bezier(.34,1.56,.64,1),box-shadow .35s ease;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.2)}' +
         '.botlode-snackbar.show{opacity:1;transform:translateY(0) scale(1)}' +
         '.botlode-snackbar.hide{opacity:0;transform:translateY(-16px) scale(.92);transition-duration:.32s}' +
         '.botlode-snackbar-offline{background:linear-gradient(135deg,rgba(25,14,10,.92) 0%,rgba(18,10,6,.95) 100%);border:1.5px solid rgba(255,145,70,.6);color:#ffc299;box-shadow:0 0 28px rgba(255,120,50,.22),inset 0 1px 0 rgba(255,200,120,.12),0 12px 40px rgba(0,0,0,.35)}' +
@@ -675,7 +882,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
         '.botlode-snackbar-online .snackbar-icon{color:#70f0a0;filter:drop-shadow(0 0 8px rgba(100,240,160,.45))}' +
         '.botlode-snackbar .snackbar-text{flex:1;line-height:1.5;text-shadow:0 1px 2px rgba(0,0,0,.3)}';
       (document.head || document.documentElement).appendChild(s);
-      console.log('[BotLode Connectivity] ✓ Estilos inyectados');
     }
     
     function createSnackbars() {
@@ -694,43 +900,38 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
         '<span class="snackbar-text">Reconexión exitosa</span>' +
         '</div>';
       document.body.appendChild(w);
-      console.log('[BotLode Connectivity] ✓ Contenedores de snackbar creados');
     }
     
     function showOffline() {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        currentNetworkStatus = true;
+        return;
+      }
       currentNetworkStatus = false;
-      console.log('[BotLode Connectivity] 📡 Mostrando alerta OFFLINE (showOfflineAlert=' + showOfflineAlert + ')');
       if (!showOfflineAlert) return;
       var so = document.getElementById(O), son = document.getElementById(N);
-      if (!so) { console.warn('[BotLode Connectivity] ⚠️ Elemento offline no encontrado'); return; }
+      if (!so) return;
       if (onlineTimeout) { clearTimeout(onlineTimeout); onlineTimeout = null; }
       if (son) { son.classList.remove('show'); son.classList.add('hide'); son.setAttribute('hidden', ''); }
       so.removeAttribute('hidden'); 
       so.classList.remove('hide'); 
-      requestAnimationFrame(function() { 
-        so.classList.add('show'); 
-        console.log('[BotLode Connectivity] ✓ Snackbar offline visible');
-      });
+      requestAnimationFrame(function() { so.classList.add('show'); });
     }
     
     function showOnline() {
       currentNetworkStatus = true;
-      console.log('[BotLode Connectivity] 📶 Mostrando alerta ONLINE (showOfflineAlert=' + showOfflineAlert + ')');
       if (!showOfflineAlert) return;
       var now = Date.now(); 
-      if (now - lastOnlineCallTime < DEBOUNCE_MS) { console.log('[BotLode Connectivity] ⏱️ Debounce activo, ignorando'); return; }
+      if (now - lastOnlineCallTime < DEBOUNCE_MS) return;
       lastOnlineCallTime = now;
       var so = document.getElementById(O), son = document.getElementById(N);
-      if (!son || !so) { console.warn('[BotLode Connectivity] ⚠️ Elementos no encontrados'); return; }
+      if (!son || !so) return;
       so.classList.remove('show'); 
       so.classList.add('hide'); 
       setTimeout(function() { so.setAttribute('hidden', ''); so.classList.remove('hide'); }, 300);
       son.removeAttribute('hidden'); 
       son.classList.remove('hide'); 
-      requestAnimationFrame(function() { 
-        son.classList.add('show'); 
-        console.log('[BotLode Connectivity] ✓ Snackbar online visible');
-      });
+      requestAnimationFrame(function() { son.classList.add('show'); });
       if (onlineTimeout) clearTimeout(onlineTimeout);
       onlineTimeout = setTimeout(function() {
         if (son) { 
@@ -738,7 +939,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
           son.classList.add('hide'); 
           setTimeout(function() { 
             if (son) { son.setAttribute('hidden', ''); son.classList.remove('show', 'hide'); } 
-            console.log('[BotLode Connectivity] ✓ Snackbar online ocultado');
           }, 300); 
         }
         onlineTimeout = null;
@@ -750,7 +950,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       if (d && typeof d === 'object' && d.type === 'BOT_CONFIG') {
         var prev = showOfflineAlert; 
         showOfflineAlert = d.showOfflineAlert === true;
-        console.log('[BotLode Connectivity] 📩 BOT_CONFIG recibido: showOfflineAlert=' + showOfflineAlert);
         if (!showOfflineAlert) {
           var so = document.getElementById(O);
           if (so && so.classList.contains('show')) { 
@@ -764,25 +963,21 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
         return;
       }
       if (d && typeof d === 'object' && d.type === 'connectivity') { 
-        console.log('[BotLode Connectivity] 📩 Mensaje connectivity recibido: online=' + d.online);
         if (d.online) showOnline(); else showOffline(); 
         return; 
       }
-      if (d === 'NETWORK_OFFLINE') { console.log('[BotLode Connectivity] 📩 Mensaje NETWORK_OFFLINE (legacy)'); showOffline(); return; }
-      if (d === 'NETWORK_ONLINE') { console.log('[BotLode Connectivity] 📩 Mensaje NETWORK_ONLINE (legacy)'); showOnline(); return; }
+      if (d === 'NETWORK_OFFLINE') { showOffline(); return; }
+      if (d === 'NETWORK_ONLINE') { showOnline(); return; }
     }
     
     function onWindowOffline() {
       currentNetworkStatus = false;
-      console.log('[BotLode Connectivity] 🌐 Evento window.offline detectado');
       if (showOfflineAlert) showOffline();
     }
     
     function onWindowOnline() {
       currentNetworkStatus = true;
-      console.log('[BotLode Connectivity] 🌐 Evento window.online detectado');
-      var so = document.getElementById(O);
-      if (so && so.classList.contains('show')) showOnline();
+      showOnline();
     }
     
     function init() {
@@ -791,8 +986,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       window.addEventListener('message', onMessage);
       window.addEventListener('online', onWindowOnline);
       window.addEventListener('offline', onWindowOffline);
-      console.log('[BotLode Connectivity] ✓ Sistema inicializado. Estado inicial: ' + (currentNetworkStatus ? 'ONLINE' : 'OFFLINE'));
-      console.log('[BotLode Connectivity] 💡 Para probar: abre DevTools > Network > marca "Offline"');
     }
     
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

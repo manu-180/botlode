@@ -10,17 +10,34 @@ class _DialogSubmitIntent extends Intent {
   const _DialogSubmitIntent();
 }
 
-/// Tabla de leads con acciones
-class LeadsTable extends ConsumerWidget {
+const int _kLeadsPageSize = 100;
+
+/// Tabla de leads con acciones y paginación (100 por página)
+class LeadsTable extends ConsumerStatefulWidget {
   final List<Lead> leads;
 
   const LeadsTable({super.key, required this.leads});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LeadsTable> createState() => _LeadsTableState();
+}
+
+class _LeadsTableState extends ConsumerState<LeadsTable> {
+  int _page = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final leads = widget.leads;
     if (leads.isEmpty) {
       return _buildEmptyState();
     }
+
+    final total = leads.length;
+    final totalPages = (total / _kLeadsPageSize).ceil().clamp(1, 0x7FFFFFFF);
+    final page = _page.clamp(0, totalPages - 1);
+    final start = page * _kLeadsPageSize;
+    final end = (start + _kLeadsPageSize).clamp(0, total);
+    final pageLeads = leads.sublist(start, end);
 
     return Container(
       decoration: BoxDecoration(
@@ -30,20 +47,81 @@ class LeadsTable extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          // Header
           _buildHeader(),
-          
-          // Lista de leads
           Expanded(
             child: ListView.builder(
-              itemCount: leads.length,
+              itemCount: pageLeads.length,
               itemBuilder: (context, index) {
                 return _LeadRow(
-                  lead: leads[index],
+                  lead: pageLeads[index],
                   isEven: index % 2 == 0,
                 );
               },
             ),
+          ),
+          _buildPagination(total: total, start: start, end: end, totalPages: totalPages, page: page),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPagination({
+    required int total,
+    required int start,
+    required int end,
+    required int totalPages,
+    required int page,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.background.withOpacity(0.5),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(11)),
+        border: Border(top: BorderSide(color: AppColors.borderGlass)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            '${start + 1}-$end de $total',
+            style: TextStyle(
+              color: AppColors.textSecondary.withOpacity(0.8),
+              fontSize: 11,
+              fontFamily: 'Oxanium',
+            ),
+          ),
+          const Spacer(),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                onPressed: page > 0
+                    ? () => setState(() => _page = page - 1)
+                    : null,
+                icon: const Icon(Icons.chevron_left, size: 20),
+                color: page > 0 ? AppColors.primary : AppColors.textSecondary.withOpacity(0.3),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${page + 1} / $totalPages',
+                style: TextStyle(
+                  color: AppColors.textSecondary.withOpacity(0.9),
+                  fontSize: 11,
+                  fontFamily: 'Oxanium',
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: page < totalPages - 1
+                    ? () => setState(() => _page = page + 1)
+                    : null,
+                icon: const Icon(Icons.chevron_right, size: 20),
+                color: page < totalPages - 1 ? AppColors.primary : AppColors.textSecondary.withOpacity(0.3),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            ],
           ),
         ],
       ),
@@ -57,35 +135,39 @@ class LeadsTable extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.borderGlass),
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search_off,
+      child: _buildEmptyContent(),
+    );
+  }
+
+  Widget _buildEmptyContent() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off,
+            color: AppColors.textSecondary.withOpacity(0.3),
+            size: 48,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No hay leads todavía',
+            style: TextStyle(
+              color: AppColors.textSecondary.withOpacity(0.5),
+              fontSize: 14,
+              fontFamily: 'Oxanium',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Agrega dominios arriba para empezar',
+            style: TextStyle(
               color: AppColors.textSecondary.withOpacity(0.3),
-              size: 48,
+              fontSize: 12,
+              fontFamily: 'Oxanium',
             ),
-            const SizedBox(height: 16),
-            Text(
-              'No hay leads todavía',
-              style: TextStyle(
-                color: AppColors.textSecondary.withOpacity(0.5),
-                fontSize: 14,
-                fontFamily: 'Oxanium',
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Agrega dominios arriba para empezar',
-              style: TextStyle(
-                color: AppColors.textSecondary.withOpacity(0.3),
-                fontSize: 12,
-                fontFamily: 'Oxanium',
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -102,10 +184,10 @@ class LeadsTable extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          _headerCell('DOMINIO', flex: 3),
-          _headerCell('EMAIL', flex: 3),
+          _headerCell('EMAIL', flex: 4),
           _headerCell('ESTADO', flex: 2),
-          _headerCell('ACCIONES', flex: 1, align: TextAlign.center),
+          _headerCell('FECHA', flex: 2, align: TextAlign.right),
+          _headerCell('', flex: 1, align: TextAlign.center),
         ],
       ),
     );
@@ -135,6 +217,10 @@ class _LeadRow extends ConsumerWidget {
 
   const _LeadRow({required this.lead, required this.isEven});
 
+  /// Fecha a mostrar: enviado > actualizado > creado
+  DateTime get _leadDate =>
+      lead.sentAt ?? lead.updatedAt;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
@@ -147,51 +233,22 @@ class _LeadRow extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          // Dominio
+          // Email (solo email, sin dominio)
           Expanded(
-            flex: 3,
-            child: Text(
-              lead.domain,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 13,
-                fontFamily: 'Oxanium',
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          
-          // Email
-          Expanded(
-            flex: 3,
+            flex: 4,
             child: lead.email != null
-                ? InkWell(
-                    onTap: () => _copyEmail(context, lead.email!),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            lead.email!,
-                            style: const TextStyle(
-                              color: AppColors.success,
-                              fontSize: 13,
-                              fontFamily: 'Oxanium',
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.copy,
-                          size: 12,
-                          color: AppColors.success.withOpacity(0.5),
-                        ),
-                      ],
+                ? Text(
+                    lead.email!,
+                    style: const TextStyle(
+                      color: AppColors.success,
+                      fontSize: 13,
+                      fontFamily: 'Oxanium',
                     ),
+                    overflow: TextOverflow.ellipsis,
                   )
                 : Text(
-                    lead.status == LeadStatus.failed 
-                        ? 'No encontrado' 
+                    lead.status == LeadStatus.failed
+                        ? 'No encontrado'
                         : '-',
                     style: TextStyle(
                       color: AppColors.textSecondary.withOpacity(0.4),
@@ -201,19 +258,42 @@ class _LeadRow extends ConsumerWidget {
                     ),
                   ),
           ),
-          
+
           // Estado
           Expanded(
             flex: 2,
             child: _buildStatusBadge(),
           ),
-          
-          // Acciones
+
+          // Fecha (fecha y hora en gris, como el Seeder)
+          Expanded(
+            flex: 2,
+            child: Text(
+              _formatDate(_leadDate),
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: AppColors.textSecondary.withOpacity(0.7),
+                fontSize: 11,
+                fontFamily: 'Oxanium',
+              ),
+            ),
+          ),
+
+          // Copiar (con fecha en gris en lo que se copia) + acciones
           Expanded(
             flex: 1,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                if (lead.email != null)
+                  IconButton(
+                    onPressed: () => _copyEmailWithDate(context),
+                    tooltip: 'Copiar email',
+                    icon: const Icon(Icons.copy, size: 16),
+                    color: AppColors.textSecondary.withOpacity(0.6),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  ),
                 if (lead.status == LeadStatus.failed)
                   IconButton(
                     onPressed: () => ref.read(hunterProvider.notifier).retryLead(lead.id),
@@ -266,11 +346,37 @@ class _LeadRow extends ConsumerWidget {
     );
   }
 
-  void _copyEmail(BuildContext context, String email) {
-    Clipboard.setData(ClipboardData(text: email));
+  String _formatDate(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(dt.year, dt.month, dt.day);
+    if (day == today) {
+      return 'Hoy ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  void _copyEmailWithDate(BuildContext context) {
+    final email = lead.email;
+    if (email == null || email.isEmpty) return;
+    final dateStr = _formatDate(_leadDate);
+    final textToCopy = '$email\n$dateStr';
+    Clipboard.setData(ClipboardData(text: textToCopy));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Email copiado: $email', style: const TextStyle(fontFamily: 'Oxanium')),
+        content: RichText(
+          text: TextSpan(
+            style: const TextStyle(fontFamily: 'Oxanium', color: Colors.white),
+            children: [
+              const TextSpan(text: 'Copiado: '),
+              TextSpan(text: email, style: const TextStyle(fontWeight: FontWeight.w600)),
+              TextSpan(
+                text: ' • $dateStr',
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+              ),
+            ],
+          ),
+        ),
         backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),

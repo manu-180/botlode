@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/serpapi/serpapi_keys_card.dart';
 import 'package:botslode/features/seeder_bot/presentation/providers/seeder_provider.dart';
 import 'package:botslode/features/seeder_bot/presentation/widgets/seeder_bot_control_button.dart';
 import 'package:botslode/features/seeder_bot/presentation/widgets/seeder_realtime_logs.dart';
+import 'package:botslode/features/seeder_bot/presentation/widgets/seeder_submitted_urls_table.dart';
 
 class SeederView extends ConsumerStatefulWidget {
   static const String routeName = 'seeder';
@@ -105,6 +107,8 @@ class _SeederViewState extends ConsumerState<SeederView> with SingleTickerProvid
                 const SeederBotControlButton(),
                 const SizedBox(height: 16),
                 _buildStatsPanel(state),
+                const SizedBox(height: 16),
+                const Expanded(child: SeederSubmittedUrlsTable()),
               ],
             ),
           ),
@@ -140,6 +144,8 @@ class _SeederViewState extends ConsumerState<SeederView> with SingleTickerProvid
                     const SeederBotControlButton(),
                     const SizedBox(height: 12),
                     _buildStatsPanel(state),
+                    const SizedBox(height: 12),
+                    const Expanded(child: SeederSubmittedUrlsTable()),
                   ],
                 ),
               ),
@@ -205,6 +211,8 @@ class _SeederViewState extends ConsumerState<SeederView> with SingleTickerProvid
                 ],
               ),
               const Spacer(),
+              const SerpApiKeysCard(),
+              SizedBox(width: isNarrow ? 8 : 12),
               IconButton(
                 onPressed: () => ref.read(seederProvider.notifier).refresh(),
                 tooltip: 'Refrescar',
@@ -239,7 +247,7 @@ class _SeederViewState extends ConsumerState<SeederView> with SingleTickerProvid
                   const SizedBox(width: 8),
                   _buildStatCardCompact('PEND', state.pendingTargets.toString(), Icons.schedule, AppColors.warning),
                   const SizedBox(width: 8),
-                  _buildStatCardCompact('REINT.', state.retryTargets.toString(), Icons.replay, AppColors.primary),
+                  _buildStatCardCompact('HOY', state.completedToday.toString(), Icons.today, AppColors.secondary),
                   const SizedBox(width: 8),
                   _buildStatCardCompact('FAIL', state.errorCount.toString(), Icons.error_outline, AppColors.error),
                 ],
@@ -261,9 +269,9 @@ class _SeederViewState extends ConsumerState<SeederView> with SingleTickerProvid
               const SizedBox(width: 8),
               _buildStatCard('PEND', state.pendingTargets.toString(), Icons.schedule, AppColors.warning, flex: 1, tooltip: 'Por intentar por primera vez'),
               const SizedBox(width: 8),
-              _buildStatCard('REINTENTAR', state.retryTargets.toString(), Icons.replay, AppColors.primary, flex: 1, tooltip: 'Ya intentados, pendientes de reintento'),
+              _buildStatCard('HOY', state.completedToday.toString(), Icons.today, AppColors.secondary, flex: 1, tooltip: 'Formularios completados hoy (hora Argentina)'),
               const SizedBox(width: 8),
-              _buildStatCard('FAIL', state.errorCount.toString(), Icons.error_outline, AppColors.error, flex: 1),
+              _buildStatCard('FAIL', state.errorCount.toString(), Icons.error_outline, AppColors.error, flex: 1, tooltip: 'Intentos fallidos (URL mala, form no encontrado, etc.; no es "formulario lleno")'),
               const SizedBox(width: 8),
               _buildStatCard('ENVIADOS', state.submittedTargets.toString(), Icons.done_all, AppColors.success, flex: 1, tooltip: 'Directorios con al menos un envío OK'),
             ],

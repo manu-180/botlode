@@ -13,8 +13,11 @@ class SeederRealtimeLogs extends ConsumerStatefulWidget {
   ConsumerState<SeederRealtimeLogs> createState() => _SeederRealtimeLogsState();
 }
 
+const int _kSeederLogsPageSize = 100;
+
 class _SeederRealtimeLogsState extends ConsumerState<SeederRealtimeLogs> {
   final ScrollController _scrollController = ScrollController();
+  int _page = 0;
 
   @override
   void dispose() {
@@ -240,15 +243,83 @@ class _SeederRealtimeLogsState extends ConsumerState<SeederRealtimeLogs> {
   }
 
   Widget _buildLogsList(SeederLogsState state) {
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      itemCount: state.filteredLogs.length,
-      itemBuilder: (context, index) {
-        final entry = state.filteredLogs[index];
-        final isNew = index < 3;
-        return _LogEntryWidget(entry: entry, animate: isNew);
-      },
+    final all = state.filteredLogs;
+    final total = all.length;
+    final totalPages = total == 0 ? 1 : ((total + _kSeederLogsPageSize - 1) / _kSeederLogsPageSize).floor();
+    final page = _page.clamp(0, totalPages - 1);
+    final start = page * _kSeederLogsPageSize;
+    final end = (start + _kSeederLogsPageSize).clamp(0, total);
+    final pageLogs = total == 0 ? <SeederLogEntry>[] : all.sublist(start, end);
+
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            itemCount: pageLogs.length,
+            itemBuilder: (context, index) {
+              final entry = pageLogs[index];
+              final isNew = index < 3;
+              return _LogEntryWidget(entry: entry, animate: isNew);
+            },
+          ),
+        ),
+        _buildLogsPagination(total: total, start: start, end: end, totalPages: totalPages, page: page),
+      ],
+    );
+  }
+
+  Widget _buildLogsPagination({
+    required int total,
+    required int start,
+    required int end,
+    required int totalPages,
+    required int page,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1117),
+        border: Border(top: BorderSide(color: AppColors.success.withOpacity(0.1))),
+      ),
+      child: Row(
+        children: [
+          Text(
+            total == 0 ? '0 logs' : '${start + 1}-$end de $total',
+            style: TextStyle(
+              color: AppColors.textSecondary.withOpacity(0.6),
+              fontSize: 10,
+              fontFamily: 'Oxanium',
+            ),
+          ),
+          const Spacer(),
+          if (total > 0) ...[
+            IconButton(
+              onPressed: page > 0 ? () => setState(() => _page = page - 1) : null,
+              icon: const Icon(Icons.chevron_left, size: 18),
+              color: page > 0 ? AppColors.success : AppColors.textSecondary.withOpacity(0.3),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
+            Text(
+              '${page + 1}/$totalPages',
+              style: TextStyle(
+                color: AppColors.textSecondary.withOpacity(0.7),
+                fontSize: 10,
+                fontFamily: 'Oxanium',
+              ),
+            ),
+            IconButton(
+              onPressed: page < totalPages - 1 ? () => setState(() => _page = page + 1) : null,
+              icon: const Icon(Icons.chevron_right, size: 18),
+              color: page < totalPages - 1 ? AppColors.success : AppColors.textSecondary.withOpacity(0.3),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

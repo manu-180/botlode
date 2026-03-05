@@ -7,7 +7,10 @@ import 'package:botslode/features/dashboard/presentation/views/bot_detail_view.d
 import 'package:botslode/features/dashboard/presentation/views/dashboard_view.dart';
 import 'package:botslode/features/dashboard/presentation/views/main_layout.dart';
 import 'package:botslode/features/hunter_bot/presentation/views/hunter_view.dart';
+import 'package:botslode/features/empresas_sin_dominio/presentation/views/empresas_sin_dominio_view.dart';
+import 'package:botslode/features/assistify_leads/presentation/views/assistify_leads_view.dart';
 import 'package:botslode/features/seeder_bot/presentation/views/seeder_view.dart';
+import 'package:botslode/features/wpp_inbox/presentation/views/wpp_inbox_view.dart';
 import 'package:botslode/features/settings/presentation/views/settings_view.dart';
 import 'package:botslode/features/store/presentation/views/store_view.dart';
 import 'package:flutter/foundation.dart';
@@ -129,6 +132,39 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/seeder',
                 name: SeederView.routeName,
                 pageBuilder: (context, state) => const NoTransitionPage(child: SeederView()),
+              ),
+            ],
+          ),
+          // RAMA 8: EMPRESAS SIN DOMINIO (Contactos WhatsApp)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/empresas',
+                name: EmpresasSinDominioView.routeName,
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: EmpresasSinDominioView()),
+              ),
+            ],
+          ),
+          // RAMA 9: ASSISTIFY (Contactos para ofrecer Assistify)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/assistify',
+                name: AssistifyLeadsView.routeName,
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: AssistifyLeadsView()),
+              ),
+            ],
+          ),
+          // RAMA 10: INBOX (WhatsApp Inbox — mensajes entrantes Twilio)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/inbox',
+                name: WppInboxView.routeName,
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: WppInboxView()),
               ),
             ],
           ),

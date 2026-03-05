@@ -14,8 +14,11 @@ class RealtimeLogs extends ConsumerStatefulWidget {
   ConsumerState<RealtimeLogs> createState() => _RealtimeLogsState();
 }
 
+const int _kLogsPageSize = 100;
+
 class _RealtimeLogsState extends ConsumerState<RealtimeLogs> {
   final ScrollController _scrollController = ScrollController();
+  int _page = 0;
 
   @override
   void dispose() {
@@ -350,16 +353,83 @@ class _RealtimeLogsState extends ConsumerState<RealtimeLogs> {
   }
 
   Widget _buildLogsList(HunterLogsState state) {
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      itemCount: state.filteredLogs.length,
-      itemBuilder: (context, index) {
-        final log = state.filteredLogs[index];
-        final isNew = index < 3; // Los 3 más recientes tienen animación
-        
-        return _LogEntry(log: log, animate: isNew);
-      },
+    final all = state.filteredLogs;
+    final total = all.length;
+    final totalPages = total == 0 ? 1 : ((total + _kLogsPageSize - 1) / _kLogsPageSize).floor();
+    final page = _page.clamp(0, totalPages - 1);
+    final start = page * _kLogsPageSize;
+    final end = (start + _kLogsPageSize).clamp(0, total);
+    final pageLogs = total == 0 ? <HunterLog>[] : all.sublist(start, end);
+
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            itemCount: pageLogs.length,
+            itemBuilder: (context, index) {
+              final log = pageLogs[index];
+              final isNew = index < 3;
+              return _LogEntry(log: log, animate: isNew);
+            },
+          ),
+        ),
+        _buildLogsPagination(total: total, start: start, end: end, totalPages: totalPages, page: page),
+      ],
+    );
+  }
+
+  Widget _buildLogsPagination({
+    required int total,
+    required int start,
+    required int end,
+    required int totalPages,
+    required int page,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1117),
+        border: Border(top: BorderSide(color: AppColors.success.withOpacity(0.1))),
+      ),
+      child: Row(
+        children: [
+          Text(
+            total == 0 ? '0 logs' : '${start + 1}-$end de $total',
+            style: TextStyle(
+              color: AppColors.textSecondary.withOpacity(0.6),
+              fontSize: 10,
+              fontFamily: 'Oxanium',
+            ),
+          ),
+          const Spacer(),
+          if (total > 0) ...[
+            IconButton(
+              onPressed: page > 0 ? () => setState(() => _page = page - 1) : null,
+              icon: const Icon(Icons.chevron_left, size: 18),
+              color: page > 0 ? AppColors.success : AppColors.textSecondary.withOpacity(0.3),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
+            Text(
+              '${page + 1}/$totalPages',
+              style: TextStyle(
+                color: AppColors.textSecondary.withOpacity(0.7),
+                fontSize: 10,
+                fontFamily: 'Oxanium',
+              ),
+            ),
+            IconButton(
+              onPressed: page < totalPages - 1 ? () => setState(() => _page = page + 1) : null,
+              icon: const Icon(Icons.chevron_right, size: 18),
+              color: page < totalPages - 1 ? AppColors.success : AppColors.textSecondary.withOpacity(0.3),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -375,7 +445,6 @@ class _RealtimeLogsState extends ConsumerState<RealtimeLogs> {
       ),
       child: Row(
         children: [
-          // Prompt style
           Text(
             'hunter@botslode',
             style: TextStyle(
@@ -393,19 +462,15 @@ class _RealtimeLogsState extends ConsumerState<RealtimeLogs> {
               fontFamily: 'Oxanium',
             ),
           ),
-          // Cursor parpadeante
           Container(
             width: 6,
             height: 12,
             color: AppColors.success,
           ).animate(onPlay: (c) => c.repeat())
-            .fadeIn(duration: 500.ms)
-            .then()
-            .fadeOut(duration: 500.ms),
-          
+              .fadeIn(duration: 500.ms)
+              .then()
+              .fadeOut(duration: 500.ms),
           const Spacer(),
-          
-          // Indicador de orden
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -420,15 +485,6 @@ class _RealtimeLogsState extends ConsumerState<RealtimeLogs> {
                 style: TextStyle(
                   color: AppColors.textSecondary.withOpacity(0.3),
                   fontSize: 9,
-                  fontFamily: 'Oxanium',
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${state.filteredLogs.length} logs',
-                style: TextStyle(
-                  color: AppColors.textSecondary.withOpacity(0.4),
-                  fontSize: 10,
                   fontFamily: 'Oxanium',
                 ),
               ),

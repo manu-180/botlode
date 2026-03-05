@@ -158,9 +158,7 @@ class _BotControlButtonState extends ConsumerState<BotControlButton>
                             ),
                           ),
                           child: FaIcon(
-                            isEnabled 
-                                ? FontAwesomeIcons.bolt 
-                                : FontAwesomeIcons.powerOff,
+                            FontAwesomeIcons.crosshairs,
                             color: isEnabled 
                                 ? AppColors.success 
                                 : AppColors.textSecondary,
@@ -225,7 +223,7 @@ class _BotControlButtonState extends ConsumerState<BotControlButton>
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    'Nicho: ${hunterState.nicho}',
+                                    'Rotación automática (50+ nichos)',
                                     style: const TextStyle(
                                       color: AppColors.success,
                                       fontSize: 11,

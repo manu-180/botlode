@@ -16,7 +16,7 @@ abstract class SeederRepository {
   Future<Map<String, int>> getStats();
 
   /// Últimos logs con nombre del target (join propagation_targets).
-  Future<List<SeederLogEntry>> getLogs({int limit = 100});
+  Future<List<SeederLogEntry>> getLogs({int limit = 20000});
 
   /// Stream de logs (Realtime propagation_logs + refetch con nombres).
   Stream<List<SeederLogEntry>> watchLogs();

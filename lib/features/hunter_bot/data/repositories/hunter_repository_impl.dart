@@ -47,9 +47,9 @@ class HunterRepositoryImpl implements HunterRepository {
           callback: (payload) {
             final newLog = HunterLog.fromMap(payload.newRecord);
             _localLogs.insert(0, newLog);
-            // Mantener solo los últimos 100 logs
-            if (_localLogs.length > 100) {
-              _localLogs.removeRange(100, _localLogs.length);
+            // Mantener solo los últimos 1000 logs
+            if (_localLogs.length > 1000) {
+              _localLogs.removeRange(1000, _localLogs.length);
             }
             _logsController.add(List.from(_localLogs));
           },
@@ -138,7 +138,7 @@ class HunterRepositoryImpl implements HunterRepository {
         .select()
         .eq('user_id', _userId!)
         .order('created_at', ascending: false)
-        .limit(100);
+        .limit(100000);
     
     return (response as List)
         .map((data) => Lead.fromMap(data))
@@ -154,11 +154,15 @@ class HunterRepositoryImpl implements HunterRepository {
         'sent': 0,
         'failed': 0,
         'emails_found': 0,
+        'sent_today': 0,
       };
     }
     
-    final response = await _supabase
-        .rpc('get_hunter_stats', params: {'p_user_id': _userId});
+    final statsFuture = _supabase.rpc('get_hunter_stats', params: {'p_user_id': _userId});
+    final sentTodayFuture = _querySentToday();
+    
+    final response = await statsFuture;
+    final sentToday = await sentTodayFuture;
     
     if (response == null) {
       return {
@@ -167,10 +171,43 @@ class HunterRepositoryImpl implements HunterRepository {
         'sent': 0,
         'failed': 0,
         'emails_found': 0,
+        'sent_today': sentToday,
       };
     }
     
-    return Map<String, int>.from(response);
+    final stats = Map<String, int>.from(response as Map);
+    stats['sent_today'] = sentToday;
+    return stats;
+  }
+
+  /// Cuenta emails enviados hoy (hora Argentina, UTC-3).
+  Future<int> _querySentToday() async {
+    if (_userId == null) return 0;
+    try {
+      final todayStart = _argentinaToday();
+      final response = await _supabase
+          .from('leads')
+          .select('id')
+          .eq('user_id', _userId!)
+          .eq('status', 'sent')
+          .gte('sent_at', todayStart);
+      return (response as List).length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Inicio del día actual en hora Argentina (UTC-3) como ISO string UTC.
+  static String _argentinaToday() {
+    final nowUtc = DateTime.now().toUtc();
+    final argentinaTime = nowUtc.subtract(const Duration(hours: 3));
+    final todayStartUtc = DateTime.utc(
+      argentinaTime.year,
+      argentinaTime.month,
+      argentinaTime.day,
+      3, 0, 0,
+    );
+    return todayStartUtc.toIso8601String();
   }
   
   @override
@@ -250,7 +287,7 @@ class HunterRepositoryImpl implements HunterRepository {
           .select()
           .eq('user_id', _userId!)
           .order('created_at', ascending: false)
-          .limit(50);
+          .limit(1000);
       
       _localLogs.clear();
       _localLogs.addAll(

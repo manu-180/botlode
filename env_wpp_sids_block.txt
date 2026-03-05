@@ -1,0 +1,20 @@
+# ============================================================
+# Pegar este bloque en .env reemplazando la sección de Content SIDs
+# (desde "# Content SIDs Empresas" hasta "WPP_ASSISTIFY_SID_4=")
+# ============================================================
+
+# Content SIDs Empresas Sin Dominio (APEX)
+# apex_web_1 y apex_web_2 aun no aprobados - descomentar cuando Meta apruebe
+# WPP_EMPRESAS_SID_0=HXf50c8c51140bb6b93f082ddd28758a5d
+# WPP_EMPRESAS_SID_1=HX85491d1eb91d7147f4979a1566e4e894
+WPP_EMPRESAS_SID_2=HX3b838b2e249e908f5d87d6f2cb7ca89b
+WPP_EMPRESAS_SID_3=HX5ac8439e14ab6bce078f89ba0160042f
+WPP_EMPRESAS_SID_4=HXb45f87e079344ecbe60ee8ce9debbe6f
+
+# Content SIDs Assistify
+WPP_ASSISTIFY_SID_0=HX7dfc4acddcc8e27eee1e301a1ce150ed
+WPP_ASSISTIFY_SID_1=HX59e4cedeca1eaedbdd89a7e6191dd013
+WPP_ASSISTIFY_SID_2=HX8403ff2036e846f93cfed6a49e4e95ff
+WPP_ASSISTIFY_SID_3=HXceadc0d069b3c72336329c8fc825dd24
+# assistify_5 aun no aprobado - descomentar cuando Meta apruebe
+# WPP_ASSISTIFY_SID_4=HXc1812be596de178628e2d844182f1ba8

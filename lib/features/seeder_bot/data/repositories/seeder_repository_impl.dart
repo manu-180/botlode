@@ -24,7 +24,7 @@ class SeederRepositoryImpl implements SeederRepository {
           schema: 'public',
           table: 'propagation_logs',
           callback: (_) async {
-            final logs = await getLogs(limit: 100);
+            final logs = await getLogs(limit: 20000);
             if (!_logsController.isClosed) {
               _logsController.add(logs);
             }
@@ -95,14 +95,19 @@ class SeederRepositoryImpl implements SeederRepository {
 
   @override
   Future<Map<String, int>> getStats() async {
-    final response = await _supabase.rpc('get_seeder_stats');
+    final statsFuture = _supabase.rpc('get_seeder_stats');
+    final completedTodayFuture = _queryCompletedToday();
+
+    final response = await statsFuture;
+    final completedToday = await completedTodayFuture;
+
     if (response == null) {
       return {
         'ok': 0,
         'error': 0,
         'total_logs': 0,
         'pending_targets': 0,
-        'retry_targets': 0,
+        'completed_today': completedToday,
         'submitted_targets': 0,
       };
     }
@@ -112,13 +117,42 @@ class SeederRepositoryImpl implements SeederRepository {
       'error': (map['error'] is int) ? map['error'] as int : int.tryParse(map['error']?.toString() ?? '0') ?? 0,
       'total_logs': (map['total_logs'] is int) ? map['total_logs'] as int : int.tryParse(map['total_logs']?.toString() ?? '0') ?? 0,
       'pending_targets': (map['pending_targets'] is int) ? map['pending_targets'] as int : int.tryParse(map['pending_targets']?.toString() ?? '0') ?? 0,
-      'retry_targets': (map['retry_targets'] is int) ? map['retry_targets'] as int : int.tryParse(map['retry_targets']?.toString() ?? '0') ?? 0,
+      'completed_today': completedToday,
       'submitted_targets': (map['submitted_targets'] is int) ? map['submitted_targets'] as int : int.tryParse(map['submitted_targets']?.toString() ?? '0') ?? 0,
     };
   }
 
+  /// Cuenta formularios (targets únicos) completados hoy (hora Argentina, UTC-3).
+  Future<int> _queryCompletedToday() async {
+    try {
+      final todayStart = _argentinaToday();
+      final response = await _supabase
+          .from('propagation_logs')
+          .select('target_id')
+          .eq('status', 'ok')
+          .gte('submitted_at', todayStart);
+      final rows = response as List;
+      final uniqueTargets = rows.map((r) => r['target_id']).toSet();
+      return uniqueTargets.length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  static String _argentinaToday() {
+    final nowUtc = DateTime.now().toUtc();
+    final argentinaTime = nowUtc.subtract(const Duration(hours: 3));
+    final todayStartUtc = DateTime.utc(
+      argentinaTime.year,
+      argentinaTime.month,
+      argentinaTime.day,
+      3, 0, 0,
+    );
+    return todayStartUtc.toIso8601String();
+  }
+
   @override
-  Future<List<SeederLogEntry>> getLogs({int limit = 100}) async {
+  Future<List<SeederLogEntry>> getLogs({int limit = 20000}) async {
     final response = await _supabase
         .from('propagation_logs')
         .select('*, propagation_targets(name, url)')
@@ -130,7 +164,7 @@ class SeederRepositoryImpl implements SeederRepository {
 
   @override
   Stream<List<SeederLogEntry>> watchLogs() async* {
-    final initial = await getLogs(limit: 100);
+    final initial = await getLogs();
     yield initial;
     yield* _logsController.stream;
   }

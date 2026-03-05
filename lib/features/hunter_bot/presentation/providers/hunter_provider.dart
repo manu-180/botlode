@@ -45,22 +45,25 @@ class HunterState {
   
   /// Control del bot
   bool get botEnabled => config?.botEnabled ?? false;
-  String get nicho => config?.nicho ?? 'inmobiliarias';
+  /// Nicho en config (puede ser legacy). El bot en backend rota entre 50+ nichos.
+  String get nicho => config?.nicho ?? 'Rotación automática';
   List<String> get ciudades => config?.ciudades ?? ['Buenos Aires'];
   String get pais => config?.pais ?? 'Argentina';
   
-  /// Conteo rápido de leads por estado
-  int get pendingCount => stats['pending'] ?? 0;
+  /// Conteo rápido: pendientes de envío = dominios por escanear + emails en cola (fuera de horario se acumulan "EN COLA")
+  int get pendingCount => (stats['pending'] ?? 0) + (stats['queued_for_send'] ?? 0);
   int get sentCount => stats['sent'] ?? 0;
   int get failedCount => stats['failed'] ?? 0;
   int get totalCount => stats['total'] ?? 0;
   int get emailsFoundCount => stats['emails_found'] ?? 0;
-  /// Escaneados + en cola + enviando (para que TOTAL = PEND + ENVÍO + FAIL + otherCount)
+  /// En curso: escaneando, escaneado, enviando (queued_for_send se cuenta en pendingCount)
   int get otherCount =>
       (stats['scraping'] ?? 0) +
       (stats['scraped'] ?? 0) +
-      (stats['queued_for_send'] ?? 0) +
       (stats['sending'] ?? 0);
+
+  /// Emails enviados hoy (día Argentina UTC-3)
+  int get sentToday => stats['sent_today'] ?? 0;
 }
 
 /// Notifier para manejar el estado del HunterBot

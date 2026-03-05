@@ -1,0 +1,197 @@
+================================================================================
+INFORME: REGLAS Y LÍMITES DE WHATSAPP PARA EVITAR BLOQUEO POR SPAM (24 H)
+================================================================================
+Fuentes: Centro de ayuda WhatsApp, artículos técnicos (WATI, A2C, ProSender, 
+WhatsBoost, Sheetwa) y documentación sobre cuentas restringidas.
+Fecha: Febrero 2026
+================================================================================
+
+--- 1. QUÉ TE PASÓ (BLOQUEO 24 H) ---
+
+Cuando WhatsApp detecta actividad de tipo spam, automatizada o en masa, aplica 
+una RESTRICCIÓN TEMPORAL a la cuenta. En ese estado:
+
+  • PODÉS: responder en chats y llamadas con contactos con los que ya hablabas.
+  • NO PODÉS: iniciar nuevos chats, crear grupos ni usar dispositivos vinculados 
+    (ej. WhatsApp Web como “compañero”).
+
+La restricción se levanta sola al cumplirse el tiempo (ej. 24 h). No hace falta 
+hacer nada; WhatsApp puede notificarte cuando se levanta.
+
+Esto es una advertencia: si se repite, la cuenta puede terminar en BAN permanente.
+
+
+--- 2. QUÉ DICE WHATSAPP OFICIALMENTE ---
+
+  • Prohibido: mensajería automatizada, masiva o spam no autorizada.
+  • Reenvíos: solo hasta 5 chats o grupos a la vez (límite de reenvío).
+  • Cuentas restringidas: por uso que viole los Términos de Servicio; el tiempo 
+    es asignado por WhatsApp y luego se levanta solo.
+
+WhatsApp NO publica números exactos (ej. “máximo X mensajes por hora”). Los 
+límites que ves abajo vienen de pruebas y artículos de proveedores/experts; 
+son orientativos para no disparar el sistema anti-spam.
+
+
+--- 3. QUÉ DISPARA EL BLOQUEO / RESTRICCIÓN ---
+
+  a) MENSAJE IDÉNTICO A MUCHOS CONTACTOS
+     Enviar el MISMO texto (o casi igual) a muchos números seguidos activa 
+     el filtro de spam. En varias fuentes se menciona que a partir de unas 
+     20–30 veces el mismo mensaje ya aumenta mucho el riesgo.
+     Conclusión: VARIAR el mensaje (al menos 3–5 versiones distintas cada 
+     100 envíos) y, mejor aún, PERSONALIZAR (nombre del negocio, ciudad, etc.).
+
+  b) VELOCIDAD DE ENVÍO
+     Enviar muchos mensajes en poco tiempo se interpreta como bot:
+     • Más de ~5 mensajes por minuto de forma sostenida = riesgo.
+     • ~50+ mensajes en una hora a contactos nuevos = riesgo alto.
+     • ~500 mensajes en 30 minutos = probabilidad muy alta de bloqueo rápido.
+     Conclusión: ESPACIAR los envíos. No mandar todo en rachas.
+
+  c) CANTIDAD DE MENSAJES A CONTACTOS NUEVOS
+     Cuentas personales (según pruebas reportadas):
+     • Cuenta nueva (<30 días): 200–300 mensajes/día aprox.
+     • Cuenta establecida (30–90 días): 500–800/día.
+     • Cuenta madura (90+ días): 800–1.000/día.
+     Superar mucho estos rangos o hacerlo sobre todo a números con los que 
+     nunca hablaste aumenta el riesgo.
+
+  d) REPORTES Y BLOQUEOS DE LOS DESTINATARIOS
+     Si te marcan como spam o te bloquean, eso empeora tu “reputación” ante 
+     WhatsApp. Si un % alto (p. ej. >5%) de los que reciben el mensaje te 
+     bloquea o reporta, el riesgo de restricción/ban sube mucho.
+
+  e) HERRAMIENTAS NO OFICIALES
+     Usar apps o automatizaciones no autorizadas para envío masivo viola 
+     los términos y suele llevar a bloqueos más graves y rápidos.
+
+
+--- 4. REGLAS PRÁCTICAS PARA NO TE BLOQUEEN ---
+
+  4.1 VARIAR Y PERSONALIZAR EL MENSAJE
+      • No mandar siempre el mismo texto. Usar varias versiones (cambiar 
+        frases, orden, saludo, despedida).
+      • Incluir nombre del negocio o dato del contacto cuando puedas.
+      • En Botslode ya tenés {{NOMBRE}}; usalo siempre. Ideal sumar 2–3 
+        variantes de texto del cuerpo del mensaje y rotar.
+
+  4.2 ESPACIAR LOS ENVIOS (DELAY ENTRE MENSAJES)
+      • No enviar mensaje tras mensaje sin pausa.
+      • Recomendación: 30–60 segundos entre un mensaje y el siguiente 
+        (mejor si es un poco aleatorio, ej. 35 s, 50 s, 42 s).
+      • Si podés, 1 hora entre “rachas” ayuda: por ejemplo, 15–30 mensajes, 
+        pausa de 1 h, otra tanda. Así no parecé un bot.
+
+  4.3 NO HACER RACHAS EN POCO TIEMPO
+      • Evitar: decenas de mensajes en 5–10 minutos.
+      • Mejor: tandas de 15–30 mensajes, luego pausa de 10–15 minutos 
+        (o más), y repetir.
+      • Respetar un tope diario razonable (ej. no pasar de 100–150 
+        contactos nuevos por día al inicio y subir de a poco si no hay 
+        bloqueos).
+
+  4.4 LÍMITE DE BROADCAST (SI USÁS LISTAS DE DIFUSIÓN)
+      • En listas de difusión hay un tope de 256 contactos por vez. 
+        Pasarte de eso puede generar señales de abuso.
+
+  4.5 CONTENIDO Y CONTEXTO
+      • Mensajes que suenan a venta fría o promoción masiva sin contexto 
+        son más reportados. Un texto más personal (“los vi en Google Maps…”) 
+        y oferta clara suele generar menos reportes que un mensaje genérico.
+
+
+--- 5. RESUMEN PARA TU CASO (BOTSLODE / EMPRESAS SIN DOMINIO) ---
+
+  • Mensaje: usar SIEMPRE personalización ({{NOMBRE}}) y tener 2–3 
+    variantes del texto (mismo sentido, distinta redacción) y rotar.
+  • Velocidad: esperar al menos 30–60 segundos entre cada envío; mejor 
+    si hay una pausa de 1 h cada cierto número de envíos (ej. cada 20–30).
+  • Volumen: no mandar 50+ mensajes en una hora; repartir en el día.
+  • Evitar: mismo mensaje copiado y pegado a 20–30+ contactos seguidos 
+    sin variar ni esperar.
+
+Si en una próxima versión de Botslode podés agregar:
+  - delay configurable entre envíos (ej. 45 s),
+  - rotación de 2–3 plantillas de mensaje,
+  - y un tope máximo de envíos por hora (ej. 20–30),
+vas a alinearte mucho mejor con lo que evita bloqueos según la información 
+disponible.
+
+
+--- 6. REFERENCIAS (PARA PROFUNDIZAR) ---
+
+  • WhatsApp Help Center – Unauthorized use of automated or bulk messaging
+  • WhatsApp Help Center – About restricted accounts
+  • WhatsApp – Límites de reenvío (hasta 5 chats a la vez)
+  • WATI – WhatsApp API Rate Limits (límites y buenas prácticas)
+  • A2C.chat / ProSender / WhatsBoost – límites probados en cuentas personales 
+    y buenas prácticas para no ser baneado
+
+================================================================================
+--- 7. PROPUESTAS BASADAS SOLO EN ESTE INFORME (SIN SUPONER) ---
+================================================================================
+Todas las siguientes salen de las secciones 3 y 4 de este mismo documento.
+
+  A) DELAY OBLIGATORIO ENTRE APERTURAS (sección 4.2)
+     Las fuentes dicen: 30–60 segundos entre un mensaje y el siguiente;
+     mejor si es un poco aleatorio. Tandas de 15–30, luego pausa 10–15 min.
+     Propuesta: en Botslode, después de abrir WhatsApp no permitir abrir de
+     nuevo por X segundos (ej. 45 s). Opcional: pausa de 10–15 min cada 15–30
+     “aperturas”.
+
+  B) LÍMITE DE APERTURAS POR HORA (sección 3b, 4.3)
+     Las fuentes dicen: ~50+ mensajes en una hora a contactos nuevos = riesgo
+     alto; no mandar 50+ en una hora; tope máximo por hora ej. 20–30.
+     Propuesta: contador automático por cada vez que se abre el enlace;
+     al llegar a un tope (ej. 25 o 30) en la última hora, no abrir más hasta
+     que pase tiempo.
+
+  C) MÁS VARIANTES DE MENSAJE Y ROTAR (sección 3a, 4.1)
+     Las fuentes dicen: mismo mensaje 20–30+ veces = alto riesgo; usar al
+     menos 3–5 versiones distintas cada 100 envíos; 2–3 variantes del cuerpo
+     y rotar.
+     Propuesta: ya tenés 5; se puede subir a 8–10 variantes y rotar siempre.
+     No inventamos nada: es aplicar el “3–5 / 2–3 variantes” del informe.
+
+  D) TANDAS CON PAUSA (sección 4.2, 4.3)
+     Las fuentes dicen: tandas de 15–30 mensajes, luego pausa de 10–15 min
+     (o más); 1 hora entre “rachas” ayuda.
+     Propuesta: cada 15 o 20 envíos (según tu contador manual), la app sugiere
+     o exige una pausa de 10–15 min antes de poder abrir de nuevo (o solo
+     mostrar aviso y deshabilitar 10–15 min).
+
+  E) TOPE DIARIO (sección 3c, 4.3)
+     Las fuentes dicen: cuentas personales tienen rangos diarios (200–300,
+     500–800, 800–1000 según antigüedad); “no pasar de 100–150 contactos
+     nuevos por día al inicio”.
+     Propuesta: límite diario de “aperturas” o de envíos (según tu contador),
+     ej. 80–100 por día; al llegar, no abrir más hasta el día siguiente.
+
+  F) MENSAJE MÁS PERSONAL/CON CONTEXTO (sección 4.5)
+     Las fuentes dicen: mensajes que suenan a venta fría sin contexto se
+     reportan más; texto personal (“los vi en Google Maps…”) y oferta clara
+     generan menos reportes.
+     Propuesta: revisar que todos los textos suenen personales y con contexto
+     (ya tenés “los vi en Google Maps”); evitar frases genéricas de spam.
+     Es de contenido, no de código.
+
+  G) EVITAR RACHAS CORTAS (sección 3b, 4.3)
+     Las fuentes dicen: más de ~5 mensajes por minuto sostenido = riesgo;
+     decenas de mensajes en 5–10 min = malo.
+     Propuesta: el cooldown de (A) ya ayuda; además se puede cap a “máximo
+     X aperturas por minuto” (ej. 2 o 3 por minuto) para no disparar el 5/min.
+
+================================================================================
+--- 8. LO QUE *NO* ESTÁ EN EL INFORME (era razonamiento mío) ---
+================================================================================
+  • Horario laboral (solo permitir 9–18 h): ninguna fuente lo menciona.
+  • Ventana global única para empresas + assistify: decisión de diseño, no
+    viene de datos de WhatsApp.
+  • Recordatorio “sumá +1”: ayuda a vos, no es regla de WhatsApp.
+  • “Primer mensaje más frío”: la idea de “menos reportes” sí está (4.5),
+    pero lo de “primer mensaje corto” en concreto no lo dice el informe.
+
+================================================================================
+FIN DEL INFORME
+================================================================================

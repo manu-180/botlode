@@ -40,7 +40,8 @@ class SeederState {
   int get errorCount => stats['error'] ?? 0;
   int get totalLogs => stats['total_logs'] ?? 0;
   int get pendingTargets => stats['pending_targets'] ?? 0;
-  int get retryTargets => stats['retry_targets'] ?? 0;
+  /// Formularios completados hoy (día Argentina UTC-3)
+  int get completedToday => stats['completed_today'] ?? 0;
   int get submittedTargets => stats['submitted_targets'] ?? 0;
 }
 

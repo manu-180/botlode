@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/serpapi/serpapi_keys_card.dart';
 import 'package:botslode/features/hunter_bot/presentation/providers/hunter_provider.dart';
 import 'package:botslode/features/hunter_bot/presentation/widgets/config_panel.dart';
 import 'package:botslode/features/hunter_bot/presentation/widgets/bot_control_button.dart';
-import 'package:botslode/features/hunter_bot/presentation/widgets/help_button.dart';
 import 'package:botslode/features/hunter_bot/presentation/widgets/realtime_logs.dart';
 import 'package:botslode/features/hunter_bot/presentation/widgets/leads_table.dart';
 
@@ -238,16 +238,20 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
                         ),
                       ),
                       if (!isNarrow)
-                        Text(
-                          state.isConfigured 
-                              ? 'Listo para cazar' 
-                              : 'Configura Resend',
-                          style: TextStyle(
-                            color: state.isConfigured 
-                                ? AppColors.success 
-                                : AppColors.warning,
-                            fontSize: 11,
-                            fontFamily: 'Oxanium',
+                        GestureDetector(
+                          onTap: !state.isConfigured ? () => _showConfigPanel() : null,
+                          child: Text(
+                            state.isConfigured 
+                                ? 'Listo para cazar' 
+                                : 'Configura Resend (tocá para abrir)',
+                            style: TextStyle(
+                              color: state.isConfigured 
+                                  ? AppColors.success 
+                                  : AppColors.warning,
+                              fontSize: 11,
+                              fontFamily: 'Oxanium',
+                              decoration: !state.isConfigured ? TextDecoration.underline : null,
+                            ),
                           ),
                         ),
                     ],
@@ -289,42 +293,9 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
                       ),
                     ),
                   
-                  // Botón de ayuda (solo en pantallas grandes)
-                  if (!isNarrow) ...[
-                    const HelpButton(),
-                    const SizedBox(width: 6),
-                  ],
-                  
-                  // Botón de configuración
-                  IconButton(
-                    onPressed: () => _showConfigPanel(),
-                    tooltip: 'Configuración de Resend',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                    style: IconButton.styleFrom(
-                      backgroundColor: !state.isConfigured 
-                          ? AppColors.warning.withOpacity(0.1) 
-                          : AppColors.glassSurface,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: !state.isConfigured 
-                              ? AppColors.warning.withOpacity(0.3) 
-                              : AppColors.borderGlass,
-                        ),
-                      ),
-                    ),
-                    icon: Icon(
-                      Icons.settings,
-                      color: !state.isConfigured 
-                          ? AppColors.warning 
-                          : AppColors.textSecondary,
-                      size: 18,
-                    ),
-                  ),
-                  
-                  const SizedBox(width: 6),
-                  
+                  // Tarjeta SerpAPI (igual que en Seeder, Contactos, Assistify)
+                  const SerpApiKeysCard(),
+                  if (!isNarrow) const SizedBox(width: 12),
                   // Botón de refresh
                   IconButton(
                     onPressed: () => ref.read(hunterProvider.notifier).refresh(),
@@ -374,7 +345,7 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
               const SizedBox(height: 8),
               Row(
                 children: [
-                  _buildStatCardCompact('Repetidos', state.otherCount.toString(), Icons.search, AppColors.primary),
+                  _buildStatCardCompact('HOY', state.sentToday.toString(), Icons.today, AppColors.secondary),
                   const SizedBox(width: 8),
                   _buildStatCardCompact('FAIL', state.failedCount.toString(), Icons.error_outline, AppColors.error),
                 ],
@@ -399,7 +370,7 @@ class _HunterViewState extends ConsumerState<HunterView> with SingleTickerProvid
             const SizedBox(width: 8),
             _buildStatCard('PEND', state.pendingCount.toString(), Icons.schedule, AppColors.warning, flex: 1),
             const SizedBox(width: 8),
-            _buildStatCard('Repetidos', state.otherCount.toString(), Icons.search, AppColors.primary, flex: 1, tooltip: 'En cola, escaneando o enviando'),
+            _buildStatCard('HOY', state.sentToday.toString(), Icons.today, AppColors.secondary, flex: 1, tooltip: 'Emails enviados hoy (hora Argentina)'),
             const SizedBox(width: 8),
             _buildStatCard('FAIL', state.failedCount.toString(), Icons.error_outline, AppColors.error, flex: 1),
             const SizedBox(width: 8),
