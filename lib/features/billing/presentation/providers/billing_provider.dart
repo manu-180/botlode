@@ -25,7 +25,7 @@ enum FinanceHealth { stable, warning, critical }
 
 @riverpod
 class Billing extends _$Billing {
-  static const double WARNING_THRESHOLD = 0.8; 
+  static const double warningThreshold = 0.8;
 
   @override
   FutureOr<BillingState> build() async {
@@ -134,7 +134,7 @@ class Billing extends _$Billing {
         await Future.delayed(const Duration(milliseconds: 1000)); 
         ref.invalidateSelf(); 
       } catch (e) {
-        throw e; 
+        rethrow;
       }
   }
 
@@ -184,7 +184,7 @@ class Billing extends _$Billing {
       await Future.delayed(const Duration(milliseconds: 500));
       ref.invalidateSelf();
     } catch (e) {
-      throw e; 
+      rethrow;
     }
   }
 
@@ -269,7 +269,7 @@ class BillingState {
 
   FinanceHealth get health {
     if (totalDebt >= creditLimit) return FinanceHealth.critical;
-    if (totalDebt >= (creditLimit * Billing.WARNING_THRESHOLD)) return FinanceHealth.warning;
+    if (totalDebt >= (creditLimit * Billing.warningThreshold)) return FinanceHealth.warning;
     return FinanceHealth.stable;
   }
 

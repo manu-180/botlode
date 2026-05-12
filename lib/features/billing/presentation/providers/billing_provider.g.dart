@@ -21,7 +21,7 @@ final billingProvider =
 );
 
 typedef _$Billing = AutoDisposeAsyncNotifier<BillingState>;
-String _$billingV2Hash() => r'274dd0260332d0204a6d2b82cac10d834a8af153';
+String _$billingV2Hash() => r'b20aebe53cbb9d98b1c67bfea7a7145604fdcf07';
 
 /// Notifier T4 que expone [BillingV2State] a la capa de presentación.
 ///
