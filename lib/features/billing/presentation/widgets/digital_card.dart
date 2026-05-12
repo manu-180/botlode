@@ -17,6 +17,7 @@ import 'dart:math' as math;
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/features/billing/domain/models/payment_method.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 // ---------------------------------------------------------------------------
 // Public widget
@@ -273,38 +274,39 @@ class DigitalCard extends StatelessWidget {
       label: last4 != null
           ? 'Tarjeta terminada en $last4'
           : 'Número de tarjeta no disponible',
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '•••• •••• •••• ',
-              style: TextStyle(
-                color: Colors.white38,
-                fontSize: 16,
-                letterSpacing: 2.0,
-                fontFamily: 'Courier',
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '•••• •••• •••• ',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 16,
+                  letterSpacing: 2.0,
+                  fontFamily: 'Courier',
+                ),
               ),
-            ),
-            Text(
-              last4 ?? '••••',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontFamily: 'Oxanium',
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 3.0,
-                shadows: [
-                  Shadow(
-                    color: AppColors.primary.withValues(alpha: 0.5),
-                    blurRadius: 15,
-                  ),
-                ],
+              Text(
+                last4 ?? '••••',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontFamily: 'Oxanium',
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 3.0,
+                  shadows: [
+                    Shadow(
+                      color: AppColors.primary.withValues(alpha: 0.5),
+                      blurRadius: 15,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -404,119 +406,30 @@ class _AddCardButton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// _BrandIcon — renders brand SVG placeholder as a colored Container + text.
-// flutter_svg is NOT in pubspec.yaml; this fallback avoids external deps.
+// _BrandIcon — renders brand SVG from assets/billing/brands/.
+// Supported: visa, mastercard, amex. Falls back to generic.svg.
 // ---------------------------------------------------------------------------
 
 class _BrandIcon extends StatelessWidget {
   const _BrandIcon({this.brand});
-
   final String? brand;
 
-  static const _kSupportedBrands = {'visa', 'mastercard', 'amex'};
+  static const _kSupported = {'visa', 'mastercard', 'amex'};
 
-  String get _resolvedBrand =>
-      (_kSupportedBrands.contains(brand?.toLowerCase()))
-          ? brand!.toLowerCase()
-          : 'generic';
+  String get _assetPath {
+    final b = brand?.toLowerCase() ?? '';
+    final name = _kSupported.contains(b) ? b : 'generic';
+    return 'assets/billing/brands/$name.svg';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final b = _resolvedBrand;
-
-    Color bgColor;
-    Color textColor;
-    String label;
-
-    switch (b) {
-      case 'visa':
-        bgColor = const Color(0xFF1A1F71);
-        textColor = Colors.white;
-        label = 'VISA';
-      case 'mastercard':
-        // Two overlapping circles represented as colored rounded box
-        return _MastercardIcon();
-      case 'amex':
-        bgColor = const Color(0xFF007BC1);
-        textColor = Colors.white;
-        label = 'AMEX';
-      default:
-        bgColor = const Color(0xFF334155);
-        textColor = const Color(0xFF94A3B8);
-        label = '••';
-    }
-
-    return Container(
+    return SvgPicture.asset(
+      _assetPath,
       width: 52,
       height: 34,
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
-        ),
-      ),
     );
   }
-}
-
-class _MastercardIcon extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 52,
-      height: 34,
-      child: CustomPaint(painter: _MastercardPainter()),
-    );
-  }
-}
-
-class _MastercardPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    const radius = 13.0;
-    final centerY = size.height / 2;
-    final leftCx = size.width * 0.35;
-    final rightCx = size.width * 0.65;
-
-    // Red circle
-    canvas.drawCircle(
-      Offset(leftCx, centerY),
-      radius,
-      Paint()..color = const Color(0xFFEB001B),
-    );
-    // Orange circle
-    canvas.drawCircle(
-      Offset(rightCx, centerY),
-      radius,
-      Paint()..color = const Color(0xFFF79E1B),
-    );
-    // Overlap blend (orange on top, simulated)
-    final overlapPaint = Paint()
-      ..color = const Color(0xFFFF5F00)
-      ..blendMode = BlendMode.srcOver;
-    // Draw only the intersection (simplified approach: draw a narrowed ellipse)
-    final intersectLeft = rightCx - radius;
-    final intersectRight = leftCx + radius;
-    if (intersectRight > intersectLeft) {
-      final midX = (intersectLeft + intersectRight) / 2;
-      final halfW = (intersectRight - intersectLeft) / 2;
-      canvas.drawOval(
-        Rect.fromCenter(center: Offset(midX, centerY), width: halfW * 2, height: radius * 1.8),
-        overlapPaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ---------------------------------------------------------------------------
