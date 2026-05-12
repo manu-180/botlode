@@ -1,8 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+const _kFontFamily = 'Oxanium';
+const _kFontAsset = 'assets/fonts/Oxanium-VariableFont_wght.ttf';
 
 /// Loads custom fonts before running tests to ensure deterministic rendering.
 ///
@@ -11,11 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// font that may differ between test environments, causing floating diffs.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  // Load the Oxanium variable font used throughout the app.
-  // This ensures golden test snapshots render consistently.
-  await _loadFont('Oxanium', 'assets/fonts/Oxanium-VariableFont_wght.ttf');
-
+  await _loadFont(_kFontFamily, _kFontAsset);
   await testMain();
 }
 
@@ -25,7 +23,6 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
 /// [assetPath] is the path relative to the package root (e.g., 'assets/fonts/...').
 Future<void> _loadFont(String family, String assetPath) async {
   final fontLoader = FontLoader(family);
-  final fontData = File(assetPath).readAsBytesSync();
-  fontLoader.addFont(Future.value(ByteData.view(fontData.buffer)));
+  fontLoader.addFont(rootBundle.load(assetPath));
   await fontLoader.load();
 }
