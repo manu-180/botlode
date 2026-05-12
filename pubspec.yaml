@@ -73,6 +73,7 @@ flutter:
   assets:
     - assets/animations/
     - assets/billing/
+    - assets/billing/brands/
     - assets/images/
     - assets/icon/
     - .env
