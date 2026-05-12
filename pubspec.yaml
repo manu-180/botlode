@@ -10,6 +10,7 @@ environment:
 dependencies:
   connectivity_plus: ^7.0.0
   equatable: ^2.0.5
+  fl_chart: ^0.70.2
   flutter:
     sdk: flutter
   flutter_animate: ^4.5.0
@@ -22,6 +23,7 @@ dependencies:
   http: ^1.2.1
   google_fonts: ^6.2.1
   intl: ^0.20.2
+  freezed_annotation: ^2.4.4
   json_annotation: ^4.8.1
   lottie: ^3.1.0
   mask_text_input_formatter: ^2.9.0
@@ -30,11 +32,15 @@ dependencies:
   shared_preferences: ^2.2.2
   supabase_flutter: ^2.5.0
   url_launcher: ^6.2.5
+  webview_flutter: ^4.8.0
   uuid: ^4.3.3
   window_manager: ^0.3.8
+  flutter_stripe: ^11.5.0
+  flutter_stripe_web: ^6.5.1
 
 dev_dependencies:
   build_runner: ^2.4.9
+  freezed: ^2.5.2
   custom_lint: ^0.6.4
   flutter_lints: ^3.0.0
   flutter_test:
@@ -66,6 +72,7 @@ flutter:
 
   assets:
     - assets/animations/
+    - assets/billing/
     - assets/images/
     - assets/icon/
     - .env

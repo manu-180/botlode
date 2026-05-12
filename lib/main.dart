@@ -6,9 +6,13 @@ import 'package:botslode/core/router/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:rive/rive.dart'; // IMPORTACIÓN CRÍTICA AÑADIDA
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:botslode/core/logging/app_logger.dart';
+
+final _log = AppLogger('Main');
 
 const String DEPLOY_VERSION = "v1.0.5 - STABLE_CORE";
 
@@ -19,31 +23,39 @@ void main() {
     // 0. CARGA DE SECRETOS (PROTOCOLO DE SEGURIDAD)
     try {
       await dotenv.load(fileName: ".env");
-      print("🔐 [SEGURIDAD] Variables de entorno cargadas correctamente.");
+      _log.info("🔐 [SEGURIDAD] Variables de entorno cargadas correctamente.");
     } catch (e) {
-      print("🔥 [FALLO CRÍTICO] No se pudo leer el archivo .env: $e");
+      _log.error("🔥 [FALLO CRÍTICO] No se pudo leer .env", error: e);
     }
 
-    // 1. INICIALIZACIÓN DE SUPABASE
+    // 1. INICIALIZACIÓN DE STRIPE
+    const stripeKey = String.fromEnvironment('STRIPE_PUBLISHABLE_KEY');
+    if (stripeKey.isNotEmpty) {
+      Stripe.publishableKey = stripeKey;
+      await Stripe.instance.applySettings();
+      _log.info("💳 [STRIPE] SDK inicializado.");
+    }
+
+    // 2. INICIALIZACIÓN DE SUPABASE
     try {
       await Supabase.initialize(
         url: AppConfig.supabaseUrl,     
         anonKey: AppConfig.supabaseAnonKey, 
       );
-      print("🚀 [ENLACE ESTABLECIDO] Supabase conectado.");
+      _log.info("🚀 [ENLACE ESTABLECIDO] Supabase conectado.");
     } catch (e) {
-      print("🔥 [FALLO CRÍTICO] Error de enlace Supabase: $e");
+      _log.error("🔥 [FALLO CRÍTICO] Error de enlace Supabase", error: e);
     }
 
-    // 2. INICIALIZACIÓN DE RIVE (CORRECCIÓN VISUAL)
+    // 3. INICIALIZACIÓN DE RIVE (CORRECCIÓN VISUAL)
     try {
       await RiveFile.initialize();
-      print("🎨 [MOTOR GRÁFICO] Rive Engine inicializado.");
+      _log.info("🎨 [MOTOR GRÁFICO] Rive Engine inicializado.");
     } catch (e) {
-      print("⚠️ [ADVERTENCIA VISUAL] Fallo en Rive Init: $e");
+      _log.warn("⚠️ [ADVERTENCIA VISUAL] Fallo en Rive Init", error: e);
     }
 
-    // 3. CONFIGURACIÓN DE VENTANA
+    // 4. CONFIGURACIÓN DE VENTANA
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = const WindowOptions(
       size: Size(1280, 720), 
@@ -62,7 +74,7 @@ void main() {
     runApp(const ProviderScope(child: MainApp()));
 
   }, (error, stack) {
-    print("💥 CRASH DE NÚCLEO: $error");
+    _log.error("💥 CRASH DE NÚCLEO", error: error);
   });
 }
 
