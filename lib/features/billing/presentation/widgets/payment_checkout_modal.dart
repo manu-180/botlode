@@ -119,9 +119,15 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
     final token = _pendingToken;
     if (token == null || _isMutating) return;
 
-    setState(() => _isMutating = true);
+    setState(() {
+      _isMutating = true;
+      // Clear token immediately so a subform callback mid-flight cannot create
+      // a misleading "ready" indicator while the mutation is in-flight.
+      _pendingToken = null;
+    });
 
     try {
+      // TODO(T5): pass widget.idempotencyKey once addPaymentMethod accepts it.
       await ref.read(billingV2Provider.notifier).addPaymentMethod(
             token,
             setAsDefault: true,
@@ -139,11 +145,17 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      final errorDetails = PaymentErrorService.parseError(e.toString());
+      // For BillingException, pass code + message so PaymentErrorService can
+      // pattern-match structured error codes when T5 wires real exceptions.
+      final String rawError;
+      if (e is BillingException) {
+        rawError = '${e.code} ${e.message}';
+      } else {
+        rawError = e.toString();
+      }
+      final errorDetails = PaymentErrorService.parseError(rawError);
       setState(() {
         _isMutating = false;
-        // Reset token so the user can re-tokenize with corrected card details.
-        _pendingToken = null;
         _hasFailed = true;
         _failureTitle = errorDetails.title;
         _failureMessage = errorDetails.message;
