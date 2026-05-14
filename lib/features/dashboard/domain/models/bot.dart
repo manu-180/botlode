@@ -1,4 +1,5 @@
 // Archivo: lib/features/dashboard/domain/models/bot.dart
+import 'package:botslode/core/config/billing_constants.dart';
 import 'package:botslode/core/config/cycle_exempt_bots_config.dart';
 import 'package:flutter/material.dart';
 
@@ -52,16 +53,16 @@ class Bot {
   bool get _effectiveTurbo => useTurboMode ?? _defaultTurboMode;
 
   // --- LÓGICA DE NEGOCIO ---
-
-  static const double _CYCLE_PRICE = 20.00;
+  // CYCLE_PRICE vive en core/config/billing_constants.dart (kCyclePriceUsd)
+  // — single source of truth para no divergir contra bots_provider.
 
   bool get _isCycleExempt => CycleExemptBotsConfig.isExempt(id);
 
   double get daysActivePrecise {
     if (_isCycleExempt) return 0.0;
     if (status == BotStatus.disabled || status == BotStatus.creditSuspended) {
-      final double fraction = currentBalance / _CYCLE_PRICE; 
-      return fraction * 30.0;
+      final double fraction = currentBalance / kCyclePriceUsd;
+      return fraction * kCycleDurationDays;
     }
 
     final now = DateTime.now();
@@ -117,7 +118,7 @@ class Bot {
     // Si elapsedSeconds es mayor que totalCycleSeconds, significa que ya pasó
     // un ciclo completo y debería haberse cobrado. Solo calculamos hasta 1 ciclo.
     final cappedSeconds = elapsedSeconds.clamp(0.0, totalCycleSeconds);
-    final accumulated = (cappedSeconds / totalCycleSeconds) * _CYCLE_PRICE;
+    final accumulated = (cappedSeconds / totalCycleSeconds) * kCyclePriceUsd;
     
     return currentBalance + accumulated;
   }

@@ -1,13 +1,13 @@
 // Archivo: lib/features/auth/presentation/providers/auth_state_provider.dart
 import 'dart:async';
+import 'package:botslode/core/observability/app_logger.dart';
 import 'package:botslode/features/auth/presentation/providers/auth_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Estado de autenticación de la aplicación
-/// 
-/// Contiene la información del estado actual de login/logout,
-/// errores de autenticación y la sesión activa si existe.
+/// Estado de autenticación de la aplicación.
+///
+/// Información del login/logout, errores y sesión activa si existe.
 class AuthStateData {
   final bool isLoading;
   final String? error;
@@ -15,105 +15,108 @@ class AuthStateData {
 
   AuthStateData({this.isLoading = false, this.error, this.session});
 
-  AuthStateData copyWith({bool? isLoading, String? error, Session? session}) {
+  AuthStateData copyWith({
+    bool? isLoading,
+    Object? error = _sentinel,
+    Object? session = _sentinel,
+  }) {
     return AuthStateData(
       isLoading: isLoading ?? this.isLoading,
-      error: error, 
-      session: session ?? this.session, 
+      error: identical(error, _sentinel) ? this.error : error as String?,
+      session: identical(session, _sentinel) ? this.session : session as Session?,
     );
   }
+
+  static const Object _sentinel = Object();
 }
 
-/// Notifier que maneja toda la lógica de autenticación
-/// 
-/// Responsabilidades:
-/// - Escuchar cambios en el estado de autenticación de Supabase
-/// - Manejar signIn, signOut y updatePassword
-/// - Mapear errores técnicos a mensajes amigables para el usuario
-class AuthNotifier extends StateNotifier<AuthStateData> {
-  final Ref _ref;
+/// Notifier moderno (Riverpod 2.x) que maneja la lógica de autenticación.
+///
+/// • Escucha cambios en `Supabase.auth.onAuthStateChange`.
+/// • Hace signIn, signOut, updatePassword.
+/// • Mapea errores técnicos a mensajes amigables.
+class AuthNotifier extends Notifier<AuthStateData> {
   StreamSubscription<AuthState>? _authSubscription;
-  bool _isSigningOut = false; 
+  bool _isSigningOut = false;
 
-  AuthNotifier(this._ref) : super(AuthStateData()) {
-    _init();
-  }
+  @override
+  AuthStateData build() {
+    final repo = ref.read(authRepositoryProvider);
 
-  void _init() {
-    final repo = _ref.read(authRepositoryProvider);
-    
-    // 1. Check sesión inicial
+    // 1. Check sesión inicial.
     final session = repo.currentSession;
-    if (session != null) {
-      state = state.copyWith(session: session);
-    }
+    final initial =
+        session != null ? AuthStateData(session: session) : AuthStateData();
 
-    // 2. Escuchar cambios
+    // 2. Escuchar cambios.
     _authSubscription = repo.onAuthStateChange.listen((data) {
-      if (_isSigningOut) return; 
-
+      if (_isSigningOut) return;
       final event = data.event;
       final session = data.session;
-      
       if (event == AuthChangeEvent.signedOut) {
-        state = AuthStateData(); // Reset total al salir
-      } else if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.tokenRefreshed) {
+        state = AuthStateData(); // Reset total al salir.
+      } else if (event == AuthChangeEvent.signedIn ||
+          event == AuthChangeEvent.tokenRefreshed) {
         state = state.copyWith(session: session, isLoading: false);
       }
     });
-  }
 
-  @override
-  void dispose() {
-    _authSubscription?.cancel();
-    super.dispose();
+    ref.onDispose(() {
+      _authSubscription?.cancel();
+      _authSubscription = null;
+    });
+
+    return initial;
   }
 
   // --- MAPEO DE ERRORES (TEXTOS AMIGABLES) ---
   String _mapAuthError(String rawError) {
     final msg = rawError.toLowerCase();
-    
     if (msg.contains('invalid login credentials')) {
-      return "DATOS INCORRECTOS: El correo o la contraseña no coinciden.";
+      return 'DATOS INCORRECTOS: El correo o la contraseña no coinciden.';
     }
     if (msg.contains('user already registered')) {
-      return "CUENTA EXISTENTE: Este correo ya está registrado.";
+      return 'CUENTA EXISTENTE: Este correo ya está registrado.';
     }
-    if (msg.contains('network') || msg.contains('socket') || msg.contains('host lookup')) {
-      return "SIN CONEXIÓN: No se pudo contactar con el servidor.";
+    if (msg.contains('network') ||
+        msg.contains('socket') ||
+        msg.contains('host lookup')) {
+      return 'SIN CONEXIÓN: No se pudo contactar con el servidor.';
     }
     if (msg.contains('password should be at least')) {
-      return "SEGURIDAD DÉBIL: La contraseña debe tener al menos 6 caracteres.";
+      return 'SEGURIDAD DÉBIL: La contraseña debe tener al menos 6 caracteres.';
     }
-    
-    // Mensaje genérico sin exponer detalles técnicos
-    return "Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente.";
+    return 'Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente.';
   }
 
   Future<void> signIn(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _ref.read(authRepositoryProvider).signIn(email: email, password: password);
-      // El stream actualizará el estado con la sesión
+      await ref
+          .read(authRepositoryProvider)
+          .signIn(email: email, password: password);
+      // El stream actualizará el state.session.
     } on AuthException catch (e) {
-      state = state.copyWith(isLoading: false, error: _mapAuthError(e.message));
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: "Se perdió la conexión. Verifica tu internet e intenta nuevamente.");
+      state =
+          state.copyWith(isLoading: false, error: _mapAuthError(e.message));
+    } catch (e, st) {
+      AppLogger.error('auth.signIn', error: e, stackTrace: st);
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Se perdió la conexión. Verificá tu internet e intentá nuevamente.',
+      );
     }
   }
 
   Future<void> signOut() async {
     _isSigningOut = true;
-    
-    // Logout Optimista
-    state = AuthStateData(); 
-
+    // Logout optimista para que la UI responda al toque.
+    state = AuthStateData();
     try {
-      await _ref.read(authRepositoryProvider).signOut();
-      // botsProvider y billingProvider dependen de authUserIdProvider;
-      // al pasar session a null, se reconstruyen automáticamente con datos vacíos
-    } catch (e) {
-      // Error silenciado
+      await ref.read(authRepositoryProvider).signOut();
+    } catch (e, st) {
+      AppLogger.warn('auth.signOut.error', error: e);
+      // No re-tiramos: ya está hecho local.
     } finally {
       _isSigningOut = false;
     }
@@ -122,30 +125,31 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
   Future<void> updatePassword(String newPassword) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _ref.read(authRepositoryProvider).updatePassword(newPassword);
+      await ref.read(authRepositoryProvider).updatePassword(newPassword);
       state = state.copyWith(isLoading: false);
     } on AuthException catch (e) {
-      state = state.copyWith(isLoading: false, error: _mapAuthError(e.message));
-      rethrow; 
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: "No pudimos cambiar tu contraseña. Por favor, intenta nuevamente.");
+      state =
+          state.copyWith(isLoading: false, error: _mapAuthError(e.message));
+      rethrow;
+    } catch (e, st) {
+      AppLogger.error('auth.updatePassword', error: e, stackTrace: st);
+      state = state.copyWith(
+        isLoading: false,
+        error: 'No pudimos cambiar tu contraseña. Por favor, intentá nuevamente.',
+      );
       rethrow;
     }
   }
 }
 
-/// Provider principal de autenticación
-/// 
-/// Expone el estado de autenticación y los métodos para
-/// realizar acciones de login/logout/registro.
-final authStateProvider = StateNotifierProvider<AuthNotifier, AuthStateData>((ref) {
-  return AuthNotifier(ref);
-});
+/// Provider principal de autenticación.
+final authStateProvider =
+    NotifierProvider<AuthNotifier, AuthStateData>(AuthNotifier.new);
 
 /// ID del usuario actual desde la sesión de auth.
-/// Fuente de verdad para userId; se actualiza correctamente tras login/logout.
+///
+/// Fuente de verdad para `userId`; se actualiza tras login/logout/refresh.
 final authUserIdProvider = Provider<String?>((ref) {
   final authState = ref.watch(authStateProvider);
-  final session = authState.session;
-  return session?.user.id;
+  return authState.session?.user.id;
 });

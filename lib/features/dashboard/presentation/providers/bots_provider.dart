@@ -1,5 +1,6 @@
 // Archivo: lib/features/dashboard/presentation/providers/bots_provider.dart
 import 'dart:async';
+import 'package:botslode/core/config/billing_constants.dart';
 import 'package:botslode/core/config/cycle_exempt_bots_config.dart';
 import 'package:botslode/core/providers/supabase_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,8 +21,11 @@ class Bots extends _$Bots {
   // Enfriamiento para evitar loops de pago
   DateTime? _lastAutoPayAttempt;
 
-  static const double CYCLE_PRICE = 20.00; // Cada ciclo carga $20 al pozo
-  static const int CYCLE_SECONDS_REAL = 2592000; 
+  // Re-export para callers que ya importaban `Bots.CYCLE_PRICE`.
+  // La constante real vive en core/config/billing_constants.dart.
+  // ignore: constant_identifier_names
+  static const double CYCLE_PRICE = kCyclePriceUsd;
+  static const int CYCLE_SECONDS_REAL = 2592000;
 
   @override
   FutureOr<List<Bot>> build() async {
