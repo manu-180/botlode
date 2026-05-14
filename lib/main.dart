@@ -2,6 +2,8 @@
 import 'dart:async';
 import 'package:botslode/core/config/app_config.dart';
 import 'package:botslode/core/config/theme/app_theme.dart';
+import 'package:botslode/core/observability/posthog_client.dart';
+import 'package:botslode/core/observability/sentry_init.dart';
 import 'package:botslode/core/router/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -19,6 +21,9 @@ const String DEPLOY_VERSION = "v1.0.5 - STABLE_CORE";
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    // T15·06 — Sentry init temprano para capturar errores de arranque.
+    // Si SENTRY_DSN_BOTSLODE no está definido, no inicializa (dev local OK).
+    await initSentry(appRunner: () async {
 
     // 0. CARGA DE SECRETOS (PROTOCOLO DE SEGURIDAD)
     try {
@@ -55,6 +60,16 @@ void main() {
       _log.warn("⚠️ [ADVERTENCIA VISUAL] Fallo en Rive Init", error: e);
     }
 
+    // 3.5 INIT POSTHOG (T15·07). No init si las vars están vacías.
+    try {
+      await PostHogClient.instance.init(
+        apiKey: const String.fromEnvironment('POSTHOG_PROJECT_API_KEY'),
+        host: const String.fromEnvironment('POSTHOG_HOST', defaultValue: 'https://app.posthog.com'),
+      );
+    } catch (e) {
+      _log.warn("📈 [POSTHOG] init falló", error: e);
+    }
+
     // 4. CONFIGURACIÓN DE VENTANA
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = const WindowOptions(
@@ -71,7 +86,8 @@ void main() {
       await windowManager.focus();
     });
 
-    runApp(const ProviderScope(child: MainApp()));
+      runApp(const ProviderScope(child: MainApp()));
+    });
 
   }, (error, stack) {
     _log.error("💥 CRASH DE NÚCLEO", error: error);
