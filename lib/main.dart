@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:botslode/core/config/app_config.dart';
 import 'package:botslode/core/config/theme/app_theme.dart';
+import 'package:botslode/core/observability/breadcrumbs.dart';
 import 'package:botslode/core/observability/posthog_client.dart';
 import 'package:botslode/core/observability/sentry_init.dart';
 import 'package:botslode/core/router/app_router.dart';
@@ -86,7 +87,13 @@ void main() {
       await windowManager.focus();
     });
 
-      runApp(const ProviderScope(child: MainApp()));
+      // T15·08 — SentryRiverpodObserver: emite breadcrumbs por provider lifecycle.
+      runApp(
+        ProviderScope(
+          observers: [SentryRiverpodObserver()],
+          child: const MainApp(),
+        ),
+      );
     });
 
   }, (error, stack) {
