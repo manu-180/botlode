@@ -14,6 +14,7 @@ import 'package:botslode/features/dashboard/presentation/widgets/credit_limit_re
 import 'package:botslode/features/dashboard/presentation/widgets/unit_avatar_panel.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/unit_command_header.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/unit_tab_bar.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/tabs/bot_dashboard_tab.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/unit_telemetry_console.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -58,13 +59,10 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
 
   Widget _buildTabContent(Bot bot, bool isActive) {
     return switch (_selectedTab) {
-      0 => _MonitorPanel(
+      0 => BotDashboardTab(
             key: const ValueKey(0),
             bot: bot,
             isActive: isActive,
-            ref: ref,
-            onOpenWppPhoneDialog: () => _showWppPhoneDialog(bot),
-            onEnergyToggle: _handleEnergyToggle,
           ),
       1 => const _PlaceholderTab(key: ValueKey(1), label: 'CONFIG'),
       2 => const _PlaceholderTab(key: ValueKey(2), label: 'KNOWLEDGE'),
@@ -2493,12 +2491,13 @@ class _ConfigSwitch extends StatelessWidget {
           ),
         ),
       ),
-    ); 
+    );
   }
 }
 
+// ignore: unused_element
 class _StatCard extends StatelessWidget {
   final String title; final Widget valueWidget; final String subValue; final IconData icon; final Color color; final double progress;
   const _StatCard({required this.title, required this.valueWidget, required this.subValue, required this.icon, required this.color, required this.progress});
-  @override Widget build(BuildContext context) { return Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: AppColors.surface.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderGlass)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(icon, color: color, size: 20), const SizedBox(width: 8), Text(title, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold))]), const SizedBox(height: 16), Row(crossAxisAlignment: CrossAxisAlignment.end, children: [valueWidget, const SizedBox(width: 8), Text(subValue, style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.7)))]), const SizedBox(height: 16), LinearProgressIndicator(value: progress, backgroundColor: Colors.black, color: color, minHeight: 6)])); }
+  @override Widget build(BuildContext context) { return Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: AppColors.surface.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderDefault)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(icon, color: color, size: 20), const SizedBox(width: 8), Text(title, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold))]), const SizedBox(height: 16), Row(crossAxisAlignment: CrossAxisAlignment.end, children: [valueWidget, const SizedBox(width: 8), Text(subValue, style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.7)))]), const SizedBox(height: 16), LinearProgressIndicator(value: progress, backgroundColor: Colors.black, color: color, minHeight: 6)])); }
 }
