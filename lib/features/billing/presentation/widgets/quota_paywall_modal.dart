@@ -1,17 +1,27 @@
 // Archivo: lib/features/billing/presentation/widgets/quota_paywall_modal.dart
 //
-// T4·20 — QuotaPaywallModal
+// T4·55 — QuotaPaywallModal (Hangar OS redesign)
 //
 // Modal que se muestra cuando el usuario intenta crear un recurso pero su plan
 // actual no lo permite. Presenta un resumen claro del límite alcanzado y una
-// tabla comparativa entre el plan actual y el siguiente disponible.
+// comparación entre el plan actual y el siguiente disponible.
 //
-// Diseño: Dialog en desktop (ancho ≥ 600) o ModalBottomSheet en pantallas angostas.
-// Sin Consumer: todos los datos se pasan como parámetros (no necesita Riverpod).
+// Diseño: Dialog en desktop (ancho ≥ 600) con blur de scrim, o
+// ModalBottomSheet en pantallas angostas. Sin Consumer: todos los datos se
+// pasan como parámetros (no necesita Riverpod).
 
+import 'dart:ui';
+import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/buttons/app_button.dart';
+import 'package:botslode/core/ui/hud/hud_chamfer.dart';
+import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
+import 'package:botslode/core/ui/hud/hud_divider.dart';
+import 'package:botslode/core/ui/panels/holo_panel.dart';
 import 'package:botslode/features/billing/domain/models/plan.dart';
 import 'package:botslode/features/billing/domain/quota/quota_result.dart';
-import 'package:botslode/l10n/app_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -42,13 +52,28 @@ Future<void> showQuotaPaywallModal(
   );
 
   if (isDesktop) {
-    await showDialog<void>(
+    await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (_) => Dialog(
+      barrierLabel: 'Cerrar',
+      barrierColor: AppColors.scrim,
+      transitionDuration: AppMotion.durBase,
+      transitionBuilder: (ctx, animation, _, child) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: 4 * animation.value,
+            sigmaY: 4 * animation.value,
+          ),
+          child: FadeTransition(
+            opacity: animation,
+            child: child,
+          ),
+        );
+      },
+      pageBuilder: (ctx, _, __) => Dialog(
         backgroundColor: Colors.transparent,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
+          constraints: const BoxConstraints(maxWidth: 500),
           child: modal,
         ),
       ),
@@ -66,7 +91,24 @@ Future<void> showQuotaPaywallModal(
         expand: false,
         builder: (_, scrollController) => SingleChildScrollView(
           controller: scrollController,
-          child: modal,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceRaised,
+                    borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+                  ),
+                ),
+              ),
+              modal,
+            ],
+          ),
         ),
       ),
     );
@@ -74,10 +116,10 @@ Future<void> showQuotaPaywallModal(
 }
 
 // ---------------------------------------------------------------------------
-// Widget interno
+// Widget interno (StatefulWidget para animación de entrada)
 // ---------------------------------------------------------------------------
 
-class _QuotaPaywallModal extends StatelessWidget {
+class _QuotaPaywallModal extends StatefulWidget {
   const _QuotaPaywallModal({
     required this.quota,
     required this.resource,
@@ -90,101 +132,194 @@ class _QuotaPaywallModal extends StatelessWidget {
   final List<Plan> plans;
   final String? currentPlanId;
 
+  @override
+  State<_QuotaPaywallModal> createState() => _QuotaPaywallModalState();
+}
+
+class _QuotaPaywallModalState extends State<_QuotaPaywallModal>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+  late final Animation<double> _opacity;
+  late final List<Plan> _sortedPlans;
+
+  // Stagger para la columna derecha
+  bool _showRightColumn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _sortedPlans = [...widget.plans]
+      ..sort((a, b) => a.priceMonthly.compareTo(b.priceMonthly));
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: AppMotion.durSlow,
+    );
+
+    final curved = CurvedAnimation(
+      parent: _ctrl,
+      curve: AppMotion.easeEntrance,
+    );
+    _scale = Tween<double>(begin: 0.94, end: 1.0).animate(curved);
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _ctrl,
+        curve: const Interval(0.0, 0.6),
+      ),
+    );
+
+    _ctrl.forward();
+
+    // Stagger: la columna derecha aparece después de durStagger.
+    Future.delayed(AppMotion.durStagger, () {
+      if (mounted) setState(() => _showRightColumn = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
   // -------------------------------------------------------------------------
-  // Helpers
+  // Helpers de dominio
   // -------------------------------------------------------------------------
 
-  /// Ordena los planes por precio y determina el "siguiente" al plan actual.
-  ///
-  /// Devuelve `null` si el plan actual es el más caro (usuario en el tier máximo).
+  /// Devuelve el siguiente plan al actual (ya ordenado en initState).
+  /// Retorna null si el plan actual es el más caro (tier máximo).
   Plan? _nextPlan() {
-    if (plans.isEmpty) return null;
-    final sorted = [...plans]..sort((a, b) => a.priceCents.compareTo(b.priceCents));
-    if (currentPlanId == null) {
-      // Sin plan asignado → el primer plan de pago (o el único disponible).
-      return sorted.isNotEmpty ? sorted.first : null;
+    if (_sortedPlans.isEmpty) return null;
+    if (widget.currentPlanId == null) {
+      return _sortedPlans.first;
     }
-    final currentIndex = sorted.indexWhere((p) => p.id == currentPlanId);
-    if (currentIndex < 0) return sorted.isNotEmpty ? sorted.first : null;
-    if (currentIndex >= sorted.length - 1) return null; // ya está en el máximo
-    return sorted[currentIndex + 1];
+    final currentIndex =
+        _sortedPlans.indexWhere((p) => p.id == widget.currentPlanId);
+    if (currentIndex < 0) return _sortedPlans.first;
+    if (currentIndex >= _sortedPlans.length - 1) return null;
+    return _sortedPlans[currentIndex + 1];
   }
 
   Plan? _currentPlan() {
-    if (currentPlanId == null) return null;
+    if (widget.currentPlanId == null) return null;
     try {
-      return plans.firstWhere((p) => p.id == currentPlanId);
+      return widget.plans.firstWhere((p) => p.id == widget.currentPlanId);
     } catch (_) {
       return null;
     }
   }
 
-  String _bodyCopy() {
-    final planName = _currentPlan()?.name;
-    final planLabel = planName != null ? '"$planName"' : 'actual';
-    if (resource == 'bots') {
-      return 'Tu plan $planLabel permite hasta ${quota.limit} bot(s). '
-          'Para crear más, pasate a un plan superior.';
-    }
-    return 'Tu plan $planLabel permite hasta ${quota.limit} conversación(es) '
-        'por período. Para continuar, pasate a un plan superior.';
-  }
 
   // -------------------------------------------------------------------------
-  // Build
+  // Build principal
   // -------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final reduced = AppMotion.reduced(context);
+
+    final content = _buildContent(context);
+
+    if (reduced) {
+      // Reduced motion: sólo fade, sin escala ni stagger.
+      return FadeTransition(
+        opacity: _opacity,
+        child: content,
+      );
+    }
+
+    return FadeTransition(
+      opacity: _opacity,
+      child: ScaleTransition(
+        scale: _scale,
+        child: content,
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    final reduced = AppMotion.reduced(context);
+    final current = _currentPlan();
+    final next = _nextPlan();
 
     return _ModalContainer(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(context, colorScheme),
-          const SizedBox(height: 16),
-          _buildBodyCopy(theme),
-          const SizedBox(height: 20),
-          _buildComparisonTable(context, colorScheme),
-          const SizedBox(height: 28),
+          // ── Encabezado ───────────────────────────────────────────────────
+          _buildHeader(),
+          const SizedBox(height: AppDimens.space16),
+          const HudDivider(),
+          const SizedBox(height: AppDimens.space16),
+
+          // ── Cuerpo / copy ─────────────────────────────────────────────────
+          _buildBodyCopy(),
+          const SizedBox(height: AppDimens.space20),
+
+          // ── Columnas de comparación ───────────────────────────────────────
+          _buildComparison(
+            context: context,
+            current: current,
+            next: next,
+            reduced: reduced,
+          ),
+          const SizedBox(height: AppDimens.space24),
+
+          // ── Acciones ──────────────────────────────────────────────────────
           _buildActions(context),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context, ColorScheme colorScheme) {
+  // -------------------------------------------------------------------------
+  // Encabezado
+  // -------------------------------------------------------------------------
+
+  Widget _buildHeader() {
     return Row(
       children: [
         ExcludeSemantics(
           child: Container(
-            padding: const EdgeInsets.all(10),
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: colorScheme.errorContainer.withValues(alpha: 0.3),
               shape: BoxShape.circle,
+              color: AppColors.warning.withValues(alpha: 0.10),
+              border: Border.all(color: AppColors.warning, width: 1.5),
+              boxShadow: AppDimens.glowStatus(AppColors.warning),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.lock_outline_rounded,
-              color: colorScheme.error,
-              size: 22,
+              color: AppColors.warning,
+              size: AppDimens.iconM,
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppDimens.space12),
         Expanded(
           child: Semantics(
             header: true,
-            child: Text(
-              'Límite alcanzado',
-              style: TextStyle(
-                color: colorScheme.onSurface,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Oxanium',
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '// LÍMITE DE PLAN',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textTertiary,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'LÍMITE ALCANZADO',
+                  style: AppTextStyles.titleM.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -192,237 +327,148 @@ class _QuotaPaywallModal extends StatelessWidget {
     );
   }
 
-  Widget _buildBodyCopy(ThemeData theme) {
-    final resourceLabel = resource == 'bots' ? 'bots' : 'conversaciones';
+  // -------------------------------------------------------------------------
+  // Body copy con límite destacado
+  // -------------------------------------------------------------------------
+
+  Widget _buildBodyCopy() {
+    final resourceLabel = widget.resource == 'bots' ? 'bots' : 'conversaciones';
     final quotaMessage =
-        'Has alcanzado el límite de $resourceLabel. Actualiza tu plan para continuar.';
+        'Has alcanzado el límite de $resourceLabel de tu plan actual.';
+    final planName = _currentPlan()?.name;
+    final planLabel = planName != null ? '"$planName"' : 'actual';
+    final limitStr = widget.quota.limit.toString();
+
+    final List<TextSpan> spans;
+    if (widget.resource == 'bots') {
+      spans = [
+        TextSpan(text: 'Tu plan $planLabel permite hasta '),
+        TextSpan(
+          text: limitStr,
+          style: AppTextStyles.hudReadout.copyWith(color: AppColors.gold),
+        ),
+        const TextSpan(
+            text: ' bot(s). Para crear más, pasate a un plan superior.'),
+      ];
+    } else {
+      spans = [
+        TextSpan(text: 'Tu plan $planLabel permite hasta '),
+        TextSpan(
+          text: limitStr,
+          style: AppTextStyles.hudReadout.copyWith(color: AppColors.gold),
+        ),
+        const TextSpan(
+            text:
+                ' conversación(es) por período. Para continuar, pasate a un plan superior.'),
+      ];
+    }
+
     return Semantics(
       label: quotaMessage,
-      child: Text(
-        _bodyCopy(),
-        style: TextStyle(
-          color: theme.colorScheme.onSurfaceVariant,
-          fontSize: 14,
-          height: 1.5,
+      child: RichText(
+        text: TextSpan(
+          style: AppTextStyles.bodyM.copyWith(
+            color: AppColors.textSecondary,
+            height: 1.5,
+          ),
+          children: spans,
         ),
       ),
     );
   }
 
-  Widget _buildComparisonTable(BuildContext context, ColorScheme colorScheme) {
-    final current = _currentPlan();
-    final next = _nextPlan();
+  // -------------------------------------------------------------------------
+  // Columnas de comparación
+  // -------------------------------------------------------------------------
 
+  Widget _buildComparison({
+    required BuildContext context,
+    required Plan? current,
+    required Plan? next,
+    required bool reduced,
+  }) {
     if (current == null && next == null) return const SizedBox.shrink();
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Table(
-        columnWidths: const {
-          0: FlexColumnWidth(2),
-          1: FlexColumnWidth(1.5),
-          2: FlexColumnWidth(1.5),
-        },
+    final leftColumn = _CurrentPlanColumn(
+      plan: current,
+      quota: widget.quota,
+      resource: widget.resource,
+    );
+
+    Widget rightColumn;
+    if (next != null) {
+      rightColumn = _NextPlanColumn(plan: next);
+    } else {
+      rightColumn = const _EnterpriseColumn();
+    }
+
+    // Stagger para la columna derecha (omitido en reduced motion)
+    final animatedRight = reduced
+        ? rightColumn
+        : AnimatedOpacity(
+            opacity: _showRightColumn ? 1.0 : 0.0,
+            duration: AppMotion.durFast,
+            child: AnimatedSlide(
+              offset: _showRightColumn
+                  ? Offset.zero
+                  : const Offset(0, 0.04),
+              duration: AppMotion.durFast,
+              curve: AppMotion.easeEntrance,
+              child: rightColumn,
+            ),
+          );
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _tableHeaderRow(colorScheme),
-          if (current != null)
-            _tablePlanRow(
-              plan: current,
-              isHighlighted: true,
-              badge: null,
-              colorScheme: colorScheme,
-            ),
-          if (next != null)
-            _tablePlanRow(
-              plan: next,
-              isHighlighted: false,
-              badge: 'Recomendado',
-              colorScheme: colorScheme,
-            ),
-          if (next == null && current != null)
-            _contactSupportRow(colorScheme),
+          Expanded(child: leftColumn),
+          Container(
+            width: 1,
+            color: AppColors.borderDefault,
+          ),
+          Expanded(child: animatedRight),
         ],
       ),
     );
   }
 
-  TableRow _tableHeaderRow(ColorScheme colorScheme) {
-    return TableRow(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      ),
-      children: [
-        _tableHeaderCell('Plan', colorScheme),
-        _tableHeaderCell('Bots', colorScheme),
-        _tableHeaderCell('Convers.', colorScheme),
-      ],
-    );
-  }
-
-  Widget _tableHeaderCell(String text, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: colorScheme.onSurfaceVariant,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  TableRow _tablePlanRow({
-    required Plan plan,
-    required bool isHighlighted,
-    required String? badge,
-    required ColorScheme colorScheme,
-  }) {
-    final bgColor = isHighlighted
-        ? colorScheme.surfaceContainerLow.withValues(alpha: 0.6)
-        : colorScheme.primaryContainer.withValues(alpha: 0.15);
-
-    return TableRow(
-      decoration: BoxDecoration(color: bgColor),
-      children: [
-        _tablePlanNameCell(plan, badge, colorScheme),
-        _tableCountCell('${plan.maxBots}', colorScheme),
-        _tableCountCell('${plan.maxConversations}', colorScheme),
-      ],
-    );
-  }
-
-  Widget _tablePlanNameCell(Plan plan, String? badge, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            plan.name,
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (badge != null) ...[
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                badge,
-                style: TextStyle(
-                  color: colorScheme.onPrimaryContainer,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _tableCountCell(String value, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Text(
-        value,
-        style: TextStyle(
-          color: colorScheme.onSurface,
-          fontSize: 13,
-        ),
-      ),
-    );
-  }
-
-  TableRow _contactSupportRow(ColorScheme colorScheme) {
-    return TableRow(
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.15),
-      ),
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Text(
-            'Plan Enterprise',
-            style: TextStyle(
-              color: colorScheme.primary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Text(
-            'Contactar soporte',
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 12,
-            ),
-          ),
-        ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: SizedBox.shrink(),
-        ),
-      ],
-    );
-  }
+  // -------------------------------------------------------------------------
+  // Acciones
+  // -------------------------------------------------------------------------
 
   Widget _buildActions(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Semantics(
-          label: 'Actualizar plan para desbloquear esta función',
+          label: 'Mejorar plan para desbloquear esta función',
           button: true,
-          child: FilledButton(
+          child: AppButton(
             key: const Key('ver_planes_btn'),
+            label: 'MEJORAR PLAN',
             onPressed: () {
               final router = GoRouter.of(context);
               Navigator.of(context).pop();
               router.go('/billing');
             },
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              AppStrings.billingPaywallViewPlans,
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+            variant: AppButtonVariant.primary,
+            size: AppButtonSize.lg,
+            leadingIcon: Icons.arrow_upward_rounded,
+            expand: true,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppDimens.space12),
         Semantics(
           label: 'Cerrar aviso de límite de uso',
           button: true,
-          child: TextButton(
+          child: AppButton(
             key: const Key('mas_tarde_btn'),
+            label: 'MÁS TARDE',
             onPressed: () => Navigator.of(context).pop(),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            child: const Text(AppStrings.billingPaywallLater),
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.md,
+            expand: true,
           ),
         ),
       ],
@@ -441,17 +487,214 @@ class _ModalContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    return HudCornerBrackets(
+      color: AppColors.warning,
+      child: HoloPanel(
+        padding: const EdgeInsets.all(AppDimens.space24),
+        cornerBrackets: false,
+        glowAccent: AppColors.warning,
+        borderColor: AppColors.warning.withValues(alpha: 0.30),
+        child: child,
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Columna izquierda: plan actual
+// ---------------------------------------------------------------------------
+
+class _CurrentPlanColumn extends StatelessWidget {
+  const _CurrentPlanColumn({
+    required this.plan,
+    required this.quota,
+    required this.resource,
+  });
+
+  final Plan? plan;
+  final QuotaResult quota;
+  final String resource;
+
+  @override
+  Widget build(BuildContext context) {
+    final planName = plan?.name ?? 'SIN PLAN';
+    final priceLabel = plan != null
+        ? '\$${plan!.priceMonthly.toStringAsFixed(0)}/mes'
+        : '\$0/mes';
+    final limitLabel = resource == 'bots'
+        ? '${quota.limit} bots máx.'
+        : '${quota.limit} conv. máx.';
+
     return Container(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(AppDimens.space16),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+        color: AppColors.surfaceHud,
+        border: Border.all(color: AppColors.borderDefault),
+        borderRadius: BorderRadius.circular(AppDimens.radiusM),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'PLAN ACTUAL',
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textTertiary,
+              letterSpacing: 1.4,
+            ),
+          ),
+          const SizedBox(height: AppDimens.space4),
+          Text(
+            planName,
+            style: AppTextStyles.label.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppDimens.space8),
+          Text(
+            priceLabel,
+            style: AppTextStyles.bodyS.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppDimens.space8),
+          Row(
+            children: [
+              const Icon(
+                Icons.lock_outline_rounded,
+                size: AppDimens.iconXS,
+                color: AppColors.warning,
+              ),
+              const SizedBox(width: AppDimens.space4),
+              Text(
+                limitLabel,
+                style: AppTextStyles.bodyS.copyWith(color: AppColors.warning),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Columna derecha: plan sugerido (upgrade)
+// ---------------------------------------------------------------------------
+
+class _NextPlanColumn extends StatelessWidget {
+  const _NextPlanColumn({required this.plan});
+
+  final Plan plan;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        boxShadow: AppDimens.glowGold,
+      ),
+      child: ChamferBox(
+        chamfer: AppDimens.chamferM,
+        fillColor: AppColors.gold.withValues(alpha: 0.05),
+        border: const BorderSide(color: AppColors.borderGold, width: 1.5),
+        child: Padding(
+          padding: const EdgeInsets.all(AppDimens.space16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Badge "RECOMENDADO"
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withValues(alpha: 0.15),
+                  border: Border.all(color: AppColors.borderGold),
+                  borderRadius:
+                      BorderRadius.circular(AppDimens.radiusPill),
+                ),
+                child: Text(
+                  'RECOMENDADO',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.gold,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppDimens.space4),
+              Text(
+                'MEJORAR A',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.gold,
+                  letterSpacing: 1.4,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                plan.name,
+                style:
+                    AppTextStyles.label.copyWith(color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: AppDimens.space8),
+              // Precio con flecha
+              Row(
+                children: [
+                  const Icon(
+                    Icons.arrow_upward_rounded,
+                    size: AppDimens.iconXS,
+                    color: AppColors.success,
+                  ),
+                  const SizedBox(width: AppDimens.space4),
+                  Text(
+                    '\$${plan.priceMonthly.toStringAsFixed(0)}/mes',
+                    style: AppTextStyles.hudReadout
+                        .copyWith(color: AppColors.gold),
+                  ),
+                ],
+              ),
+              if (plan.description != null) ...[
+                const SizedBox(height: AppDimens.space8),
+                Text(
+                  plan.description!,
+                  style: AppTextStyles.bodyS
+                      .copyWith(color: AppColors.textSecondary),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
-      child: child,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Columna derecha: caso enterprise (sin plan superior)
+// ---------------------------------------------------------------------------
+
+class _EnterpriseColumn extends StatelessWidget {
+  const _EnterpriseColumn();
+
+  @override
+  Widget build(BuildContext context) {
+    return ChamferBox(
+      fillColor: AppColors.surfaceHud,
+      border: const BorderSide(color: AppColors.borderDefault),
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimens.space16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'PLAN ENTERPRISE',
+              style:
+                  AppTextStyles.label.copyWith(color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: AppDimens.space8),
+            Text(
+              'Contactá a soporte para ampliar tus límites.',
+              style: AppTextStyles.bodyS.copyWith(
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
