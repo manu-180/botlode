@@ -6,15 +6,18 @@ import 'package:botslode/core/config/theme/app_motion.dart';
 import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:botslode/core/ui/buttons/app_button.dart';
 import 'package:botslode/core/ui/hud/hud.dart';
-import 'package:botslode/core/ui/states/empty_state.dart';
 import 'package:botslode/core/ui/states/error_state.dart';
 import 'package:botslode/core/ui/widgets/page_title.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/billing/presentation/widgets/payment_checkout_modal.dart';
+import 'package:botslode/features/dashboard/domain/models/bot.dart';
+import 'package:botslode/features/dashboard/presentation/providers/bots_provider.dart';
 import 'package:botslode/features/dashboard/presentation/providers/dashboard_controller.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/bot_card.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/credit_hud_panel.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/create_bot_modal.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/dashboard_empty_states.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/dashboard_grid_skeleton.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/dashboard_toolbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -41,21 +44,25 @@ class _DashboardViewState extends ConsumerState<DashboardView>
   late final AnimationController _headerCtrl;
   late final AnimationController _toolbarCtrl;
   late final AnimationController _gridCtrl;
+  late final AnimationController _contentEnterCtrl;
 
   late final Animation<double> _headerAnim;
   late final Animation<double> _toolbarAnim;
   late final Animation<double> _gridAnim;
+  late final Animation<double> _contentEnterAnim;
 
   @override
   void initState() {
     super.initState();
-    _headerCtrl  = AnimationController(vsync: this, duration: AppMotion.durBase);
-    _toolbarCtrl = AnimationController(vsync: this, duration: AppMotion.durBase);
-    _gridCtrl    = AnimationController(vsync: this, duration: AppMotion.durBase);
+    _headerCtrl       = AnimationController(vsync: this, duration: AppMotion.durBase);
+    _toolbarCtrl      = AnimationController(vsync: this, duration: AppMotion.durBase);
+    _gridCtrl         = AnimationController(vsync: this, duration: AppMotion.durBase);
+    _contentEnterCtrl = AnimationController(vsync: this, duration: AppMotion.durBase);
 
-    _headerAnim  = CurvedAnimation(parent: _headerCtrl,  curve: AppMotion.easeEntrance);
-    _toolbarAnim = CurvedAnimation(parent: _toolbarCtrl, curve: AppMotion.easeEntrance);
-    _gridAnim    = CurvedAnimation(parent: _gridCtrl,    curve: AppMotion.easeEntrance);
+    _headerAnim       = CurvedAnimation(parent: _headerCtrl,       curve: AppMotion.easeEntrance);
+    _toolbarAnim      = CurvedAnimation(parent: _toolbarCtrl,      curve: AppMotion.easeEntrance);
+    _gridAnim         = CurvedAnimation(parent: _gridCtrl,         curve: AppMotion.easeEntrance);
+    _contentEnterAnim = CurvedAnimation(parent: _contentEnterCtrl, curve: AppMotion.easeStandard);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -77,6 +84,10 @@ class _DashboardViewState extends ConsumerState<DashboardView>
           if (mounted) _gridCtrl.forward();
         });
       }
+      // If data is already available on mount (e.g. navigating back), skip fade-in.
+      if (!ref.read(filteredBotsProvider).isLoading) {
+        _contentEnterCtrl.value = 1.0;
+      }
     });
   }
 
@@ -85,10 +96,17 @@ class _DashboardViewState extends ConsumerState<DashboardView>
     (_headerAnim as CurvedAnimation).dispose();
     (_toolbarAnim as CurvedAnimation).dispose();
     (_gridAnim as CurvedAnimation).dispose();
+    (_contentEnterAnim as CurvedAnimation).dispose();
     _headerCtrl.dispose();
     _toolbarCtrl.dispose();
     _gridCtrl.dispose();
+    _contentEnterCtrl.dispose();
     super.dispose();
+  }
+
+  void _clearSearch() {
+    ref.read(dashboardFilterProvider.notifier).setFilter(BotFilter.all);
+    ref.read(dashboardSearchProvider.notifier).setSearch('');
   }
 
   void _confirmPayment(BuildContext context, double amount) {
@@ -161,12 +179,30 @@ class _DashboardViewState extends ConsumerState<DashboardView>
 
   @override
   Widget build(BuildContext context) {
-    final botsAsync    = ref.watch(filteredBotsProvider);
-    final billingAsync = ref.watch(billingProvider);
+    final botsAsync     = ref.watch(filteredBotsProvider);
+    final allBotsAsync  = ref.watch(botsProvider);
+    final billingAsync  = ref.watch(billingProvider);
+    final filter        = ref.watch(dashboardFilterProvider);
+    final search        = ref.watch(dashboardSearchProvider);
 
-    final billingState = billingAsync.valueOrNull;
-    final totalDebt    = billingState?.totalDebt ?? 0.0;
-    final dollarRate   = billingState?.dollarRate ?? 1200.0;
+    final billingState      = billingAsync.valueOrNull;
+    final totalDebt         = billingState?.totalDebt ?? 0.0;
+    final dollarRate        = billingState?.dollarRate ?? 1200.0;
+    final hasQueryOrFilter  = search.isNotEmpty || filter != BotFilter.all;
+
+    // Trigger content fade-in on loading → data/error transition.
+    ref.listen<AsyncValue<List<Bot>>>(filteredBotsProvider, (prev, next) {
+      if ((prev?.isLoading ?? true) && !next.isLoading && mounted) {
+        if (_contentEnterCtrl.value < 1.0) {
+          final reduce = AppMotion.reduced(context);
+          _contentEnterCtrl.animateTo(
+            1.0,
+            duration: reduce ? AppMotion.durCrossfadeReduced : AppMotion.durBase,
+            curve: reduce ? Curves.linear : AppMotion.easeStandard,
+          );
+        }
+      }
+    });
 
     // ── Sliver [3]: grid / skeleton / empty / error ──────────────────────────
     final Widget gridSliver = SliverPadding(
@@ -181,7 +217,7 @@ class _DashboardViewState extends ConsumerState<DashboardView>
           ),
           delegate: SliverChildBuilderDelegate(
             (_, __) => const BotCardSkeleton(),
-            childCount: 6,
+            childCount: 8,
           ),
         ),
         error: (err, _) => SliverFillRemaining(
@@ -192,38 +228,60 @@ class _DashboardViewState extends ConsumerState<DashboardView>
             onRetry: () => ref.invalidate(filteredBotsProvider),
           ),
         ),
-        data: (bots) => bots.isEmpty
-            ? SliverFillRemaining(
-                child: EmptyState(
-                  icon: Icons.search_off_rounded,
-                  title: 'No se encontraron unidades',
-                  message: 'Ensambla tu primer bot para comenzar.',
-                  actionLabel: 'Ensamblar unidad',
-                  onAction: () => showDialog(
+        data: (bots) {
+          final Widget contentSliver;
+
+          if (bots.isEmpty) {
+            final allBots = allBotsAsync.valueOrNull ?? [];
+            if (allBots.isEmpty && !hasQueryOrFilter) {
+              // Empty A — bahía vacía, ningún bot existe aún.
+              contentSliver = SliverFillRemaining(
+                hasScrollBody: false,
+                child: DashboardEmptyBay(
+                  onAssemble: () => showDialog(
                     context: context,
                     builder: (_) => const CreateBotModal(),
                   ),
                 ),
-              )
-            : SliverGrid(
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 400,
-                  childAspectRatio: 1.4,
-                  crossAxisSpacing: AppDimens.gapCard,
-                  mainAxisSpacing: AppDimens.gapCard,
+              );
+            } else {
+              // Empty B — hay bots pero el filtro/búsqueda no los encuentra.
+              contentSliver = SliverFillRemaining(
+                hasScrollBody: false,
+                child: DashboardEmptyNoResults(
+                  query: search.trim().isEmpty ? null : search.trim(),
+                  onClear: _clearSearch,
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (ctx, i) => BotCard(
-                    bot: bots[i],
-                    staggerIndex: i,
-                    onTap: () => ctx.goNamed(
-                      'bot_detail',
-                      pathParameters: {'botId': bots[i].id},
-                    ),
-                  ),
-                  childCount: bots.length,
-                ),
+              );
+            }
+          } else {
+            contentSliver = SliverGrid(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 400,
+                childAspectRatio: 1.4,
+                crossAxisSpacing: AppDimens.gapCard,
+                mainAxisSpacing: AppDimens.gapCard,
               ),
+              delegate: SliverChildBuilderDelegate(
+                (ctx, i) => BotCard(
+                  bot: bots[i],
+                  staggerIndex: i,
+                  onTap: () => ctx.goNamed(
+                    'bot_detail',
+                    pathParameters: {'botId': bots[i].id},
+                  ),
+                ),
+                childCount: bots.length,
+              ),
+            );
+          }
+
+          // Crossfade: content fades in over durBase when loading → data.
+          return SliverFadeTransition(
+            opacity: _contentEnterAnim,
+            sliver: contentSliver,
+          );
+        },
       ),
     );
 
