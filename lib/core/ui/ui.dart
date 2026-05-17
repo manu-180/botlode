@@ -11,3 +11,5 @@ export 'states/error_state.dart';
 export 'toasts/app_toast.dart';
 export 'hud/hud.dart';
 export 'decorations/decorations.dart';
+export 'widgets/hud_tooltip.dart';
+export 'widgets/hud_popover_menu.dart';
