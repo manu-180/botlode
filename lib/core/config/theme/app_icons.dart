@@ -76,6 +76,14 @@ class AppIcons {
   static const IconData config       = FontAwesomeIcons.sliders;
   static const IconData metrics      = FontAwesomeIcons.chartLine;
 
+  // ─── MOODS (índices 0–5 del terminalBotMoodProvider) ─────────────────────
+  static const IconData moodOnline   = FontAwesomeIcons.wifi;
+  static const IconData moodAngry    = FontAwesomeIcons.fire;
+  static const IconData moodHappy    = FontAwesomeIcons.faceSmile;
+  static const IconData moodVendor   = FontAwesomeIcons.tag;
+  static const IconData moodConfused = FontAwesomeIcons.circleQuestion;
+  static const IconData moodTech     = FontAwesomeIcons.microchip;
+
   // ─── DATOS / HUD ──────────────────────────────────────────────────────────
   static const IconData signal       = FontAwesomeIcons.signal;
   static const IconData server       = FontAwesomeIcons.server;
