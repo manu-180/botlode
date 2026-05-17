@@ -2,6 +2,7 @@
 // Tema Material 3 oscuro único. No hay light mode.
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'app_dimens.dart';
 import 'app_text_styles.dart';
 
 class AppTheme {
@@ -38,32 +39,48 @@ class AppTheme {
       bodySmall:     AppTextStyles.bodyS,
     ),
 
+    // Fallback for third-party widgets; app code uses AppTextField directly.
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.surface,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      fillColor: AppColors.surfaceHud,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.space16,
+        vertical: AppDimens.space12,
+      ),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.borderDefault),
+        borderRadius: AppDimens.brM,
+        borderSide: const BorderSide(color: AppColors.borderDefault, width: 1.5),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.borderDefault),
+        borderRadius: AppDimens.brM,
+        borderSide: const BorderSide(color: AppColors.borderDefault, width: 1.5),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.gold, width: 2),
+        borderRadius: AppDimens.brM,
+        borderSide: const BorderSide(color: AppColors.cyan, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.danger),
+        borderRadius: AppDimens.brM,
+        borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: AppDimens.brM,
         borderSide: const BorderSide(color: AppColors.danger, width: 2),
       ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: AppDimens.brM,
+        borderSide: const BorderSide(color: AppColors.borderSubtle, width: 1),
+      ),
       labelStyle: AppTextStyles.bodyM.copyWith(color: AppColors.textSecondary),
-      hintStyle:  AppTextStyles.bodyM.copyWith(color: AppColors.textTertiary),
+      hintStyle: AppTextStyles.bodyM.copyWith(color: AppColors.textTertiary),
+      errorStyle: TextStyle(
+        fontSize: AppTextStyles.bodyS.fontSize,
+        color: AppColors.danger,
+      ),
+      helperStyle: TextStyle(
+        fontSize: AppTextStyles.bodyS.fontSize,
+        color: AppColors.textTertiary,
+      ),
     ),
 
     // Fallback for third-party widgets using ElevatedButton — app code uses AppButton instead.
