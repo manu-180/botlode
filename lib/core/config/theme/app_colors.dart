@@ -32,6 +32,9 @@ class AppColors {
   static const Color glassHighlightTop  = Color.fromRGBO(255, 255, 255, 0.06); // Highlight de 1 px en el borde superior del vidrio.
   static const Color glassBorder        = Color.fromRGBO(255, 255, 255, 0.10); // Borde hairline estándar de vidrio.
   static const Color scrim              = Color.fromRGBO(3,   6,   11,  0.66); // Velo de fondo detrás de modales (66%).
+  /// Pico de brillo del shimmer (blanco al 40 %). Usado en barridos de gradiente tipo gradGoldSheen.
+  /// Equivale al stop central de gradGoldSheen — referenciar este token en vez de Color.fromRGBO inline.
+  static const Color shimmerPeak = Color.fromRGBO(255, 255, 255, 0.4);
 
   // ─── MARCA / ACENTOS ──────────────────────────────────────────────────────
   static const Color gold         = Color(0xFFFFC000); // Acción primaria, valor/dinero, branding. Oro industrial.

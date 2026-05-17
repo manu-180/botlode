@@ -2,6 +2,8 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -57,11 +59,7 @@ class _DeleteProtocolDialogState extends State<DeleteProtocolDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isEnabled = _countdown == 0;
-    
-    // Color "Bordó" (Rojo oscuro industrial) para la acción destructiva
-    final Color deepErrorColor = const Color(0xFF8B0000);
 
     return Shortcuts(
       shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
@@ -83,88 +81,79 @@ class _DeleteProtocolDialogState extends State<DeleteProtocolDialog> {
           width: 450,
           padding: const EdgeInsets.all(1),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppDimens.radiusL),
             gradient: LinearGradient(
               colors: [
-                deepErrorColor,
-                deepErrorColor.withValues(alpha: 0.2),
+                AppColors.danger,
+                AppColors.danger.withValues(alpha: 0.3),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: deepErrorColor.withValues(alpha: 0.2),
+                color: AppColors.danger.withValues(alpha: 0.2),
                 blurRadius: 30,
                 spreadRadius: 5,
               )
             ],
           ),
           child: Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(AppDimens.space24),
             decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.circular(19),
+              borderRadius: BorderRadius.circular(AppDimens.radiusXL),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(height: 10),
-                
+                SizedBox(height: AppDimens.space8),
+
                 // --- TÍTULO ---
                 Text(
-                  "DESMANTELAR UNIDAD", 
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppColors.error,
+                  "DESMANTELAR UNIDAD",
+                  style: AppTextStyles.titleL.copyWith(
+                    color: AppColors.danger,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 2.0,
-                    fontFamily: 'Oxanium',
-                    fontSize: 20,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                
-                const SizedBox(height: 30),
-                
+
+                SizedBox(height: AppDimens.space32),
+
                 // --- BLOQUE DE ADVERTENCIA FINANCIERA ---
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(AppDimens.space16),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                    color: AppColors.voidBlack.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(AppDimens.radiusS),
+                    border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
                   ),
                   child: Column(
                     children: [
                       Text(
                         "SALDO PENDIENTE A FACTURAR",
-                        style: TextStyle(
+                        style: AppTextStyles.mono.copyWith(
                           color: AppColors.textSecondary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
+                          letterSpacing: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: AppDimens.space4),
                       Text(
                         "\$ ${widget.currentBalance.toStringAsFixed(2)}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32, 
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Oxanium',
-                        ),
+                        style: AppTextStyles.numericTicker.copyWith(color: AppColors.textPrimary),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 24),
-                
+                SizedBox(height: AppDimens.space24),
+
                 RichText(
                   textAlign: TextAlign.center,
                   text: TextSpan(
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                    style: AppTextStyles.bodyM.copyWith(
                       color: AppColors.textSecondary,
                       height: 1.5,
                       fontSize: 13,
@@ -173,66 +162,65 @@ class _DeleteProtocolDialogState extends State<DeleteProtocolDialog> {
                       const TextSpan(text: "Al desmantelar la unidad "),
                       TextSpan(
                         text: widget.botName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: AppTextStyles.label.copyWith(color: AppColors.textPrimary),
                       ),
                       const TextSpan(text: ", sus procesos se detendrán irreversiblemente y "),
                       const TextSpan(
                         text: "el saldo pendiente será debitado inmediatamente.",
-                        style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 30),
+                SizedBox(height: AppDimens.space32),
 
                 Row(
                   children: [
                     Expanded(
+                      // TODO: migrate to AppButton.danger per Hangar OS spec
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.3)),
                           foregroundColor: AppColors.textSecondary,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          padding: EdgeInsets.symmetric(vertical: AppDimens.space16),
                         ),
                         child: const Text("CANCELAR"),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: AppDimens.space16),
                     Expanded(
-                      flex: 2, 
+                      flex: 2,
                       child: ElevatedButton(
-                        onPressed: isEnabled 
+                        onPressed: isEnabled
                             ? () {
                                 widget.onConfirm();
                                 Navigator.of(context).pop();
                               }
                             : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: deepErrorColor, // Color Bordó
+                          backgroundColor: AppColors.danger,
                           disabledBackgroundColor: AppColors.surface.withValues(alpha: 0.5),
                           disabledForegroundColor: AppColors.textSecondary,
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppColors.textPrimary,
                           elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          side: isEnabled 
-                              ? BorderSide(color: Colors.red.withValues(alpha: 0.5))
-                              : BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                          padding: EdgeInsets.symmetric(vertical: AppDimens.space16),
+                          side: isEnabled
+                              ? BorderSide(color: AppColors.danger.withValues(alpha: 0.5))
+                              : const BorderSide(color: AppColors.borderDefault),
                         ),
                         // --- CAMBIO DE TEXTO SOLICITADO ---
                         child: Text(
-                          isEnabled 
-                              ? "ELIMINAR" 
+                          isEnabled
+                              ? "ELIMINAR"
                               : "ELIMINAR (${_countdown}s)",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                            fontFamily: isEnabled ? null : 'Courier', // Monospace para evitar saltos
-                          ),
+                          style: isEnabled
+                              ? AppTextStyles.label
+                              : AppTextStyles.mono.copyWith(
+                                  color: AppColors.danger,
+                                  fontWeight: FontWeight.bold,
+                                ),
                         ),
                       ),
                     ),

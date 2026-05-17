@@ -93,7 +93,7 @@ class _BotKnowledgeTabState extends ConsumerState<BotKnowledgeTab> {
         : source.sourceUri ?? 'este fragmento';
     return await showDialog<bool>(
           context: ctx,
-          barrierColor: Colors.black54,
+          barrierColor: AppColors.scrim,
           builder: (_) => _DeleteConfirmDialog(fragmentTitle: title),
         ) ??
         false;

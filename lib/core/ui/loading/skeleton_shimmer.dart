@@ -84,10 +84,10 @@ class _SkeletonShimmerState extends State<SkeletonShimmer>
           gradient: LinearGradient(
             begin: Alignment(_anim.value - 1, 0),
             end: Alignment(_anim.value, 0),
-            colors: const [
+            colors: [
               AppColors.bgElevated01,
               AppColors.surfaceRaised,
-              Color.fromRGBO(255, 192, 0, 0.06),
+              AppColors.gold.withValues(alpha: 0.06),
               AppColors.surfaceRaised,
               AppColors.bgElevated01,
             ],
@@ -124,7 +124,7 @@ class BotCardSkeleton extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SkeletonShimmer.line(width: 120),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppDimens.space4),
                     SkeletonShimmer.line(width: 80, borderRadius: AppDimens.brPill),
                   ],
                 ),

@@ -740,7 +740,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal>
                             .animate()
                             .scale(
                               duration: AppMotion.durFast,
-                              curve: Curves.elasticOut,
+                              curve: AppMotion.easeEntrance,
                             )
                         : null,
                   ),
@@ -884,7 +884,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal>
             begin: const Offset(0, 0),
             end: const Offset(1, 1),
             duration: const Duration(milliseconds: 400),
-            curve: Curves.elasticOut,
+            curve: AppMotion.easeEntrance,
           ),
     );
   }
@@ -980,7 +980,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal>
       height: 80,
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        color: Color.fromRGBO(255, 45, 85, 0.1),
+        color: AppColors.danger.withValues(alpha: 0.1),
         border: Border.fromBorderSide(
           BorderSide(color: AppColors.danger, width: 2),
         ),

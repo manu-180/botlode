@@ -139,7 +139,7 @@ class AppTextFieldState extends State<AppTextField> {
   }
 
   Color get _focusedBorderColor =>
-      _hasError ? AppColors.danger : AppColors.cyan;
+      _hasError ? AppColors.danger : AppColors.borderGold;
 
   // ─── Glow shadows ─────────────────────────────────────────────────────────
 
@@ -334,10 +334,10 @@ class AppTextFieldState extends State<AppTextField> {
                 // Borders — all driven from state, no errorText on InputDecoration
                 border: _border(AppColors.borderDefault, 1.5),
                 enabledBorder: _border(_enabledBorderColor, 1.5),
-                focusedBorder: _border(_focusedBorderColor, 2.0),
+                focusedBorder: _border(_focusedBorderColor, 1.5),
                 disabledBorder: _border(AppColors.borderSubtle, 1.0),
                 errorBorder: _border(AppColors.danger, 1.5),
-                focusedErrorBorder: _border(AppColors.danger, 2.0),
+                focusedErrorBorder: _border(AppColors.danger, 1.5),
                 // Prefix / suffix
                 prefixIcon: _buildPrefixIcon(),
                 prefixIconConstraints:

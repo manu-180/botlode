@@ -865,13 +865,7 @@ class _CardStatusBadge extends StatelessWidget {
           const SizedBox(width: AppDimens.space4),
           Text(
             label,
-            style: TextStyle(
-              fontFamily: 'Oxanium',
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.4,
-              color: color,
-            ),
+            style: AppTextStyles.labelSmall.copyWith(color: color),
           ),
         ],
       ),
@@ -903,7 +897,7 @@ class _GoldSheenSweep extends StatelessWidget {
               colors: [
                 Colors.transparent,
                 AppColors.goldBright.withValues(alpha: 0.068),
-                Colors.white.withValues(alpha: 0.04),
+                AppColors.glassHighlightTop,
                 Colors.transparent,
               ],
             ),
@@ -959,11 +953,11 @@ class _ChipPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final padPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.25)
+      ..color = AppColors.voidBlack.withValues(alpha: 0.25)
       ..style = PaintingStyle.fill;
 
     final linePaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.18)
+      ..color = AppColors.voidBlack.withValues(alpha: 0.18)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8;
 

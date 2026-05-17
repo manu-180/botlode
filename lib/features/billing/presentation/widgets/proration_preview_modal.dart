@@ -906,7 +906,7 @@ class _PlanCapsule extends StatelessWidget {
     Widget capsule = Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppDimens.space12,
-        vertical: 6,
+        vertical: AppDimens.space8,
       ),
       decoration: BoxDecoration(
         color: energized

@@ -116,7 +116,7 @@ class _HudStatusDotState extends State<HudStatusDot>
             mainAxisSize: MainAxisSize.min,
             children: [
               dot,
-              const SizedBox(width: 6),
+              const SizedBox(width: AppDimens.space8),
               Text(
                 _semanticLabel,
                 style: AppTextStyles.labelSmall.copyWith(

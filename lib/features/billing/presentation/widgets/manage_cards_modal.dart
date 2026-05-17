@@ -25,7 +25,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 const _kActiveStatuses = {
   SubscriptionStatus.active,
@@ -634,8 +633,7 @@ class _CardRowState extends State<_CardRow>
                       children: [
                         Text(
                           '•••• ${pm.last4 ?? '—'}',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 14,
+                          style: AppTextStyles.hudReadout.copyWith(
                             fontWeight: FontWeight.w600,
                             color: pm.isDefault
                                 ? AppColors.gold

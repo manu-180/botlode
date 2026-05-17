@@ -166,14 +166,14 @@ class _BillingBackground extends StatelessWidget {
         // Base colour
         const ColoredBox(color: AppColors.background),
         // Radial gold glow, tenue — centred slightly above mid-screen.
-        const IgnorePointer(
+        IgnorePointer(
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: RadialGradient(
-                center: Alignment(0.0, -0.65),
+                center: const Alignment(0.0, -0.65),
                 radius: 0.85,
                 colors: [
-                  Color.fromRGBO(255, 192, 0, 0.06),
+                  AppColors.gold.withValues(alpha: 0.06),
                   Colors.transparent,
                 ],
               ),

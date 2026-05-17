@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -22,14 +22,14 @@ class SerpApiKeysCard extends ConsumerWidget {
           height: 14,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: AppColors.primary,
+            color: AppColors.gold,
           ),
         ),
         subtitle: 'Consultando...',
       ),
       error: (_, __) => _buildCardShell(
         context: context,
-        child: const Icon(Icons.error_outline, color: AppColors.error, size: 16),
+        child: const Icon(Icons.error_outline, color: AppColors.danger, size: 16),
         subtitle: 'Error',
         onTap: () => ref.invalidate(serpApiKeysStatusProvider),
       ),
@@ -49,10 +49,10 @@ class SerpApiKeysCard extends ConsumerWidget {
                 height: 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: allExhausted ? AppColors.error : AppColors.success,
+                  color: allExhausted ? AppColors.danger : AppColors.success,
                   boxShadow: [
                     BoxShadow(
-                      color: (allExhausted ? AppColors.error : AppColors.success)
+                      color: (allExhausted ? AppColors.danger : AppColors.success)
                           .withValues(alpha: 0.5),
                       blurRadius: 6,
                     ),
@@ -94,15 +94,15 @@ class SerpApiKeysCard extends ConsumerWidget {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AppColors.primary.withValues(alpha: 0.08),
-                AppColors.primary.withValues(alpha: 0.03),
+                AppColors.gold.withValues(alpha: 0.08),
+                AppColors.gold.withValues(alpha: 0.03),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: AppColors.primary.withValues(alpha: 0.35),
+              color: AppColors.gold.withValues(alpha: 0.35),
             ),
           ),
           child: Row(
@@ -110,7 +110,7 @@ class SerpApiKeysCard extends ConsumerWidget {
             children: [
               const FaIcon(
                 FontAwesomeIcons.key,
-                color: AppColors.primary,
+                color: AppColors.gold,
                 size: 14,
               ),
               const SizedBox(width: 10),
@@ -121,7 +121,7 @@ class SerpApiKeysCard extends ConsumerWidget {
                   const Text(
                     'SERP API',
                     style: TextStyle(
-                      color: AppColors.primary,
+                      color: AppColors.gold,
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
                       fontFamily: 'Oxanium',
@@ -177,10 +177,10 @@ class _SerpApiKeysModal extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+          border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.1),
+              color: AppColors.gold.withValues(alpha: 0.1),
               blurRadius: 40,
               spreadRadius: 2,
             ),
@@ -195,14 +195,14 @@ class _SerpApiKeysModal extends StatelessWidget {
                 loading: () => const Padding(
                   padding: EdgeInsets.all(40),
                   child: Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
+                    child: CircularProgressIndicator(color: AppColors.gold),
                   ),
                 ),
                 error: (e, _) => Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
                     'Error: $e',
-                    style: const TextStyle(color: AppColors.error),
+                    style: const TextStyle(color: AppColors.danger),
                   ),
                 ),
                 data: (keys) => _buildKeysList(keys),
@@ -221,7 +221,7 @@ class _SerpApiKeysModal extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: AppColors.primary.withValues(alpha: 0.15),
+            color: AppColors.gold.withValues(alpha: 0.15),
           ),
         ),
       ),
@@ -232,18 +232,18 @@ class _SerpApiKeysModal extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.primary.withValues(alpha: 0.2),
-                  AppColors.primary.withValues(alpha: 0.05),
+                  AppColors.gold.withValues(alpha: 0.2),
+                  AppColors.gold.withValues(alpha: 0.05),
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.3),
+                color: AppColors.gold.withValues(alpha: 0.3),
               ),
             ),
             child: const FaIcon(
               FontAwesomeIcons.key,
-              color: AppColors.primary,
+              color: AppColors.gold,
               size: 18,
             ),
           ),
@@ -278,7 +278,7 @@ class _SerpApiKeysModal extends StatelessWidget {
             tooltip: 'Actualizar',
             icon: const Icon(
               Icons.refresh_rounded,
-              color: AppColors.primary,
+              color: AppColors.gold,
               size: 20,
             ),
           ),
@@ -311,13 +311,13 @@ class _SerpApiKeysModal extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.primary.withValues(alpha: 0.1),
+                  AppColors.gold.withValues(alpha: 0.1),
                   AppColors.surface,
                 ],
               ),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.2),
+                color: AppColors.gold.withValues(alpha: 0.2),
               ),
             ),
             child: Row(
@@ -333,7 +333,7 @@ class _SerpApiKeysModal extends StatelessWidget {
                   'Agotadas',
                   exhausted.isEmpty
                       ? AppColors.textSecondary
-                      : AppColors.error,
+                      : AppColors.danger,
                 ),
                 const Spacer(),
                 Column(
@@ -342,7 +342,7 @@ class _SerpApiKeysModal extends StatelessWidget {
                     Text(
                       '$totalCredits',
                       style: const TextStyle(
-                        color: AppColors.primary,
+                        color: AppColors.gold,
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                         fontFamily: 'Oxanium',
@@ -369,7 +369,7 @@ class _SerpApiKeysModal extends StatelessWidget {
           ],
           if (exhausted.isNotEmpty) ...[
             const SizedBox(height: 20),
-            _buildSectionLabel('Sin créditos', AppColors.error),
+            _buildSectionLabel('Sin créditos', AppColors.danger),
             const SizedBox(height: 8),
             ...exhausted.map(_buildKeyTile),
           ],
@@ -452,7 +452,7 @@ class _SerpApiKeysModal extends StatelessWidget {
         ? AppColors.warning
         : isAvailable
             ? AppColors.success
-            : AppColors.error;
+            : AppColors.danger;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -541,7 +541,7 @@ class _SerpApiKeysModal extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
-            color: AppColors.primary.withValues(alpha: 0.1),
+            color: AppColors.gold.withValues(alpha: 0.1),
           ),
         ),
       ),

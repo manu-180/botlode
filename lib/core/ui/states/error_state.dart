@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../config/theme/app_colors.dart';
 import '../../config/theme/app_dimens.dart';
+import '../../config/theme/app_icons.dart';
 import '../../config/theme/app_text_styles.dart';
 import '../buttons/app_button.dart';
 
@@ -35,7 +36,7 @@ class ErrorCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.error_outline, color: AppColors.danger, size: 20),
+            AppIcons.icon(AppIcons.error, size: AppDimens.iconL, color: AppColors.danger),
             const SizedBox(width: AppDimens.space12),
             Expanded(
               child: Column(
@@ -65,7 +66,7 @@ class ErrorCard extends StatelessWidget {
               AppButton.ghost(
                 label: retryLabel!,
                 onPressed: onRetry,
-                height: 32,
+                size: AppButtonSize.sm,
               ),
             ],
           ],
@@ -108,11 +109,7 @@ class ErrorScreen extends StatelessWidget {
                   color: AppColors.danger.withValues(alpha: 0.3),
                 ),
               ),
-              child: const Icon(
-                Icons.error_outline_rounded,
-                size: 32,
-                color: AppColors.danger,
-              ),
+              child: AppIcons.icon(AppIcons.error, size: AppDimens.iconL, color: AppColors.danger),
             ),
             const SizedBox(height: AppDimens.space24),
             Text(
@@ -133,7 +130,7 @@ class ErrorScreen extends StatelessWidget {
               AppButton.secondary(
                 label: retryLabel!,
                 onPressed: onRetry,
-                leadingIcon: Icons.refresh_rounded,
+                leadingIcon: AppIcons.refresh,
               ),
             ],
           ],

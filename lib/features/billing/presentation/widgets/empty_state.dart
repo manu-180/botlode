@@ -1,9 +1,11 @@
-// Archivo: lib/features/billing/presentation/widgets/empty_state.dart
+﻿// Archivo: lib/features/billing/presentation/widgets/empty_state.dart
 //
 // T4·29 — Reusable empty-state widget for the billing feature.
 // Pure presentation: no providers, no business logic.
 
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
 class BillingEmptyState extends StatelessWidget {
@@ -29,51 +31,42 @@ class BillingEmptyState extends StatelessWidget {
           ? '$title. $subtitle. Botón: $ctaLabel'
           : '$title. $subtitle',
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: AppDimens.space24, vertical: AppDimens.space20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (illustration != null) ...[
               ExcludeSemantics(child: illustration!),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppDimens.space16),
             ],
             Text(
               title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(color: AppColors.textPrimary),
+              style: AppTextStyles.titleM.copyWith(color: AppColors.textPrimary),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppDimens.space8),
             Text(
               subtitle,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.bodyS.copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
             if (ctaLabel != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: AppDimens.space24),
               SizedBox(
                 height: 48,
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: onCta,
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.primary),
-                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.gold),
+                    foregroundColor: AppColors.gold,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: AppDimens.brM,
                     ),
                   ),
                   child: Text(
                     ctaLabel!,
-                    style: const TextStyle(
-                      fontFamily: 'Oxanium',
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: AppTextStyles.label.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
               ),

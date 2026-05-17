@@ -810,10 +810,10 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal>
             curve: AppMotion.easeEntrance,
           )
           .then(delay: _kShakeDelayMs.ms)
-          .moveX(begin: 0, end: _kShakeOffset1, duration: _kShakeDur1Ms.ms, curve: Curves.easeIn)
-          .moveX(begin: 0, end: -_kShakeOffset2, duration: _kShakeDur2Ms.ms, curve: Curves.easeInOut)
-          .moveX(begin: 0, end: _kShakeOffset2, duration: _kShakeDur2Ms.ms, curve: Curves.easeInOut)
-          .moveX(begin: 0, end: -_kShakeOffset1, duration: _kShakeDur1Ms.ms, curve: Curves.easeOut);
+          .moveX(begin: 0, end: _kShakeOffset1, duration: _kShakeDur1Ms.ms, curve: AppMotion.easeExit)
+          .moveX(begin: 0, end: -_kShakeOffset2, duration: _kShakeDur2Ms.ms, curve: AppMotion.easeStandard)
+          .moveX(begin: 0, end: _kShakeOffset2, duration: _kShakeDur2Ms.ms, curve: AppMotion.easeStandard)
+          .moveX(begin: 0, end: -_kShakeOffset1, duration: _kShakeDur1Ms.ms, curve: AppMotion.easeHover);
     }
 
     // Success: elastic scale entrance.
@@ -821,7 +821,7 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal>
           begin: const Offset(0.5, 0.5),
           end: const Offset(1.0, 1.0),
           duration: AppMotion.durDeliberate,
-          curve: Curves.elasticOut,
+          curve: AppMotion.easeEntrance,
         );
   }
 }

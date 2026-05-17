@@ -136,7 +136,7 @@ class _AppTextFieldState extends State<AppTextField> {
               disabledBorder: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: AppDimens.space16,
-                vertical: 14,
+                vertical: AppDimens.space12,
               ),
               counterText: '',
               fillColor: Colors.transparent,
@@ -148,7 +148,7 @@ class _AppTextFieldState extends State<AppTextField> {
           const SizedBox(height: 4),
           Row(
             children: [
-              const Icon(Icons.error_outline, size: 12, color: AppColors.danger),
+              const Icon(Icons.error_outline, size: AppDimens.iconXS, color: AppColors.danger),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(

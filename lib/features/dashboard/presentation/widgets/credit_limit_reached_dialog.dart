@@ -1,6 +1,9 @@
 // Archivo: lib/features/dashboard/presentation/widgets/credit_limit_reached_dialog.dart
 import 'dart:ui';
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_icons.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:botslode/features/billing/presentation/views/billing_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -44,12 +47,12 @@ class CreditLimitReachedDialog extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 420),
           padding: const EdgeInsets.all(1.5),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(AppDimens.radiusXL),
             gradient: LinearGradient(
               colors: [
                 AppColors.warning,
                 AppColors.warning.withValues(alpha: 0.4),
-                AppColors.primary.withValues(alpha: 0.5),
+                AppColors.gold.withValues(alpha: 0.5),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -61,19 +64,19 @@ class CreditLimitReachedDialog extends StatelessWidget {
                 spreadRadius: 2,
               ),
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.15),
+                color: AppColors.gold.withValues(alpha: 0.15),
                 blurRadius: 40,
                 spreadRadius: -4,
               ),
             ],
           ),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
+            padding: EdgeInsets.all(AppDimens.space24),
             decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.circular(22.5),
+              borderRadius: BorderRadius.circular(AppDimens.radiusXL),
               border: Border.all(
-                color: AppColors.borderGlass,
+                color: AppColors.borderDefault,
                 width: 0.5,
               ),
             ),
@@ -82,7 +85,7 @@ class CreditLimitReachedDialog extends StatelessWidget {
               children: [
                 // Icono con anillo de estado
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(AppDimens.space16),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: AppColors.warning.withValues(alpha: 0.12),
@@ -98,47 +101,39 @@ class CreditLimitReachedDialog extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Icon(
-                    Icons.shield_outlined,
-                    size: 40,
-                    color: AppColors.warning,
-                  ),
+                  child: AppIcons.icon(AppIcons.warning, size: AppDimens.iconL, color: AppColors.warning),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: AppDimens.space20),
                 Text(
                   'LÍMITE DE CRÉDITO ALCANZADO',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: AppTextStyles.bodyL.copyWith(
                     color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
                     letterSpacing: 1.8,
-                    height: 1.25,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: AppDimens.space12),
                 Text(
                   'Tu pozo de crédito está al tope. No podés activar más unidades hasta que realices un pago y liberes capacidad.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: AppTextStyles.label.copyWith(
                     color: AppColors.textSecondary,
-                    fontSize: 13,
                     height: 1.45,
                     letterSpacing: 0.3,
                   ),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: AppDimens.space24),
                 Text(
                   'Realizá un pago para seguir operando.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.primary.withValues(alpha: 0.95),
-                    fontSize: 12,
+                  style: AppTextStyles.bodyS.copyWith(
+                    color: AppColors.gold.withValues(alpha: 0.95),
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.8,
                   ),
                 ),
-                const SizedBox(height: 28),
+                SizedBox(height: AppDimens.space24),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
@@ -149,29 +144,27 @@ class CreditLimitReachedDialog extends StatelessWidget {
                     icon: const Icon(Icons.payment_rounded, size: 20),
                     label: const Text('IR A PAGOS'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.black87,
+                      backgroundColor: AppColors.gold,
+                      foregroundColor: AppColors.textOnGold,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(AppDimens.radiusM),
                       ),
                       elevation: 0,
-                      textStyle: const TextStyle(
+                      textStyle: AppTextStyles.label.copyWith(
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2,
-                        fontSize: 13,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: AppDimens.space8),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(
                     'CERRAR',
-                    style: TextStyle(
+                    style: AppTextStyles.bodyS.copyWith(
                       color: AppColors.textSecondary,
-                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1.0,
                     ),

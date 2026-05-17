@@ -1,4 +1,4 @@
-// Archivo: lib/features/store/domain/models/store_product.dart
+﻿// Archivo: lib/features/store/domain/models/store_product.dart
 import 'package:flutter/material.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
 
@@ -25,13 +25,13 @@ enum ProductCategory {
   Color get color {
     switch (this) {
       case ProductCategory.automation:
-        return AppColors.primary;
+        return AppColors.gold;
       case ProductCategory.marketing:
         return AppColors.success;
       case ProductCategory.analytics:
         return AppColors.secondary;
       case ProductCategory.integration:
-        return const Color(0xFFB026FF);
+        return AppColors.accentViolet;
     }
   }
 }

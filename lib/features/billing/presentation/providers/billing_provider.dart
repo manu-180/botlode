@@ -1,4 +1,4 @@
-// Archivo: lib/features/billing/presentation/providers/billing_provider.dart
+﻿// Archivo: lib/features/billing/presentation/providers/billing_provider.dart
 import 'dart:async';
 import 'package:botslode/core/config/cycle_exempt_bots_config.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
@@ -277,7 +277,7 @@ class BillingState {
     switch (health) {
       case FinanceHealth.stable: return AppColors.success; 
       case FinanceHealth.warning: return AppColors.warning; 
-      case FinanceHealth.critical: return AppColors.error; 
+      case FinanceHealth.critical: return AppColors.danger; 
     }
   }
 

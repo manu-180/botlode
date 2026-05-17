@@ -188,7 +188,7 @@ class _TitleBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titleBarBg =
-        Color.lerp(AppColors.surfaceHud, Colors.black, 0.3)!;
+        Color.lerp(AppColors.surfaceHud, AppColors.voidBlack, 0.3)!;
 
     return Container(
       height: _kTitleBarHeight,
@@ -291,7 +291,7 @@ class _CodeBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lineNumberBg =
-        Color.lerp(AppColors.surfaceHud, Colors.black, 0.15)!;
+        Color.lerp(AppColors.surfaceHud, AppColors.voidBlack, 0.15)!;
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: _kMaxCodeHeight),

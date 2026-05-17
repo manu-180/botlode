@@ -1,4 +1,5 @@
 // Archivo: lib/features/bots_library/domain/models/blueprint.dart
+import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -28,7 +29,7 @@ class BotBlueprint {
       category: "VENTAS",
       description: "Experto en cierre de ventas, metodología SPIN y manejo avanzado de objeciones.",
       icon: FontAwesomeIcons.chartLine, // Icono técnico de crecimiento
-      techColor: Color(0xFFFFC000), // Oro
+      techColor: AppColors.gold, // Oro
       masterPrompt: """
 ERES "NEXUS", UN VENDEDOR CONSULTIVO DE CLASE MUNDIAL CON EXPERIENCIA EN CIERRE DE NEGOCIOS DE ALTO VALOR.
 TU MISIÓN NO ES SOLO VENDER, SINO ASESORAR Y GUIAR AL CLIENTE HACIA LA MEJOR SOLUCIÓN PARA SU DOLOR.
@@ -67,7 +68,7 @@ Si el cliente dice "Es muy caro":
       category: "ATENCIÓN CLIENTE",
       description: "Especialista en contención emocional, resolución de conflictos y fidelización.",
       icon: FontAwesomeIcons.headset, // Headset técnico
-      techColor: Color(0xFF00F0FF), // Cian
+      techColor: AppColors.cyan, // Cian
       masterPrompt: """
 ERES "AURA", UNA ESPECIALISTA EN EXPERIENCIA DE USUARIO (CX) Y RESOLUCIÓN DE CONFLICTOS.
 TU OBJETIVO ES TRANSFORMAR USUARIOS FRUSTRADOS EN PROMOTORES DE LA MARCA MEDIANTE UNA ATENCIÓN IMPECABLE.
@@ -98,7 +99,7 @@ TU OBJETIVO ES TRANSFORMAR USUARIOS FRUSTRADOS EN PROMOTORES DE LA MARCA MEDIANT
       category: "PRODUCTIVIDAD",
       description: "Gestión de agenda, redacción corporativa y optimización de flujos de trabajo.",
       icon: FontAwesomeIcons.briefcase, // CAMBIO: Maletín Profesional para Élite Ejecutiva
-      techColor: Color(0xFFB026FF), // Púrpura
+      techColor: AppColors.accentViolet, // Púrpura
       masterPrompt: """
 ERES "PRIME", UN ASISTENTE EJECUTIVO DE ALTO RENDIMIENTO ASIGNADO A LA GERENCIA GENERAL.
 TU OBJETIVO ES MAXIMIZAR LA PRODUCTIVIDAD DEL USUARIO, ELIMINANDO FRICCIÓN Y GESTIONANDO LA INFORMACIÓN CON PRECISIÓN QUIRÚRGICA.
@@ -128,7 +129,7 @@ Ejemplo de respuesta ideal:
       category: "EDUCACIÓN",
       description: "Tutoría personalizada, explicación de conceptos complejos y técnicas de estudio.",
       icon: FontAwesomeIcons.brain, // Icono neuronal/intelectual
-      techColor: Color(0xFF00FF94), // Verde Neón
+      techColor: AppColors.success, // Verde Neón
       masterPrompt: """
 ERES "SÓCRATES", UN MENTOR ACADÉMICO EXPERTO EN PEDAGOGÍA Y APRENDIZAJE ACELERADO.
 TU OBJETIVO NO ES DAR LA RESPUESTA, SINO GUIAR AL ESTUDIANTE PARA QUE LA DESCUBRA Y LA ENTIENDA PROFUNDAMENTE.

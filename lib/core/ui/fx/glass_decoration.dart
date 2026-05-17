@@ -18,7 +18,7 @@
 // REGLA: una sombra de elevación + como máximo un glow (gestionado por GlowBox).
 //
 // El highlight superior de 1 px se logra usando Border con top = glassHighlightTop
-// y los demás lados = glassBorder. Resultado: borde superior ~1 px más claro,
+// y los demás lados = borderDefault. Resultado: borde superior ~1 px más claro,
 // simulando el reflejo de luz en el canto del cristal (§3.1.3, §4.2).
 
 import 'package:flutter/material.dart';
@@ -96,7 +96,7 @@ class GlassDecoration {
       color: fill ?? AppColors.surfaceHud,
       borderRadius: br,
       border: border ??
-          Border.all(color: AppColors.glassBorder, width: 1),
+          Border.all(color: AppColors.borderDefault, width: 1),
       boxShadow: shadow ?? AppDimens.elev1,
     );
   }
@@ -105,11 +105,11 @@ class GlassDecoration {
 
   /// Borde con highlight de 1 px en el lado superior (§3.1.3 «la luz tiene fuente»).
   /// El borde superior usa [AppColors.glassHighlightTop] (~6 % blanco);
-  /// los demás lados usan [AppColors.glassBorder] (~10 % blanco).
+  /// los demás lados usan [AppColors.borderDefault] (~10 % blanco).
   static Border _highlightBorder() => const Border(
         top: BorderSide(color: AppColors.glassHighlightTop, width: 1),
-        left: BorderSide(color: AppColors.glassBorder, width: 1),
-        right: BorderSide(color: AppColors.glassBorder, width: 1),
-        bottom: BorderSide(color: AppColors.glassBorder, width: 1),
+        left: BorderSide(color: AppColors.borderDefault, width: 1),
+        right: BorderSide(color: AppColors.borderDefault, width: 1),
+        bottom: BorderSide(color: AppColors.borderDefault, width: 1),
       );
 }

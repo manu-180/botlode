@@ -182,7 +182,7 @@ class _SegmentedFilterState extends State<_SegmentedFilter> {
             isSelected: _selectedIndex == 2,
             dotWidget: _DangerDot(isActive: _selectedIndex == 2, reduce: reduce),
             badgeColorActive: AppColors.danger,
-            badgeTextActive: Colors.white,
+            badgeTextActive: AppColors.textPrimary,
             badgeColorInactive: AppColors.surfaceRaised,
             badgeTextInactive: AppColors.textSecondary,
             semanticLabel: 'Filtro: Offline, ${widget.offlineCount} unidades',

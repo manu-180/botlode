@@ -44,7 +44,7 @@ class UnitTelemetryConsole extends StatelessWidget {
     final bool pulsing =
         unitStatus != UnitStatus.offline && !reduced;
     final Duration reactorDuration = unitStatus == UnitStatus.processing
-        ? const Duration(milliseconds: 900)
+        ? AppMotion.durTicker
         : AppMotion.durHeartbeat;
 
     Widget content = HoloPanel(

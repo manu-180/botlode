@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../config/theme/app_colors.dart';
 import '../../config/theme/app_dimens.dart';
+import '../../config/theme/app_icons.dart';
 import '../../config/theme/app_motion.dart';
 import '../../config/theme/app_text_styles.dart';
 import '../hud/hud_chamfer.dart';
@@ -54,7 +55,7 @@ _SizeData _sizeFor(AppButtonSize size) {
       return _SizeData(
         height: _kHeightMd,
         hPad: AppDimens.space20,
-        iconSize: 16,
+        iconSize: AppDimens.iconS, // 18
         gap: AppDimens.space8,
         textStyle: AppTextStyles.label,
       );
@@ -594,8 +595,8 @@ class _AppButtonState extends State<AppButton>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(
-          widget.leadingIcon,
+        AppIcons.icon(
+          widget.leadingIcon!,
           size: sd.iconSize,
           color: _contentColor,
         ),

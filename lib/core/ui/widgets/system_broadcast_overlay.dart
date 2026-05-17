@@ -7,6 +7,7 @@
 import 'dart:async';
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_icons.dart';
 import 'package:botslode/core/config/theme/app_motion.dart';
 import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
@@ -165,9 +166,9 @@ class _BroadcastWidgetState extends State<_BroadcastWidget>
       return;
     }
 
-    // Typewriter: ~28 ms per character
+    // Typewriter: ~28 ms per character — not a standard motion token
     _typingTimer = Timer.periodic(
-      const Duration(milliseconds: 28),
+      const Duration(milliseconds: 28), // Typewriter tick — not a standard motion token
       (timer) {
         if (!mounted) {
           timer.cancel();
@@ -191,7 +192,7 @@ class _BroadcastWidgetState extends State<_BroadcastWidget>
 
   void _startCursorBlink() {
     _cursorTimer = Timer.periodic(
-      const Duration(milliseconds: 600),
+      const Duration(milliseconds: 600), // Cursor blink rate — not a standard motion token
       (_) {
         if (mounted) setState(() => _cursorVisible = !_cursorVisible);
       },
@@ -199,7 +200,7 @@ class _BroadcastWidgetState extends State<_BroadcastWidget>
   }
 
   void _scheduleDismiss() {
-    _dismissTimer = Timer(const Duration(milliseconds: 2000), () {
+    _dismissTimer = Timer(const Duration(milliseconds: 2000), () { // Auto-dismiss delay — not a standard motion token
       if (mounted) _exit();
     });
   }
@@ -223,9 +224,9 @@ class _BroadcastWidgetState extends State<_BroadcastWidget>
       };
 
   IconData _icon() => switch (widget.type) {
-        BroadcastType.info => Icons.terminal_rounded,
-        BroadcastType.success => Icons.check_circle_outline_rounded,
-        BroadcastType.error => Icons.warning_amber_rounded,
+        BroadcastType.info => AppIcons.terminal,
+        BroadcastType.success => AppIcons.check,
+        BroadcastType.error => AppIcons.warning,
       };
 
   String _defaultStatusLine() => switch (widget.type) {
@@ -261,7 +262,7 @@ class _BroadcastWidgetState extends State<_BroadcastWidget>
           ),
         ),
         const SizedBox(height: AppDimens.space12),
-        Icon(_icon(), color: accent, size: 32),
+        AppIcons.icon(_icon(), size: AppDimens.iconL, color: accent),
         const SizedBox(height: AppDimens.space16),
         // Expose full message text to semantics from the start (not the
         // typewriter-partial text) so screen readers announce it immediately.

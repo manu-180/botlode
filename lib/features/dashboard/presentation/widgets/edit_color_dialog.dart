@@ -1,6 +1,9 @@
 // Archivo: lib/features/dashboard/presentation/widgets/edit_color_dialog.dart
 import 'dart:ui';
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_icons.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/presentation/providers/bots_provider.dart';
 import 'package:flutter/material.dart';
@@ -76,8 +79,6 @@ class _EditColorDialogState extends ConsumerState<EditColorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Shortcuts(
       shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
       child: Actions(
@@ -93,14 +94,14 @@ class _EditColorDialogState extends ConsumerState<EditColorDialog> {
         backgroundColor: Colors.transparent,
         child: Container(
           width: 450,
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(AppDimens.space24),
           decoration: BoxDecoration(
-            color: const Color(0xFF09090B),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: _selectedColor.withOpacity(0.5), width: 2),
+            color: AppColors.surfaceHud,
+            borderRadius: BorderRadius.circular(AppDimens.radiusXL),
+            border: Border.all(color: _selectedColor.withValues(alpha: 0.5), width: 2),
             boxShadow: [
               BoxShadow(
-                color: _selectedColor.withOpacity(0.15),
+                color: _selectedColor.withValues(alpha: 0.15),
                 blurRadius: 40,
                 offset: const Offset(0, 10),
               ),
@@ -111,48 +112,45 @@ class _EditColorDialogState extends ConsumerState<EditColorDialog> {
             children: [
               // HEADER
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(AppDimens.space24),
                 decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: AppColors.borderGlass)),
+                  border: Border(bottom: BorderSide(color: AppColors.borderDefault)),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: AppDimens.space48,
+                      height: AppDimens.space48,
                       decoration: BoxDecoration(
-                        color: _selectedColor.withOpacity(0.1),
+                        color: _selectedColor.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
-                        border: Border.all(color: _selectedColor.withOpacity(0.5)),
+                        border: Border.all(color: _selectedColor.withValues(alpha: 0.5)),
                       ),
-                      child: Icon(Icons.palette_rounded, color: _selectedColor),
+                      child: AppIcons.icon(Icons.palette_rounded, color: _selectedColor),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: AppDimens.space12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             "CALIBRACIÓN DE NÚCLEO",
-                            style: theme.textTheme.titleLarge?.copyWith(
+                            style: AppTextStyles.titleL.copyWith(
                               color: AppColors.textPrimary,
                               letterSpacing: 1.2,
-                              fontSize: 18,
-                              fontFamily: 'Oxanium',
                             ),
                           ),
                           Text(
                             widget.bot.name,
-                            style: TextStyle(
-                              color: AppColors.textSecondary.withOpacity(0.7),
-                              fontSize: 12,
+                            style: AppTextStyles.bodyS.copyWith(
+                              color: AppColors.textSecondary.withValues(alpha: 0.7),
                             ),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white54),
+                      icon: AppIcons.icon(AppIcons.close, size: AppDimens.iconM, color: AppColors.textTertiary),
                       onPressed: () => Navigator.pop(context),
                     )
                   ],
@@ -161,7 +159,7 @@ class _EditColorDialogState extends ConsumerState<EditColorDialog> {
 
               // CONTENIDO
               Padding(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(AppDimens.space24),
                 child: Column(
                   children: [
                     // HEX INPUT
@@ -170,23 +168,16 @@ class _EditColorDialogState extends ConsumerState<EditColorDialog> {
                       children: [
                         Text(
                           "CÓDIGO CROMÁTICO",
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            fontFamily: 'Oxanium',
-                          ),
+                          style: AppTextStyles.labelSmall.copyWith(color: AppColors.textSecondary),
                         ),
                         SizedBox(
                           width: 140,
                           height: 40,
                           child: TextField(
                             controller: _hexController,
-                            style: TextStyle(
+                            style: AppTextStyles.mono.copyWith(
                               color: _selectedColor,
                               fontWeight: FontWeight.bold,
-                              fontFamily: 'Courier',
                               fontSize: 14,
                             ),
                             textAlignVertical: TextAlignVertical.center,
@@ -200,18 +191,18 @@ class _EditColorDialogState extends ConsumerState<EditColorDialog> {
                               prefixText: "# ",
                               prefixStyle: const TextStyle(color: AppColors.textSecondary),
                               filled: true,
-                              fillColor: Colors.black,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                              fillColor: AppColors.surfaceHud,
+                              contentPadding: EdgeInsets.symmetric(horizontal: AppDimens.space12),
                               enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(AppDimens.radiusXS),
                                 borderSide: BorderSide(
-                                  color: _isHexInputError ? AppColors.error : AppColors.borderGlass,
+                                  color: _isHexInputError ? AppColors.danger : AppColors.borderDefault,
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(AppDimens.radiusXS),
                                 borderSide: BorderSide(
-                                  color: _isHexInputError ? AppColors.error : _selectedColor,
+                                  color: _isHexInputError ? AppColors.danger : _selectedColor,
                                 ),
                               ),
                             ),
@@ -221,17 +212,17 @@ class _EditColorDialogState extends ConsumerState<EditColorDialog> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppDimens.space16),
 
                     // COLOR PICKER
                     Theme(
                       data: ThemeData.dark(),
                       child: Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.all(AppDimens.space16),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.borderGlass),
+                          color: AppColors.voidBlack.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(AppDimens.radiusL),
+                          border: Border.all(color: AppColors.borderDefault),
                         ),
                         child: ColorPicker(
                           pickerColor: _selectedColor,
@@ -249,12 +240,12 @@ class _EditColorDialogState extends ConsumerState<EditColorDialog> {
                           hexInputBar: false,
                           labelTypes: const [],
                           pickerAreaHeightPercent: 0.6,
-                          pickerAreaBorderRadius: BorderRadius.circular(10),
+                          pickerAreaBorderRadius: BorderRadius.circular(AppDimens.radiusS),
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    SizedBox(height: AppDimens.space24),
 
                     // BOTÓN GUARDAR
                     SizedBox(
@@ -265,17 +256,17 @@ class _EditColorDialogState extends ConsumerState<EditColorDialog> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _selectedColor,
                           foregroundColor: ThemeData.estimateBrightnessForColor(_selectedColor) == Brightness.dark
-                              ? Colors.white
-                              : Colors.black,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ? AppColors.textPrimary
+                              : AppColors.textOnGold,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDimens.radiusS)),
                         ),
                         icon: const Icon(Icons.save_rounded),
-                        label: const Text(
+                        label: Text(
                           "APLICAR CALIBRACIÓN",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'Oxanium',
-                            letterSpacing: 1.5,
+                          style: AppTextStyles.label.copyWith(
+                            color: ThemeData.estimateBrightnessForColor(_selectedColor) == Brightness.dark
+                                ? AppColors.textPrimary
+                                : AppColors.textOnGold,
                           ),
                         ),
                       ),

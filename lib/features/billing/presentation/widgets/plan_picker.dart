@@ -823,7 +823,7 @@ class _DiscountPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppDimens.space4,
-        vertical: 2,
+        vertical: AppDimens.space2,
       ),
       decoration: BoxDecoration(
         color: AppColors.success.withValues(alpha: 0.15),

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../config/theme/app_colors.dart';
 import '../../config/theme/app_dimens.dart';
+import '../../config/theme/app_icons.dart';
 import '../../config/theme/app_motion.dart';
 import 'app_button.dart'; // for AppButtonVariant, AppButtonSize
 
@@ -29,7 +30,7 @@ _SizeData _sizeFor(AppButtonSize size) {
     case AppButtonSize.sm:
       return const _SizeData(side: _kSideSm, iconSize: AppDimens.iconXS); // 14
     case AppButtonSize.md:
-      return const _SizeData(side: _kSideMd, iconSize: 16);
+      return const _SizeData(side: _kSideMd, iconSize: AppDimens.iconS); // 18
     case AppButtonSize.lg:
       return const _SizeData(side: _kSideLg, iconSize: AppDimens.iconS); // 18
   }
@@ -450,7 +451,7 @@ class _AppIconButtonState extends State<AppIconButton>
       );
     }
 
-    return Icon(
+    return AppIcons.icon(
       widget.icon,
       size: sd.iconSize,
       color: _iconColor,

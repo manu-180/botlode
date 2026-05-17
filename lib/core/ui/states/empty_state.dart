@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../config/theme/app_colors.dart';
 import '../../config/theme/app_dimens.dart';
+import '../../config/theme/app_icons.dart';
 import '../../config/theme/app_text_styles.dart';
 import '../buttons/app_button.dart';
 
@@ -38,11 +39,7 @@ class EmptyState extends StatelessWidget {
                 borderRadius: AppDimens.brL,
                 border: Border.all(color: AppColors.borderDefault),
               ),
-              child: Icon(
-                icon,
-                size: 32,
-                color: AppColors.textTertiary,
-              ),
+              child: AppIcons.icon(icon, size: AppDimens.iconL, color: AppColors.textTertiary),
             ),
             const SizedBox(height: AppDimens.space24),
             Text(

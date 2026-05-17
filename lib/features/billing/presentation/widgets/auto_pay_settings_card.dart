@@ -360,8 +360,8 @@ class _HudToggleState extends State<_HudToggle>
             ? BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [
-                    Color.fromRGBO(200, 147, 10, 0.8),  // goldDeep @ 0.8
-                    Color.fromRGBO(255, 192, 0, 0.6),   // gold @ 0.6
+                    AppColors.goldDeep.withValues(alpha: 0.8),
+                    AppColors.gold.withValues(alpha: 0.6),
                   ],
                 ),
                 borderRadius: AppDimens.brPill,

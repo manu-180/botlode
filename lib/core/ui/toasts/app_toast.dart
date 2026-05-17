@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../../config/theme/app_colors.dart';
 import '../../config/theme/app_dimens.dart';
+import '../../config/theme/app_icons.dart';
 import '../../config/theme/app_text_styles.dart';
 import '../hud/hud_corner_brackets.dart';
 import '../widgets/app_button.dart';
@@ -46,10 +47,10 @@ class AppToast extends StatelessWidget {
       };
 
   IconData get _typeIcon => switch (type) {
-        ToastType.success => Icons.check_circle_outline_rounded,
-        ToastType.warning => Icons.warning_amber_rounded,
-        ToastType.error => Icons.error_outline_rounded,
-        ToastType.info => Icons.info_outline_rounded,
+        ToastType.success => AppIcons.check,
+        ToastType.warning => AppIcons.warning,
+        ToastType.error => AppIcons.error,
+        ToastType.info => AppIcons.info,
       };
 
   String get _semanticsLabel => switch (type) {
@@ -151,7 +152,7 @@ class _MainRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Ícono semántico del tipo
-          Icon(icon, color: color, size: 20),
+          AppIcons.icon(icon, size: AppDimens.iconS, color: color),
           const SizedBox(width: AppDimens.space12),
 
           // Bloque de texto (title + message)
@@ -194,7 +195,7 @@ class _MainRow extends StatelessWidget {
           // Botón de cierre
           const SizedBox(width: AppDimens.space8),
           AppIconButton(
-            icon: Icons.close_rounded,
+            icon: AppIcons.close,
             onPressed: onDismiss,
             tooltip: 'Cerrar',
             variant: AppButtonVariant.ghost,

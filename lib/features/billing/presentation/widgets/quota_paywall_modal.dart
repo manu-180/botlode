@@ -97,9 +97,9 @@ Future<void> showQuotaPaywallModal(
               // Handle bar
               Center(
                 child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: AppDimens.space32,
+                  height: AppDimens.space4,
+                  margin: const EdgeInsets.only(top: AppDimens.space12, bottom: AppDimens.space8),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceRaised,
                     borderRadius: BorderRadius.circular(AppDimens.radiusPill),
@@ -600,7 +600,7 @@ class _NextPlanColumn extends StatelessWidget {
               // Badge "RECOMENDADO"
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    const EdgeInsets.symmetric(horizontal: AppDimens.space8, vertical: AppDimens.space2),
                 decoration: BoxDecoration(
                   color: AppColors.gold.withValues(alpha: 0.15),
                   border: Border.all(color: AppColors.borderGold),

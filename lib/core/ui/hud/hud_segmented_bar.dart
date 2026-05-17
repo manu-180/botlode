@@ -21,7 +21,9 @@ class _HudSegmentedBarState extends State<HudSegmentedBar> {
   static const double _segmentWidth = 4.0;
   static const double _segmentHeight = 10.0;
   static const double _segmentGap = 3.0;
-  static const double _segmentRadius = AppDimens.radiusXS / 2;
+  // Sub-token: half of AppDimens.radiusXS (6), intentional for tight segment cells.
+  static const double _kSegmentRadius = 3.0;
+  // Sub-token: per-segment tick below AppMotion.durInstant (90ms), intentional for bar fill animation.
   static const int _tickMs = 14;
 
   late int _displayedLit;
@@ -121,7 +123,7 @@ class _HudSegmentedBarState extends State<HudSegmentedBar> {
 
             final decoration = BoxDecoration(
               color: isLit ? color : AppColors.surfaceHud,
-              borderRadius: BorderRadius.circular(_segmentRadius),
+              borderRadius: BorderRadius.circular(_kSegmentRadius),
               border: isLit
                   ? null
                   : Border.all(color: AppColors.borderSubtle, width: 1),

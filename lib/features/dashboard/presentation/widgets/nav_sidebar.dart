@@ -1,5 +1,9 @@
 // Archivo: lib/features/dashboard/presentation/widgets/nav_sidebar.dart
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_icons.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -24,52 +28,52 @@ class NavSidebar extends StatelessWidget {
     final currentIndex = navigationShell.currentIndex;
 
     return Container(
-      width: 80, // Barra delgada estilo "Dock"
+      width: AppDimens.sidebarWidth, // Barra delgada estilo "Dock"
       height: double.infinity,
       decoration: const BoxDecoration(
         color: AppColors.surface, // Fondo oscuro base
         border: Border(
-          right: BorderSide(color: AppColors.borderGlass),
+          right: BorderSide(color: AppColors.borderDefault),
         ),
       ),
       child: Column(
         children: [
-          const SizedBox(height: 30),
+          const SizedBox(height: AppDimens.space32),
           // Logo pequeño o Icono de la App
-          Icon(Icons.hexagon, color: theme.colorScheme.primary, size: 32),
-          const SizedBox(height: 40),
+          AppIcons.icon(Icons.hexagon, size: AppDimens.iconL, color: AppColors.gold),
+          const SizedBox(height: AppDimens.space40),
 
           // --- Ítems de Navegación ---
           _NavItem(
-            icon: Icons.dashboard_rounded,
+            icon: AppIcons.dashboard,
             label: 'Hangar',
             isSelected: currentIndex == 0,
             onTap: () => _onTap(context, 0),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppDimens.space20),
           _NavItem(
-            icon: Icons.smart_toy_rounded,
+            icon: AppIcons.bots,
             label: 'Bots',
             isSelected: currentIndex == 1,
             onTap: () => _onTap(context, 1), // Todavía no existe, pero preparamos el botón
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppDimens.space20),
           _NavItem(
-            icon: Icons.credit_card_rounded,
+            icon: AppIcons.billing,
             label: 'Pagos',
             isSelected: currentIndex == 2,
             onTap: () => _onTap(context, 2),
           ),
-          
+
           const Spacer(), // Empujar configuración al fondo
-          
+
           _NavItem(
-            icon: Icons.settings_rounded,
+            icon: AppIcons.settings,
             label: 'Ajustes',
             isSelected: currentIndex == 3,
             onTap: () => _onTap(context, 3), // Placeholder
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppDimens.space20),
         ],
       ),
     );
@@ -93,28 +97,28 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     // Animación suave al cambiar de estado
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: AppMotion.durFast,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppDimens.radiusS),
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            margin: const EdgeInsets.symmetric(horizontal: AppDimens.space12),
+            padding: const EdgeInsets.symmetric(vertical: AppDimens.space12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppDimens.radiusS),
               // Efecto NEÓN si está seleccionado
-              color: isSelected 
-                  ? AppColors.primary.withOpacity(0.15) 
+              color: isSelected
+                  ? AppColors.gold.withValues(alpha: 0.15)
                   : Colors.transparent,
               border: isSelected
-                  ? Border.all(color: AppColors.primary.withOpacity(0.5))
+                  ? Border.all(color: AppColors.gold.withValues(alpha: 0.5))
                   : Border.all(color: Colors.transparent),
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.2),
+                        color: AppColors.gold.withValues(alpha: 0.2),
                         blurRadius: 12,
                         spreadRadius: 1,
                       )
@@ -123,17 +127,16 @@ class _NavItem extends StatelessWidget {
             ),
             child: Column(
               children: [
-                Icon(
+                AppIcons.icon(
                   icon,
-                  color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                  size: 26,
+                  size: AppDimens.iconM,
+                  color: isSelected ? AppColors.gold : AppColors.textSecondary,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppDimens.space4),
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: isSelected ? AppColors.gold : AppColors.textSecondary,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),

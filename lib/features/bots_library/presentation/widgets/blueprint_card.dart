@@ -313,7 +313,7 @@ class _BlueprintCardState extends State<BlueprintCard>
           style: AppTextStyles.titleM.copyWith(
             color: Color.lerp(
               AppColors.textPrimary,
-              Colors.white,
+              AppColors.goldBright,
               _hoverAnim.value * 0.35,
             ),
           ),

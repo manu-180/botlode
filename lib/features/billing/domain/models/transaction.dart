@@ -1,4 +1,4 @@
-// Archivo: lib/features/billing/domain/models/transaction.dart
+﻿// Archivo: lib/features/billing/domain/models/transaction.dart
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
@@ -72,8 +72,8 @@ class BotTransaction {
 
   // --- SCI-FI UI HELPERS ---
   Color get color => switch (type) {
-    TransactionType.liquidation => AppColors.primary, 
-    TransactionType.cycleCharge => AppColors.error, 
+    TransactionType.liquidation => AppColors.gold, 
+    TransactionType.cycleCharge => AppColors.danger, 
     _ => AppColors.textSecondary,
   };
   

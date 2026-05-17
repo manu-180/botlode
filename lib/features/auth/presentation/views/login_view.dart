@@ -59,7 +59,7 @@ class _LoginViewState extends ConsumerState<LoginView>
     _ticker = createTicker(_onTick)..start();
     // Auto-focus email after panel entry animation completes
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(AppMotion.durSlow + const Duration(milliseconds: 100), () {
+      Future.delayed(AppMotion.durDeliberate, () {
         if (mounted) _emailFocusNode.requestFocus();
       });
     });
@@ -213,10 +213,10 @@ class _LoginViewState extends ConsumerState<LoginView>
                                 ),
                               ),
                               error: (_, __) => Center(
-                                child: const Icon(
+                                child: AppIcons.icon(
                                   Icons.broken_image_outlined,
-                                  color: AppColors.danger,
-                                  size: AppDimens.iconL,
+                                  size: AppDimens.iconM,
+                                  color: AppColors.textTertiary,
                                 ).animate().fadeIn(duration: AppMotion.durBase),
                               ),
                             ),
@@ -289,7 +289,8 @@ class _LoginViewState extends ConsumerState<LoginView>
                             ),
                           ).animate().fadeIn(
                                 duration: AppMotion.durBase,
-                                delay: 80.ms,
+                                // Stagger delay — above durStagger(36ms) by design
+                                delay: const Duration(milliseconds: 80),
                               ),
                         ),
                       ),
@@ -436,8 +437,8 @@ class _LoginViewState extends ConsumerState<LoginView>
 
   Widget _buildLockRing(bool reduce) {
     final ring = SizedBox(
-      width: 56,
-      height: 56,
+      width: AppDimens.space48,
+      height: AppDimens.space48,
       child: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
@@ -446,7 +447,7 @@ class _LoginViewState extends ConsumerState<LoginView>
           boxShadow: AppDimens.glowGold,
         ),
         child: Center(
-          child: AppIcons.icon(AppIcons.lock, size: 26, color: AppColors.gold),
+          child: AppIcons.icon(AppIcons.lock, size: AppDimens.iconM, color: AppColors.gold),
         ),
       ),
     );

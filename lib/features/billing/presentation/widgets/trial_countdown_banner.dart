@@ -7,7 +7,7 @@
 // Incluye animación de entrada slide-down y salida slide-up al descartarlo.
 //
 // Severidad (días calendario restantes):
-//   daysLeft > 7  → cyan   (AppColors.secondary) — informativo
+//   daysLeft > 7  → azul   (AppColors.info) — informativo
 //   daysLeft 3–7  → naranja (AppColors.warning)   — advertencia
 //   daysLeft ≤ 2  → rojo   (AppColors.danger)     — crítico
 //
@@ -66,7 +66,7 @@ class _TrialCountdownBannerState extends ConsumerState<TrialCountdownBanner> {
 
   static ({Color color, IconData icon}) _severity(int daysLeft) {
     if (daysLeft > 7) {
-      return (color: AppColors.secondary, icon: Icons.hourglass_top_rounded);
+      return (color: AppColors.info, icon: Icons.hourglass_top_rounded);
     }
     if (daysLeft >= 3) {
       return (color: AppColors.warning, icon: Icons.hourglass_bottom_rounded);

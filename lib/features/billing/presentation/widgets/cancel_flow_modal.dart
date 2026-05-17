@@ -596,7 +596,7 @@ class _HudStepIndicator extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
-                  height: 3,
+                  height: AppDimens.space4,
                   child: isActive
                       ? const HudReactorBar(
                           axis: Axis.horizontal,
@@ -612,14 +612,14 @@ class _HudStepIndicator extends StatelessWidget {
                               pulsing: false,
                             )
                           : Container(
-                              height: 3,
+                              height: AppDimens.space4,
                               decoration: BoxDecoration(
                                 color: AppColors.borderSubtle,
                                 borderRadius: AppDimens.brPill,
                               ),
                             ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppDimens.space4),
                 Text(
                   _labels[i],
                   style: AppTextStyles.labelSmall.copyWith(
@@ -671,7 +671,7 @@ class _ConsequencesBullets extends StatelessWidget {
         children: bullets
             .map(
               (text) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
+                padding: const EdgeInsets.symmetric(vertical: AppDimens.space8),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -680,7 +680,7 @@ class _ConsequencesBullets extends StatelessWidget {
                       child: Icon(
                         Icons.check_circle_outline_rounded,
                         color: AppColors.textSecondary,
-                        size: 15,
+                        size: AppDimens.iconXS,
                       ),
                     ),
                     const SizedBox(width: AppDimens.space8),

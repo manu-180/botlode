@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../../config/theme/app_colors.dart';
 import '../../config/theme/app_dimens.dart';
+import '../../config/theme/app_icons.dart';
 import '../../config/theme/app_motion.dart';
 import '../../config/theme/app_text_styles.dart';
 import '../hud/hud_status_dot.dart';
@@ -94,7 +95,7 @@ class CounterBadge extends StatelessWidget {
     final label = count > 99 ? '99+' : '$count';
     return Container(
       constraints: const BoxConstraints(minWidth: 18),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: AppDimens.space8, vertical: AppDimens.space2),
       decoration: BoxDecoration(
         color: color,
         borderRadius: AppDimens.brPill,
@@ -104,7 +105,6 @@ class CounterBadge extends StatelessWidget {
         textAlign: TextAlign.center,
         style: AppTextStyles.labelSmall.copyWith(
           color: textColor,
-          fontSize: 10,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -192,8 +192,8 @@ class AppChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 13, color: selected ? AppColors.gold : AppColors.textSecondary),
-                const SizedBox(width: 6),
+                AppIcons.icon(icon!, size: AppDimens.iconXS, color: selected ? AppColors.gold : AppColors.textSecondary),
+                const SizedBox(width: AppDimens.space8),
               ],
               Text(
                 label.toUpperCase(),

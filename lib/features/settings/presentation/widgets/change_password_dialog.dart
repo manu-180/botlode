@@ -482,7 +482,7 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog>
           .animate(onPlay: (c) => c.repeat())
           .shimmer(
             duration: AppMotion.durShimmer,
-            color: Colors.white.withValues(alpha: 0.4),
+            color: AppColors.shimmerPeak,
           );
     }
 
@@ -553,7 +553,7 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog>
           .animate(onPlay: (c) => c.repeat())
           .shimmer(
             duration: AppMotion.durShimmer,
-            color: Colors.white.withValues(alpha: 0.4),
+            color: AppColors.shimmerPeak,
           );
     }
 

@@ -106,7 +106,7 @@ class SubscriptionSummaryCard extends ConsumerWidget {
                     height: 10,
                     radius: AppDimens.radiusXS,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: AppDimens.space8),
                   SkeletonBase(
                     width: 160,
                     height: 20,
@@ -134,7 +134,7 @@ class SubscriptionSummaryCard extends ConsumerWidget {
                       height: 10,
                       radius: AppDimens.radiusXS,
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppDimens.space8),
                     SkeletonBase(
                       width: 100,
                       height: 28,
@@ -153,7 +153,7 @@ class SubscriptionSummaryCard extends ConsumerWidget {
                       height: 10,
                       radius: AppDimens.radiusXS,
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppDimens.space8),
                     SkeletonBase(
                       width: 80,
                       height: 18,
@@ -445,7 +445,7 @@ class _SubscriptionCardBodyState extends State<_SubscriptionCardBody> {
                               color: AppColors.textTertiary,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: AppDimens.space8),
                           if (plan != null)
                             HudTicker(
                               value: _tickerReady ? plan.priceMonthly : 0.0,
@@ -494,7 +494,7 @@ class _SubscriptionCardBodyState extends State<_SubscriptionCardBody> {
                               color: AppColors.textTertiary,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: AppDimens.space8),
                           AnimatedSwitcher(
                             duration: AppMotion.durBase,
                             child: Text(
@@ -860,7 +860,7 @@ class _BillingStatusTag extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 12, color: color),
-              const SizedBox(width: 6),
+              const SizedBox(width: AppDimens.space8),
               Text(
                 label,
                 style: AppTextStyles.labelSmall.copyWith(color: color),

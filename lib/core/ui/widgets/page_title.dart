@@ -16,8 +16,8 @@ enum PageTitleStyle { minimal, techBar, elegant }
 const double _kBarWidth = 4.0;
 const double _kDotSize = 8.0;
 const double _kEntranceOffsetY = 8.0;
-// Shimmer highlight: white@40% barrido sobre la barra dorada.
-const Color _kShimmerColor = Color.fromRGBO(255, 255, 255, 0.4);
+// Shimmer highlight: white@40% barrido sobre la barra dorada. Matches gradGoldSheen mid-stop.
+const Color _kShimmerColor = AppColors.shimmerPeak;
 
 class PageTitle extends StatelessWidget {
   final String title;
@@ -184,7 +184,7 @@ class _TechBar extends StatelessWidget {
       bar = bar
           .animate(onPlay: (c) => c.repeat())
           .shimmer(
-            duration: const Duration(milliseconds: 3200),
+            duration: AppMotion.durShimmer,
             color: _kShimmerColor,
           );
       // Outer: one-shot entrance (scaleY + fade).

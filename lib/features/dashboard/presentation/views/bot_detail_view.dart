@@ -1,10 +1,11 @@
-// Archivo: lib/features/dashboard/presentation/views/bot_detail_view.dart
+﻿// Archivo: lib/features/dashboard/presentation/views/bot_detail_view.dart
 import 'dart:async';
 import 'dart:ui';
 import 'package:botslode/core/config/app_config.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/config/theme/app_dimens.dart';
 import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:botslode/core/ui/widgets/animated_ticker.dart';
 import 'package:botslode/core/ui/widgets/status_tag.dart';
 import 'package:botslode/features/bot_engine/presentation/providers/bot_mood_provider.dart';
@@ -1052,10 +1053,10 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                   Row(
                     children: [
                       const Expanded(
-                        child: Text("CÓDIGO DE ENLACE NEURAL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: Text("CÓDIGO DE ENLACE NEURAL", style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
                       ),
                       IconButton(
-                        icon: Icon(isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: AppColors.primary, size: 22),
+                        icon: Icon(isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: AppColors.gold, size: 22),
                         tooltip: isFullscreen ? "Salir de pantalla completa" : "Pantalla completa",
                         onPressed: () => setModalState(() => isFullscreen = !isFullscreen),
                         padding: const EdgeInsets.all(8),
@@ -1068,9 +1069,9 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.borderGlass)),
+                        decoration: BoxDecoration(color: AppColors.voidBlack, borderRadius: AppDimens.brS, border: Border.all(color: AppColors.borderDefault)),
                         child: SingleChildScrollView(
-                          child: Text(embedCode, style: const TextStyle(color: AppColors.success, fontFamily: 'Courier', fontSize: 10)),
+                          child: Text(embedCode, style: AppTextStyles.mono.copyWith(color: AppColors.success)),
                         ),
                       ),
                     )
@@ -1078,9 +1079,9 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                     Container(
                       height: 150,
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.borderGlass)),
+                      decoration: BoxDecoration(color: AppColors.voidBlack, borderRadius: AppDimens.brS, border: Border.all(color: AppColors.borderDefault)),
                       child: SingleChildScrollView(
-                        child: Text(embedCode, style: const TextStyle(color: AppColors.success, fontFamily: 'Courier', fontSize: 10)),
+                        child: Text(embedCode, style: AppTextStyles.mono.copyWith(color: AppColors.success)),
                       ),
                     ),
                   const SizedBox(height: 16),
@@ -1131,7 +1132,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
             const Text(
               "PIN DE ACCESO AL HISTORIAL",
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.0,
               ),
@@ -1141,8 +1142,8 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
         content: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(12),
+            color: AppColors.voidBlack,
+            borderRadius: AppDimens.brM,
             border: Border.all(color: AppColors.success.withValues(alpha: 0.5)),
             boxShadow: [
               BoxShadow(
@@ -1155,13 +1156,9 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 "Comparte este PIN con tu cliente para que pueda acceder al historial de conversaciones:",
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontFamily: 'Courier',
-                ),
+                style: AppTextStyles.mono.copyWith(color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -1169,7 +1166,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
                 decoration: BoxDecoration(
                   color: AppColors.success.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppDimens.brS,
                   border: Border.all(
                     color: AppColors.success.withValues(alpha: 0.5),
                     width: 2,
@@ -1177,11 +1174,8 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                 ),
                 child: Text(
                   pin,
-                  style: TextStyle(
+                  style: AppTextStyles.numericTicker.copyWith(
                     color: AppColors.success,
-                    fontSize: 32,
-                    fontFamily: 'Courier',
-                    fontWeight: FontWeight.bold,
                     letterSpacing: 8.0,
                   ),
                 ),
@@ -1202,7 +1196,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.success,
-              foregroundColor: Colors.black,
+              foregroundColor: AppColors.textOnGold,
             ),
             child: const Text("COPIAR PIN"),
           ),
@@ -1254,10 +1248,10 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
                   color: AppColors.surface.withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
+                  borderRadius: AppDimens.brXL,
+                  border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
                   boxShadow: [
-                    BoxShadow(color: AppColors.primary.withValues(alpha: 0.1), blurRadius: 30, spreadRadius: 2),
+                    BoxShadow(color: AppColors.gold.withValues(alpha: 0.1), blurRadius: 30, spreadRadius: 2),
                   ],
                 ),
                 child: Column(
@@ -1266,13 +1260,13 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 28),
+                        Icon(Icons.edit_note_rounded, color: AppColors.gold, size: 28),
                         const SizedBox(width: 12),
                         const Expanded(
                           child: Text(
                             "REPROGRAMACIÓN DE NÚCLEO",
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               fontFamily: 'Oxanium',
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -1280,7 +1274,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                           ),
                         ),
                         IconButton(
-                          icon: Icon(isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: AppColors.primary, size: 22),
+                          icon: Icon(isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: AppColors.gold, size: 22),
                           tooltip: isFullscreen ? "Salir de pantalla completa" : "Pantalla completa",
                           onPressed: () => setModalState(() => isFullscreen = !isFullscreen),
                           padding: const EdgeInsets.all(8),
@@ -1300,14 +1294,14 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                           controller: promptCtrl,
                           maxLines: null,
                           minLines: 8,
-                          style: const TextStyle(color: Colors.white, fontFamily: 'Courier', height: 1.5),
+                          style: AppTextStyles.mono.copyWith(color: AppColors.textPrimary, height: 1.5),
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: Colors.black.withValues(alpha: 0.5),
+                            fillColor: AppColors.surface.withValues(alpha: 0.5),
                             hintText: "Ej: 'Comportate serio y profesional' o 'Sé relajado y amigable. Responde de forma casual.'",
                             hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.3)),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary)),
+                            border: OutlineInputBorder(borderRadius: AppDimens.brM, borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: AppDimens.brM, borderSide: const BorderSide(color: AppColors.gold)),
                             contentPadding: const EdgeInsets.all(20),
                           ),
                         ),
@@ -1316,14 +1310,14 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                       TextField(
                         controller: promptCtrl,
                         maxLines: 8,
-                        style: const TextStyle(color: Colors.white, fontFamily: 'Courier', height: 1.5),
+                        style: AppTextStyles.mono.copyWith(color: AppColors.textPrimary, height: 1.5),
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: Colors.black.withValues(alpha: 0.5),
+                          fillColor: AppColors.surface.withValues(alpha: 0.5),
                           hintText: "Ej: 'Comportate serio y profesional' o 'Sé relajado y amigable. Responde de forma casual.'",
                           hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.3)),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary)),
+                          border: OutlineInputBorder(borderRadius: AppDimens.brM, borderSide: BorderSide.none),
+                          focusedBorder: OutlineInputBorder(borderRadius: AppDimens.brM, borderSide: const BorderSide(color: AppColors.gold)),
                           contentPadding: const EdgeInsets.all(20),
                         ),
                       ),
@@ -1389,7 +1383,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(e.toString().replaceFirst('Exception: ', '')),
-                        backgroundColor: AppColors.error,
+                        backgroundColor: AppColors.danger,
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -1405,7 +1399,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
               color: AppColors.surface.withValues(alpha: 0.98),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: AppDimens.brXL,
               border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.5)),
               boxShadow: [
                 BoxShadow(
@@ -1427,7 +1421,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: const Color(0xFF25D366).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppDimens.brS,
                           border: Border.all(
                             color: const Color(0xFF25D366).withValues(alpha: 0.5),
                           ),
@@ -1443,7 +1437,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                         child: Text(
                           "NÚMERO DE WHATSAPP",
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             fontFamily: 'Oxanium',
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -1470,15 +1464,14 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                     ],
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Courier',
+                    style: AppTextStyles.mono.copyWith(
+                      color: AppColors.textPrimary,
                       fontSize: 16,
                       letterSpacing: 1.5,
                     ),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.black.withValues(alpha: 0.5),
+                      fillColor: AppColors.surface.withValues(alpha: 0.5),
                       hintText: "Teléfono",
                       hintStyle: TextStyle(
                         color: AppColors.textSecondary.withValues(alpha: 0.4),
@@ -1489,19 +1482,19 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                         size: 20,
                       ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: AppDimens.brM,
                         borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: AppDimens.brM,
                         borderSide: const BorderSide(
                           color: Color(0xFF25D366),
                           width: 2,
                         ),
                       ),
                       errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.error),
+                        borderRadius: AppDimens.brM,
+                        borderSide: const BorderSide(color: AppColors.danger),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 20,
@@ -1546,7 +1539,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(e.toString().replaceFirst('Exception: ', '')),
-                                  backgroundColor: AppColors.error,
+                                  backgroundColor: AppColors.danger,
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
@@ -1555,7 +1548,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF25D366),
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppColors.textPrimary,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 14,
@@ -1604,7 +1597,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(e.toString().replaceFirst('Exception: ', '')),
-                        backgroundColor: AppColors.error,
+                        backgroundColor: AppColors.danger,
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -1620,7 +1613,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
               color: AppColors.surface.withValues(alpha: 0.95),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: AppDimens.brXL,
               border: Border.all(color: AppColors.secondary.withValues(alpha: 0.5)),
               boxShadow: [
                 BoxShadow(color: AppColors.secondary.withValues(alpha: 0.1), blurRadius: 30, spreadRadius: 2),
@@ -1637,7 +1630,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                     const Text(
                       "MENSAJE INICIAL",
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                         fontFamily: 'Oxanium',
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -1654,14 +1647,14 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                 TextField(
                   controller: messageCtrl,
                   maxLines: 3,
-                  style: const TextStyle(color: Colors.white, fontFamily: 'Courier', height: 1.5),
+                  style: AppTextStyles.mono.copyWith(color: AppColors.textPrimary, height: 1.5),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Colors.black.withValues(alpha: 0.5),
+                    fillColor: AppColors.surface.withValues(alpha: 0.5),
                     hintText: "Ej: '¡Hola! ¿En qué puedo ayudarte?' o 'Bienvenido, ¿cómo puedo asistirte hoy?'",
                     hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.3)),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.secondary)),
+                    border: OutlineInputBorder(borderRadius: AppDimens.brM, borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(borderRadius: AppDimens.brM, borderSide: const BorderSide(color: AppColors.secondary)),
                     contentPadding: const EdgeInsets.all(20),
                   ),
                 ),
@@ -1689,7 +1682,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(e.toString().replaceFirst('Exception: ', '')),
-                                backgroundColor: AppColors.error,
+                                backgroundColor: AppColors.danger,
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
@@ -1698,7 +1691,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.secondary,
-                        foregroundColor: Colors.black,
+                        foregroundColor: AppColors.textOnGold,
                       ),
                       icon: const Icon(Icons.save_as_rounded),
                       label: const Text("GUARDAR MENSAJE"),
@@ -2003,7 +1996,7 @@ class _EditableHeaderState extends State<_EditableHeader> {
             fontSize: 22,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.5,
-            color: Colors.white,
+            color: AppColors.textPrimary,
           ),
           decoration: const InputDecoration(
             border: InputBorder.none,
@@ -2026,9 +2019,9 @@ class _EditableHeaderState extends State<_EditableHeader> {
         style: const TextStyle(
           fontFamily: 'Oxanium',
           fontSize: 22,
-          fontWeight: FontWeight.w700, 
+          fontWeight: FontWeight.w700,
           letterSpacing: 1.5,
-          color: Colors.white,
+          color: AppColors.textPrimary,
         ),
         overflow: TextOverflow.ellipsis,
       ),
@@ -2085,7 +2078,7 @@ class _MonitorPanel extends StatelessWidget {
           const SizedBox(height: 24),
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderGlass)),
+            decoration: BoxDecoration(color: AppColors.surface, borderRadius: AppDimens.brXL, border: Border.all(color: AppColors.borderDefault)),
             child: Column(
               children: [
               _ConfigSwitch(
@@ -2106,7 +2099,7 @@ class _MonitorPanel extends StatelessWidget {
                 inactiveText: "DESACTIVADO",
                 activeColor: AppColors.success,
               ),
-              const Divider(height: 32, color: AppColors.borderGlass),
+              const Divider(height: 32, color: AppColors.borderDefault),
               _ConfigSwitch(
                 label: "AVISO DE CONEXIÓN", 
                 value: bot.showOfflineAlert, 
@@ -2115,24 +2108,24 @@ class _MonitorPanel extends StatelessWidget {
                 inactiveText: "SILENCIADO", 
                 activeColor: AppColors.success
               ),
-              const Divider(height: 32, color: AppColors.borderGlass),
+              const Divider(height: 32, color: AppColors.borderDefault),
               _ConfigSwitch(
                 label: "MODO DE INTERFAZ", 
                 value: bot.themeMode == 'light', 
                 onChanged: (val) => ref.read(botsProvider.notifier).updateThemeMode(bot.id, val ? 'light' : 'dark'), 
                 activeText: "MODO CLARO", 
                 inactiveText: "MODO OSCURO", 
-                activeColor: Colors.white,
+                activeColor: AppColors.textPrimary,
                 activeIcon: Icons.wb_sunny_rounded,
                 inactiveIcon: Icons.nightlight_round,
               ),
-              const Divider(height: 32, color: AppColors.borderGlass),
+              const Divider(height: 32, color: AppColors.borderDefault),
               _WppSection(
                 bot: bot,
                 ref: ref,
                 onOpenWppPhoneDialog: onOpenWppPhoneDialog,
               ),
-              const Divider(height: 32, color: AppColors.borderGlass),
+              const Divider(height: 32, color: AppColors.borderDefault),
               _BubbleSizeSlider(
                 bot: bot,
                 ref: ref,
@@ -2157,6 +2150,7 @@ class _WppSection extends StatelessWidget {
     this.onOpenWppPhoneDialog,
   });
 
+  // WhatsApp brand green — fixed third-party color, no AppColors equivalent.
   static const Color _wppGreen = Color(0xFF25D366);
 
   Future<void> _onWppSwitchChanged(bool value) async {
@@ -2194,7 +2188,7 @@ class _WppSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: _wppGreen.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppDimens.brS,
               border: Border.all(color: _wppGreen.withValues(alpha: 0.3)),
             ),
             child: Row(
@@ -2204,9 +2198,8 @@ class _WppSection extends StatelessWidget {
                 Expanded(
                   child: Text(
                     bot.telefono ?? "—",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Courier',
+                    style: AppTextStyles.mono.copyWith(
+                      color: AppColors.textPrimary,
                       fontSize: 14,
                       letterSpacing: 1.2,
                     ),
@@ -2289,13 +2282,13 @@ class _BubbleSizeSliderState extends State<_BubbleSizeSlider> {
       children: [
         Row(
           children: [
-            Icon(Icons.circle_outlined, color: AppColors.primary.withValues(alpha: 0.8), size: 20),
+            Icon(Icons.circle_outlined, color: AppColors.gold.withValues(alpha: 0.8), size: 20),
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
                 "TAMAÑO DE BURBUJAS",
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.0,
@@ -2305,17 +2298,14 @@ class _BubbleSizeSliderState extends State<_BubbleSizeSlider> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                color: AppColors.gold.withValues(alpha: 0.15),
+                borderRadius: AppDimens.brS,
+                border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
               ),
               child: Text(
                 "${_currentSize.round()}px",
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontFamily: 'Courier',
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
+                style: AppTextStyles.hudReadout.copyWith(
+                  color: AppColors.gold,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -2325,10 +2315,10 @@ class _BubbleSizeSliderState extends State<_BubbleSizeSlider> {
         const SizedBox(height: 16),
         SliderTheme(
           data: SliderThemeData(
-            activeTrackColor: AppColors.primary.withValues(alpha: 0.8),
-            inactiveTrackColor: AppColors.borderGlass,
-            thumbColor: AppColors.primary,
-            overlayColor: AppColors.primary.withValues(alpha: 0.2),
+            activeTrackColor: AppColors.gold.withValues(alpha: 0.8),
+            inactiveTrackColor: AppColors.borderDefault,
+            thumbColor: AppColors.gold,
+            overlayColor: AppColors.gold.withValues(alpha: 0.2),
             trackHeight: 4,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
           ),
@@ -2372,7 +2362,7 @@ class _ConfigSwitch extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => onChanged(!value),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppDimens.brM,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           child: Row(
@@ -2422,5 +2412,5 @@ class _ConfigSwitch extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String title; final Widget valueWidget; final String subValue; final IconData icon; final Color color; final double progress;
   const _StatCard({required this.title, required this.valueWidget, required this.subValue, required this.icon, required this.color, required this.progress});
-  @override Widget build(BuildContext context) { return Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: AppColors.surface.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderDefault)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(icon, color: color, size: 20), const SizedBox(width: 8), Text(title, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold))]), const SizedBox(height: 16), Row(crossAxisAlignment: CrossAxisAlignment.end, children: [valueWidget, const SizedBox(width: 8), Text(subValue, style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.7)))]), const SizedBox(height: 16), LinearProgressIndicator(value: progress, backgroundColor: Colors.black, color: color, minHeight: 6)])); }
+  @override Widget build(BuildContext context) { return Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: AppColors.surface.withValues(alpha: 0.5), borderRadius: AppDimens.brXL, border: Border.all(color: AppColors.borderDefault)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(icon, color: color, size: 20), const SizedBox(width: 8), Text(title, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold))]), const SizedBox(height: 16), Row(crossAxisAlignment: CrossAxisAlignment.end, children: [valueWidget, const SizedBox(width: 8), Text(subValue, style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.7)))]), const SizedBox(height: 16), LinearProgressIndicator(value: progress, backgroundColor: AppColors.voidBlack, color: color, minHeight: 6)])); }
 }

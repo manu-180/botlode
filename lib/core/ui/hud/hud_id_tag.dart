@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../../config/theme/app_colors.dart';
 import '../../config/theme/app_dimens.dart';
+import '../../config/theme/app_icons.dart';
 import '../../config/theme/app_text_styles.dart';
 
 class HudIdTag extends StatelessWidget {
@@ -34,14 +35,13 @@ class HudIdTag extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: AppDimens.iconXS, color: color),
-            const SizedBox(width: 4),
+            AppIcons.icon(icon!, size: AppDimens.iconXS, color: color),
+            const SizedBox(width: AppDimens.space4),
           ],
           Text(
             text.toUpperCase(),
             style: AppTextStyles.mono.copyWith(
               color: color,
-              fontSize: 10,
               letterSpacing: 1.2,
             ),
           ),

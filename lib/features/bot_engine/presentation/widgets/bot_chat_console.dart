@@ -15,7 +15,6 @@ import 'package:botslode/features/bot_engine/presentation/widgets/chat_message_b
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class BotChatConsole extends ConsumerStatefulWidget {
   final String botName;
@@ -577,8 +576,7 @@ class _InputBarState extends State<_InputBar> {
           // Prefijo de prompt ">_"
           Text(
             '>_',
-            style: GoogleFonts.jetBrainsMono(
-              fontSize: 14,
+            style: AppTextStyles.hudReadout.copyWith(
               fontWeight: FontWeight.w700,
               color: AppColors.gold,
             ),
@@ -610,8 +608,7 @@ class _InputBarState extends State<_InputBar> {
                   focusNode: widget.focusNode,
                   minLines: 1,
                   maxLines: 3,
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 12,
+                  style: AppTextStyles.mono.copyWith(
                     color: AppColors.textPrimary,
                   ),
                   cursorColor: AppColors.gold,
@@ -620,8 +617,7 @@ class _InputBarState extends State<_InputBar> {
                   onChanged: widget.onChanged,
                   decoration: InputDecoration(
                     hintText: 'Escribí un mensaje de prueba...',
-                    hintStyle: GoogleFonts.jetBrainsMono(
-                      fontSize: 12,
+                    hintStyle: AppTextStyles.mono.copyWith(
                       color: AppColors.textTertiary,
                     ),
                     filled: true,

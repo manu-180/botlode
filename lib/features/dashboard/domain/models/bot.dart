@@ -1,6 +1,7 @@
 // Archivo: lib/features/dashboard/domain/models/bot.dart
 import 'package:botslode/core/config/billing_constants.dart';
 import 'package:botslode/core/config/cycle_exempt_bots_config.dart';
+import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 enum BotStatus { active, maintenance, disabled, creditSuspended }
@@ -126,14 +127,14 @@ class Bot {
   // --- MAPEO DE SUPABASE ---
   factory Bot.fromMap(Map<String, dynamic> map) {
     Color parseColor(String? hexString) {
-      if (hexString == null || hexString.isEmpty) return const Color(0xFFFFC000); 
+      if (hexString == null || hexString.isEmpty) return AppColors.gold; 
       try {
         final buffer = StringBuffer();
         if (hexString.length == 6 || hexString.length == 7) buffer.write('ff');
         buffer.write(hexString.replaceFirst('#', ''));
         return Color(int.parse(buffer.toString(), radix: 16));
       } catch (e) {
-        return const Color(0xFFFFC000);
+        return AppColors.gold;
       }
     }
 

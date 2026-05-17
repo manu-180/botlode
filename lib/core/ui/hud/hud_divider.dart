@@ -2,6 +2,7 @@
 // Divisor técnico hairline con nodo brillante y etiqueta mono opcional.
 import 'package:flutter/material.dart';
 import '../../config/theme/app_colors.dart';
+import '../../config/theme/app_dimens.dart';
 import '../../config/theme/app_text_styles.dart';
 
 class HudDivider extends StatelessWidget {
@@ -25,7 +26,7 @@ class HudDivider extends StatelessWidget {
         ),
         if (label != null) ...[
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: AppDimens.space12),
             child: Text(
               '// ${label!.toUpperCase()}',
               style: AppTextStyles.mono.copyWith(
@@ -39,9 +40,9 @@ class HudDivider extends StatelessWidget {
           ),
         ] else ...[
           Container(
-            width: 8,
-            height: 8,
-            margin: const EdgeInsets.symmetric(horizontal: 8),
+            width: AppDimens.space8,
+            height: AppDimens.space8,
+            margin: const EdgeInsets.symmetric(horizontal: AppDimens.space8),
             decoration: BoxDecoration(
               color: nodeColor,
               shape: BoxShape.circle,

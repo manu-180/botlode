@@ -435,13 +435,13 @@ class _TypingBubble extends StatelessWidget {
                 const SizedBox(width: AppDimens.space4),
                 _AnimatedDot(
                   color: botColor,
-                  delay: const Duration(milliseconds: 150),
+                  delay: AppMotion.durFast,
                   reduce: reduce,
                 ),
                 const SizedBox(width: AppDimens.space4),
                 _AnimatedDot(
                   color: botColor,
-                  delay: const Duration(milliseconds: 300),
+                  delay: AppMotion.durSlow,
                   reduce: reduce,
                 ),
               ],
@@ -484,9 +484,9 @@ class _AnimatedDotState extends State<_AnimatedDot>
     if (!widget.reduce) {
       _ctrl = AnimationController(
         vsync: this,
-        duration: const Duration(milliseconds: 350),
+        duration: AppMotion.durSlow,
       );
-      _opacity = CurvedAnimation(parent: _ctrl!, curve: Curves.easeInOut);
+      _opacity = CurvedAnimation(parent: _ctrl!, curve: AppMotion.easeStandard);
       Future.delayed(widget.delay, () {
         if (mounted) _ctrl!.repeat(reverse: true);
       });

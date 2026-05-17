@@ -116,7 +116,7 @@ class _RiveBotCardDisplayState extends ConsumerState<RiveBotCardDisplay> with Si
             child: CircularProgressIndicator(
               value: 1.0, 
               strokeWidth: 3,
-              color: Colors.white.withValues(alpha: 0.1),
+              color: AppColors.borderDefault,
             ),
           ),
           SizedBox(
@@ -130,7 +130,7 @@ class _RiveBotCardDisplayState extends ConsumerState<RiveBotCardDisplay> with Si
           ),
           Container(
             width: 44, height: 44,
-            decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.black),
+            decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.voidBlack),
             child: ClipOval(
               // Usamos .when para manejar la carga del archivo cacheado
               child: riveFileAsync.when(
@@ -139,10 +139,10 @@ class _RiveBotCardDisplayState extends ConsumerState<RiveBotCardDisplay> with Si
                   fit: BoxFit.cover,
                   onInit: _onRiveInit,
                 ),
-                loading: () => Container(color: Colors.black), // Instantáneo
-                error: (_, __) => Icon(Icons.error, size: 20, color: Colors.red)
+                loading: () => Container(color: AppColors.voidBlack), // Instantáneo
+                error: (_, __) => Icon(Icons.error, size: 20, color: AppColors.danger)
                     .animate(onPlay: (c) => c.repeat())
-                    .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
+                    .shimmer(duration: 2000.ms, color: AppColors.textPrimary.withValues(alpha: 0.5)),
               ),
             ),
           ),

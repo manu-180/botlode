@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../../config/theme/app_colors.dart';
 import '../../config/theme/app_dimens.dart';
+import '../../config/theme/app_icons.dart';
 import '../../config/theme/app_motion.dart';
 import '../../config/theme/app_text_styles.dart';
 import 'hud_chamfer.dart';
@@ -175,7 +176,7 @@ class _ConnectivityHudToast extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Icon(icon, color: color, size: 20),
+                        AppIcons.icon(icon, size: AppDimens.iconS, color: color),
                         const SizedBox(width: AppDimens.space12),
                         Text(
                           label,
