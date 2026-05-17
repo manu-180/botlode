@@ -79,8 +79,8 @@ class _DunningWarningBannerState extends ConsumerState<DunningWarningBanner> {
           ),
         );
       }
-    } catch (_) {
-      // Silenciar errores no estructurados.
+    } catch (e, st) {
+      debugPrint('[DunningWarningBanner] _handleRetry: $e\n$st');
     } finally {
       if (mounted) setState(() => _isRetrying = false);
     }
@@ -205,8 +205,8 @@ class _DunningBannerBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mainText = dateStr != null
-        ? 'Actualizá tu método de pago. Tu acceso podría suspenderse el $dateStr.'
-        : 'Actualizá tu método de pago. Tu acceso podría suspenderse pronto.';
+        ? '${AppStrings.billingDunningBodyWithDate}$dateStr.'
+        : AppStrings.billingDunningBodyNoDate;
 
     return Semantics(
       liveRegion: true,
@@ -259,7 +259,7 @@ class _DunningBannerBody extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'PAGO RECHAZADO',
+                            AppStrings.billingDunningTitle,
                             style: AppTextStyles.label
                                 .copyWith(color: severityColor),
                           ),
@@ -302,8 +302,8 @@ class _DunningBannerBody extends StatelessWidget {
                 // CTA secundaria — retry
                 Semantics(
                   label: isRetrying
-                      ? 'Reintentando cobro...'
-                      : 'Reintentar cobro - suscripción en riesgo',
+                      ? AppStrings.billingDunningRetryingLabel
+                      : AppStrings.billingDunningRetryLabel,
                   button: true,
                   child: AppButton(
                     label: AppStrings.billingDunningRetryCharge,

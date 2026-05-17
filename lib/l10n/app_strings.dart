@@ -77,6 +77,10 @@ class AppStrings {
   static const billingTrialAddPaymentWarning =
       'Agregá un método de pago para no perder acceso.';
   static const billingTrialAddPaymentCta = 'Agregar método';
+  static const billingTrialDaysPrefix = 'QUEDAN ';
+  static const billingTrialDaysSuffix = ' DÍAS DE PRUEBA';
+  static const billingTrialUpgradeCta = 'MEJORAR AHORA';
+  static const billingTrialDismissTooltip = 'Cerrar aviso de prueba';
 
   // ---------------------------------------------------------------------------
   // Billing — CancelFlowModal (T4·28)
@@ -108,6 +112,14 @@ class AppStrings {
 
   static const billingDunningUpdatePayment = 'Actualizar método de pago';
   static const billingDunningRetryCharge = 'Reintentar cobro';
+  static const billingDunningTitle = 'PAGO RECHAZADO';
+  static const billingDunningBodyWithDate =
+      'Actualizá tu método de pago. Tu acceso podría suspenderse el ';
+  static const billingDunningBodyNoDate =
+      'Actualizá tu método de pago. Tu acceso podría suspenderse pronto.';
+  static const billingDunningRetryingLabel = 'Reintentando cobro...';
+  static const billingDunningRetryLabel =
+      'Reintentar cobro - suscripción en riesgo';
 
   // ---------------------------------------------------------------------------
   // Billing — ReactivateSubscriptionFlow (T4·28)

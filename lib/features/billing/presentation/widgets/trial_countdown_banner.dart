@@ -122,6 +122,7 @@ class _TrialCountdownBannerState extends ConsumerState<TrialCountdownBanner> {
                 (AppMotion.durSlow.inMilliseconds * 0.65).round(),
           ),
           curve: AppMotion.easeExit,
+          clipBehavior: Clip.none,
           child:
               _dismissed ? const SizedBox.shrink() : _AnimatedBannerEntry(child: body),
         );
@@ -264,7 +265,7 @@ class _BannerBody extends StatelessWidget {
                         textBaseline: TextBaseline.alphabetic,
                         children: [
                           Text(
-                            'QUEDAN ',
+                            AppStrings.billingTrialDaysPrefix,
                             style: AppTextStyles.label.copyWith(
                               color: AppColors.textSecondary,
                             ),
@@ -278,7 +279,7 @@ class _BannerBody extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            ' DÍAS DE PRUEBA',
+                            AppStrings.billingTrialDaysSuffix,
                             style: AppTextStyles.label.copyWith(
                               color: AppColors.textSecondary,
                             ),
@@ -296,7 +297,7 @@ class _BannerBody extends StatelessWidget {
                         ),
                         const SizedBox(height: AppDimens.space12),
                         AppButton(
-                          label: 'MEJORAR AHORA',
+                          label: AppStrings.billingTrialUpgradeCta,
                           variant: AppButtonVariant.primary,
                           size: AppButtonSize.sm,
                           onPressed: onAddPaymentMethod,
@@ -309,7 +310,7 @@ class _BannerBody extends StatelessWidget {
                 // Right: dismiss button
                 if (showDismiss)
                   IconButton(
-                    tooltip: 'Cerrar aviso de prueba',
+                    tooltip: AppStrings.billingTrialDismissTooltip,
                     icon: Icon(
                       Icons.close,
                       size: 16,
