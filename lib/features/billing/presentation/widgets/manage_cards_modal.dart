@@ -129,12 +129,7 @@ class ManageCardsModal extends ConsumerWidget {
                           child: OutlinedButton.icon(
                             onPressed: () {
                               Navigator.pop(context);
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                backgroundColor: Colors.transparent,
-                                builder: (_) => const AddCardModal(),
-                              );
+                              AddCardModal.show(context);
                             },
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: AppColors.primary),
@@ -300,12 +295,7 @@ class ManageCardsModal extends ConsumerWidget {
       ctaLabel: 'Agregar tarjeta',
       onCta: () {
         Navigator.pop(context);
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => const AddCardModal(),
-        );
+        AddCardModal.show(context);
       },
     );
   }

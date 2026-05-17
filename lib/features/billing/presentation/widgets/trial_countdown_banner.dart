@@ -71,11 +71,7 @@ class _TrialCountdownBannerState extends ConsumerState<TrialCountdownBanner> {
   // ---------------------------------------------------------------------------
 
   void _openAddCard() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => const AddCardModal(),
-    );
+    AddCardModal.show(context);
   }
 
   // ---------------------------------------------------------------------------

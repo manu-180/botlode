@@ -50,11 +50,7 @@ class _DunningWarningBannerState extends ConsumerState<DunningWarningBanner> {
   static final _dateFormat = DateFormat('dd/MM/yyyy');
 
   void _openUpdatePaymentMethod() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => const AddCardModal(),
-    );
+    AddCardModal.show(context);
   }
 
   Future<void> _handleRetry() async {

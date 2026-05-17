@@ -44,12 +44,7 @@ Future<void> showReactivateFlow(BuildContext context, WidgetRef ref) async {
   );
 
   if (result == _ReactivateResult.addCard && context.mounted) {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const AddCardModal(),
-    );
+    await AddCardModal.show(context);
   }
 }
 
