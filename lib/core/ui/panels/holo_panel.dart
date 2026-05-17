@@ -62,6 +62,10 @@ class HoloPanel extends StatefulWidget {
   /// Color de glow ambiental opcional (estado activo/énfasis).
   final Color? glowAccent;
 
+  /// Sobreescribe el color de borde en estado de reposo. Los estados interactivos
+  /// (hover → borderStrong, focus → cyan) siguen teniendo prioridad.
+  final Color? borderColor;
+
   const HoloPanel({
     super.key,
     required this.child,
@@ -74,6 +78,7 @@ class HoloPanel extends StatefulWidget {
     this.interactive = false,
     this.onTap,
     this.glowAccent,
+    this.borderColor,
   });
 
   @override
@@ -193,7 +198,7 @@ class _HoloPanelState extends State<HoloPanel>
   Color get _borderColor {
     if (_focused) return AppColors.cyan;
     if (_hovered || _pressed) return AppColors.borderStrong;
-    return AppColors.glassBorder;
+    return widget.borderColor ?? AppColors.glassBorder;
   }
 
   double get _borderWidth {

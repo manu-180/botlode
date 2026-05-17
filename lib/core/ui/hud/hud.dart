@@ -9,3 +9,4 @@ export 'hud_ticker.dart';
 export 'hud_status_dot.dart';
 export 'hud_grid_texture.dart';
 export 'hud_id_tag.dart';
+export 'hud_segmented_bar.dart';

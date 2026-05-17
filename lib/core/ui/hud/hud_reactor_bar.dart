@@ -11,6 +11,7 @@ class HudReactorBar extends StatefulWidget {
   final double? length;
   final Color color;
   final bool pulsing;
+  final Duration duration;
 
   const HudReactorBar({
     super.key,
@@ -19,6 +20,7 @@ class HudReactorBar extends StatefulWidget {
     this.length,
     required this.color,
     this.pulsing = true,
+    this.duration = AppMotion.durHeartbeat,
   });
 
   @override
@@ -35,7 +37,7 @@ class _HudReactorBarState extends State<HudReactorBar>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: AppMotion.durHeartbeat,
+      duration: widget.duration,
     );
     _opacity = Tween<double>(begin: 0.6, end: 1.0).animate(
       CurvedAnimation(parent: _ctrl, curve: AppMotion.easeStandard),
@@ -46,6 +48,12 @@ class _HudReactorBarState extends State<HudReactorBar>
   @override
   void didUpdateWidget(HudReactorBar old) {
     super.didUpdateWidget(old);
+    if (widget.duration != old.duration) {
+      _ctrl.duration = widget.duration;
+      if (widget.pulsing) {
+        _ctrl.repeat(reverse: true);
+      }
+    }
     if (widget.pulsing != old.pulsing) {
       if (widget.pulsing) {
         _ctrl.repeat(reverse: true);
