@@ -1,82 +1,155 @@
-// Archivo: lib/core/config/theme/app_theme.dart
-import 'package:botslode/core/config/theme/app_colors.dart';
+// lib/core/config/theme/app_theme.dart
+// Tema Material 3 oscuro único. No hay light mode.
 import 'package:flutter/material.dart';
+import 'app_colors.dart';
+import 'app_text_styles.dart';
 
 class AppTheme {
-  static final ThemeData darkTheme = ThemeData(
+  static ThemeData get darkTheme => ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    fontFamily: 'Oxanium', 
+    fontFamily: 'Oxanium',
     scaffoldBackgroundColor: AppColors.background,
-    
-    // Esquema de Colores Dorado
+
     colorScheme: const ColorScheme.dark(
-      primary: AppColors.primary,     // Oro
-      secondary: AppColors.secondary, // Cian secundario
-      surface: AppColors.surface,
-      onSurface: AppColors.textPrimary,
-      error: AppColors.error,
+      primary:          AppColors.gold,
+      onPrimary:        AppColors.textOnGold,
+      secondary:        AppColors.cyan,
+      onSecondary:      AppColors.voidBlack,
+      surface:          AppColors.surface,
+      onSurface:        AppColors.textPrimary,
+      error:            AppColors.danger,
+      onError:          AppColors.textPrimary,
+      surfaceContainerHighest: AppColors.surfaceRaised,
     ),
 
-    textTheme: const TextTheme(
-      displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 1.5),
-      displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 1.2),
-      titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: 1.0),
-      bodyLarge: TextStyle(fontSize: 16, color: AppColors.textPrimary),
-      bodyMedium: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+    textTheme: TextTheme(
+      displayLarge:  AppTextStyles.displayXL,
+      displayMedium: AppTextStyles.displayL,
+      displaySmall:  AppTextStyles.displayM,
+      titleLarge:    AppTextStyles.titleL,
+      titleMedium:   AppTextStyles.titleM,
+      labelLarge:    AppTextStyles.label,
+      labelMedium:   AppTextStyles.label,
+      labelSmall:    AppTextStyles.labelSmall,
+      bodyLarge:     AppTextStyles.bodyL,
+      bodyMedium:    AppTextStyles.bodyM,
+      bodySmall:     AppTextStyles.bodyS,
     ),
 
-    // Inputs ahora brillan en dorado al enfocar
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.surface.withOpacity(0.5),
+      fillColor: AppColors.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.borderGlass),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.borderDefault),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.borderGlass),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.borderDefault),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 2), 
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.gold, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.error),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.danger),
       ),
-      labelStyle: const TextStyle(color: AppColors.textSecondary),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.danger, width: 2),
+      ),
+      labelStyle: AppTextStyles.bodyM.copyWith(color: AppColors.textSecondary),
+      hintStyle:  AppTextStyles.bodyM.copyWith(color: AppColors.textTertiary),
     ),
 
-    // Botones Dorados con texto Negro (Alto contraste industrial)
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.black, 
+        backgroundColor: AppColors.gold,
+        foregroundColor: AppColors.textOnGold,
         elevation: 0,
-        textStyle: const TextStyle(
-          fontFamily: 'Oxanium',
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-          letterSpacing: 1.0,
+        textStyle: AppTextStyles.label.copyWith(
+          letterSpacing: 1.4,
+          fontWeight: FontWeight.w700,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        minimumSize: const Size(0, 48),
       ),
     ),
 
-    appBarTheme: const AppBarTheme(
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.textPrimary,
+        side: const BorderSide(color: AppColors.borderDefault),
+        textStyle: AppTextStyles.label,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        minimumSize: const Size(0, 48),
+      ),
+    ),
+
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.gold,
+        textStyle: AppTextStyles.label,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+    ),
+
+    appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: TextStyle(
-        fontFamily: 'Oxanium',
-        color: AppColors.textPrimary,
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
+      titleTextStyle: AppTextStyles.titleL,
+    ),
+
+    dividerTheme: const DividerThemeData(
+      color: AppColors.borderDefault,
+      thickness: 1,
+      space: 1,
+    ),
+
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.borderDefault),
       ),
+      textStyle: AppTextStyles.bodyS.copyWith(color: AppColors.textPrimary),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    ),
+
+    scrollbarTheme: ScrollbarThemeData(
+      thumbColor: WidgetStateProperty.all(
+        AppColors.borderStrong,
+      ),
+      trackColor: WidgetStateProperty.all(Colors.transparent),
+      radius: const Radius.circular(4),
+      thickness: WidgetStateProperty.all(4),
+    ),
+
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return AppColors.gold;
+        return Colors.transparent;
+      }),
+      checkColor: WidgetStateProperty.all(AppColors.textOnGold),
+      side: const BorderSide(color: AppColors.borderStrong, width: 1.5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+    ),
+
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return AppColors.textOnGold;
+        return AppColors.textTertiary;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return AppColors.gold;
+        return AppColors.surfaceRaised;
+      }),
     ),
   );
 }

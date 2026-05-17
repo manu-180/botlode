@@ -1,12 +1,16 @@
-// Archivo: lib/features/dashboard/presentation/views/main_layout.dart
+// lib/features/dashboard/presentation/views/main_layout.dart
+// Shell principal «Hangar OS»: sidebar + title bar + AppBackground + toasts de conectividad.
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
 import 'package:botslode/core/providers/connectivity_provider.dart';
+import 'package:botslode/core/ui/app_background.dart';
+import 'package:botslode/core/ui/toasts/app_toast.dart';
+import 'package:botslode/core/ui/widgets/custom_title_bar.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/sidebar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:window_manager/window_manager.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -16,141 +20,97 @@ class MainLayout extends ConsumerStatefulWidget {
   ConsumerState<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends ConsumerState<MainLayout> {
-  // Estado local para evitar spam de notificaciones
+class _MainLayoutState extends ConsumerState<MainLayout>
+    with SingleTickerProviderStateMixin {
   bool _wasOffline = false;
+  late final AnimationController _pageCtrl;
+  late final Animation<double> _pageFade;
+  late final Animation<Offset> _pageSlide;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageCtrl = AnimationController(
+      vsync: this,
+      duration: AppMotion.durBase,
+    );
+    _pageFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pageCtrl, curve: AppMotion.easeEntrance),
+    );
+    _pageSlide = Tween<Offset>(
+      begin: const Offset(0, 0.02),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _pageCtrl, curve: AppMotion.easeEntrance));
+    _pageCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    // ESCUCHA ACTIVA DE RED
     ref.listen(connectivityProvider, (prev, next) {
       next.whenData((isOnline) {
         if (!isOnline && !_wasOffline) {
-          _showTacticalSnackbar(context, "CONEXIÓN PERDIDA: MODO OFFLINE ACTIVADO", isError: true);
+          showAppToast(
+            context,
+            type: ToastType.error,
+            message: 'CONEXIÓN PERDIDA — Modo offline activado',
+            duration: const Duration(days: 1),
+          );
           _wasOffline = true;
         } else if (isOnline && _wasOffline) {
-          _showTacticalSnackbar(context, "ENLACE RESTABLECIDO: SISTEMAS ONLINE", isError: false);
+          showAppToast(
+            context,
+            type: ToastType.success,
+            message: 'ENLACE RESTABLECIDO — Sistemas online',
+          );
           _wasOffline = false;
         }
       });
     });
 
     return Scaffold(
-      body: Row(
-        children: [
-          const Sidebar(),
-          Expanded(
-            child: Column(
-              children: [
-                _CustomTitleBar(),
-                Expanded(child: widget.navigationShell),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- SNACKBAR TÁCTICO ---
-  void _showTacticalSnackbar(BuildContext context, String message, {required bool isError}) {
-    final color = isError ? AppColors.error : AppColors.success;
-    final icon = isError ? Icons.wifi_off_rounded : Icons.wifi_rounded;
-
-    ScaffoldMessenger.of(context).hideCurrentSnackBar(); // Limpiar cola
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        duration: isError ? const Duration(days: 1) : const Duration(seconds: 4), // El error es persistente
-        content: Center( // Centrado para efecto HUD
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.9),
-              border: Border.all(color: color, width: 2),
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 20, spreadRadius: 2),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: color)
-                    .animate(onPlay: (c) => c.repeat())
-                    .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
-                const SizedBox(width: 16),
-                Text(
-                  message,
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Courier',
-                    letterSpacing: 2.0,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CustomTitleBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onPanStart: (_) => windowManager.startDragging(),
-      child: Container(
-        height: 32,
-        color: Colors.transparent, 
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+      backgroundColor: AppColors.background,
+      body: AppBackground(
+        variant: _variantForPath(GoRouterState.of(context).uri.path),
         child: Row(
           children: [
-            // SE ELIMINÓ EL ÍCONO Y EL SIZEDBOX DE AQUÍ
-            Text(
-              "BOTSLODE // FACTORY TERMINAL v1.0",
-              style: TextStyle(
-                color: AppColors.textSecondary.withValues(alpha: 0.5),
-                fontSize: 10,
-                fontFamily: 'Courier',
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
+            // ─── SIDEBAR ────────────────────────────────────────────
+            const Sidebar(),
+
+            // ─── CONTENT AREA ────────────────────────────────────────
+            Expanded(
+              child: Column(
+                children: [
+                  // Title bar solo en el área de contenido
+                  const CustomTitleBar(),
+
+                  // Page content con fade/slide de entrada
+                  Expanded(
+                    child: FadeTransition(
+                      opacity: _pageFade,
+                      child: SlideTransition(
+                        position: _pageSlide,
+                        child: widget.navigationShell,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Spacer(),
-            // --- BOTONES DE VENTANA ---
-             Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.remove, size: 14, color: Colors.white), 
-                  onPressed: windowManager.minimize, 
-                  padding: EdgeInsets.zero
-                ),
-                IconButton(
-                  icon: const Icon(Icons.check_box_outline_blank, size: 14, color: Colors.white), 
-                  onPressed: () async {
-                    if (await windowManager.isMaximized()) {
-                      windowManager.unmaximize();
-                    } else {
-                      windowManager.maximize();
-                    }
-                  }, 
-                  padding: EdgeInsets.zero
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 14, color: Colors.white), 
-                  onPressed: windowManager.close, 
-                  padding: EdgeInsets.zero
-                ),
-              ],
-            )
           ],
         ),
       ),
     );
+  }
+
+  AppBackgroundVariant _variantForPath(String path) {
+    if (path == '/billing') return AppBackgroundVariant.billing;
+    if (path.contains('/dashboard')) return AppBackgroundVariant.dashboard;
+    return AppBackgroundVariant.standard;
   }
 }

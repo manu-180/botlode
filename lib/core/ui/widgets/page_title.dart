@@ -1,13 +1,13 @@
-// Archivo: lib/core/ui/widgets/page_title.dart
+// lib/core/ui/widgets/page_title.dart
+// PageTitle «Hangar OS» — 3 estilos: minimal, techBar, elegant.
+// Usa únicamente tokens de diseño.
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-enum PageTitleStyle {
-  minimal,      // Opción 1: Borde inferior
-  techBar,      // Opción 2: Barra lateral
-  elegant,      // Opción 3: Con punto indicador
-}
+enum PageTitleStyle { minimal, techBar, elegant }
 
 class PageTitle extends StatelessWidget {
   final String title;
@@ -20,116 +20,108 @@ class PageTitle extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.accentColor,
-    this.style = PageTitleStyle.minimal, // Por defecto: minimalista
+    this.style = PageTitleStyle.techBar,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = accentColor ?? AppColors.primary;
+    final color = accentColor ?? AppColors.gold;
+    final reduced = MediaQuery.of(context).disableAnimations;
 
-    switch (style) {
-      case PageTitleStyle.minimal:
-        return _buildMinimalStyle(color);
-      case PageTitleStyle.techBar:
-        return _buildTechBarStyle(color);
-      case PageTitleStyle.elegant:
-        return _buildElegantStyle(color);
-    }
+    return switch (style) {
+      PageTitleStyle.minimal  => _Minimal(title: title, subtitle: subtitle, color: color, reduced: reduced),
+      PageTitleStyle.techBar  => _TechBar(title: title, subtitle: subtitle, color: color, reduced: reduced),
+      PageTitleStyle.elegant  => _Elegant(title: title, subtitle: subtitle, color: color, reduced: reduced),
+    };
   }
+}
 
-  // OPCIÓN 1: MINIMALISTA CON BORDE INFERIOR
-  Widget _buildMinimalStyle(Color color) {
+// ─── MINIMAL ─────────────────────────────────────────────────────────────────
+
+class _Minimal extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Color color;
+  final bool reduced;
+  const _Minimal({required this.title, this.subtitle, required this.color, required this.reduced});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget underline = Container(
+      width: 60,
+      height: 3,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, color.withValues(alpha: 0.3)],
+        ),
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+    if (!reduced) {
+      underline = underline
+          .animate(onPlay: (c) => c.repeat())
+          .shimmer(duration: 3000.ms, color: Colors.white.withValues(alpha: 0.3));
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.5,
-            fontFamily: 'Oxanium',
-            height: 1.2,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: 60,
-          height: 3,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [color, color.withOpacity(0.3)],
-            ),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ).animate(onPlay: (c) => c.repeat())
-          .shimmer(duration: 3000.ms, color: Colors.white.withOpacity(0.3)),
-        
+        Text(title, style: AppTextStyles.displayL.copyWith(color: AppColors.textPrimary)),
+        const SizedBox(height: AppDimens.space12),
+        underline,
         if (subtitle != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            subtitle!,
-            style: TextStyle(
-              color: AppColors.textSecondary.withOpacity(0.7),
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              letterSpacing: 0.3,
-            ),
-          ),
+          const SizedBox(height: AppDimens.space12),
+          Text(subtitle!, style: AppTextStyles.bodyM.copyWith(color: AppColors.textSecondary)),
         ],
       ],
     );
   }
+}
 
-  // OPCIÓN 2: TECH CON BARRA LATERAL
-  Widget _buildTechBarStyle(Color color) {
+// ─── TECH BAR ────────────────────────────────────────────────────────────────
+
+class _TechBar extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Color color;
+  final bool reduced;
+  const _TechBar({required this.title, this.subtitle, required this.color, required this.reduced});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget bar = Container(
+      width: 4,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, color.withValues(alpha: 0.3)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(2),
+        boxShadow: AppDimens.glowStatus(color),
+      ),
+    );
+    if (!reduced) {
+      bar = bar
+          .animate(onPlay: (c) => c.repeat())
+          .shimmer(duration: 3000.ms, color: Colors.white.withValues(alpha: 0.4));
+    }
+
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 4,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [color, color.withOpacity(0.3)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ).animate(onPlay: (c) => c.repeat())
-            .shimmer(duration: 3000.ms, color: Colors.white.withOpacity(0.4)),
-          
-          const SizedBox(width: 16),
-          
+          bar,
+          const SizedBox(width: AppDimens.space16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                  fontFamily: 'Oxanium',
-                  height: 1.2,
-                ),
-              ),
+              Text(title, style: AppTextStyles.displayL.copyWith(color: AppColors.textPrimary)),
               if (subtitle != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  subtitle!,
-                  style: TextStyle(
-                    color: AppColors.textSecondary.withOpacity(0.7),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 0.3,
-                  ),
-                ),
+                const SizedBox(height: AppDimens.space8),
+                Text(subtitle!, style: AppTextStyles.bodyM.copyWith(color: AppColors.textSecondary)),
               ],
             ],
           ),
@@ -137,66 +129,49 @@ class PageTitle extends StatelessWidget {
       ),
     );
   }
+}
 
-  // OPCIÓN 3: ELEGANTE CON PUNTO INDICADOR
-  Widget _buildElegantStyle(Color color) {
+// ─── ELEGANT ─────────────────────────────────────────────────────────────────
+
+class _Elegant extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Color color;
+  final bool reduced;
+  const _Elegant({required this.title, this.subtitle, required this.color, required this.reduced});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget dot = Container(
+      margin: const EdgeInsets.only(top: 8),
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: AppDimens.glowStatus(color),
+      ),
+    );
+    if (!reduced) {
+      dot = dot
+          .animate(onPlay: (c) => c.repeat())
+          .shimmer(duration: 2500.ms, color: Colors.white.withValues(alpha: 0.6));
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.5),
-                blurRadius: 8,
-                spreadRadius: 2,
-              )
-            ],
-          ),
-        ).animate(onPlay: (c) => c.repeat())
-          .shimmer(duration: 2500.ms, color: Colors.white.withOpacity(0.6)),
-        
-        const SizedBox(width: 20),
-        
+        dot,
+        const SizedBox(width: AppDimens.space20),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-                fontFamily: 'Oxanium',
-                height: 1.2,
-                shadows: [
-                  Shadow(
-                    color: color.withOpacity(0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-            ),
+            Text(title, style: AppTextStyles.displayL.copyWith(color: AppColors.textPrimary)),
             if (subtitle != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                subtitle!,
-                style: TextStyle(
-                  color: AppColors.textSecondary.withOpacity(0.7),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 0.3,
-                ),
-              ),
+              const SizedBox(height: AppDimens.space8),
+              Text(subtitle!, style: AppTextStyles.bodyM.copyWith(color: AppColors.textSecondary)),
             ],
           ],
         ),

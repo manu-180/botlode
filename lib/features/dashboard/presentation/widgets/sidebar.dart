@@ -1,7 +1,12 @@
-// Archivo: lib/features/dashboard/presentation/widgets/sidebar.dart
+// lib/features/dashboard/presentation/widgets/sidebar.dart
+// Sidebar «Hangar OS»: iconos con estado activo dorado, glow, reactor, HUD.
 import 'package:botslode/core/config/restricted_bots_config.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:botslode/core/providers/supabase_provider.dart';
+import 'package:botslode/core/ui/hud/hud_reactor_bar.dart';
 import 'package:botslode/features/billing/presentation/views/billing_view.dart';
 import 'package:botslode/features/bots_library/presentation/views/bots_library_view.dart';
 import 'package:botslode/features/dashboard/presentation/views/dashboard_view.dart';
@@ -15,7 +20,6 @@ import 'package:botslode/features/wpp_inbox/presentation/providers/wpp_inbox_pro
 import 'package:botslode/features/wpp_inbox/presentation/views/wpp_inbox_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 
@@ -26,198 +30,278 @@ class Sidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final String location = GoRouterState.of(context).uri.path;
     final userId = ref.watch(currentUserIdProvider);
-    final canSeeRestrictedBots = RestrictedBotsConfig.canUserSeeRestrictedBots(userId);
+    final canSeeRestricted = RestrictedBotsConfig.canUserSeeRestrictedBots(userId);
 
     return Container(
-      width: 80,
-      color: const Color(0xFF050505),
+      width: AppDimens.sidebarWidth,
+      decoration: const BoxDecoration(
+        color: AppColors.voidBlack,
+        border: Border(
+          right: BorderSide(color: AppColors.borderSubtle, width: 1),
+        ),
+      ),
       child: Column(
         children: [
-          const SizedBox(height: 32),
-          // Logo fijo arriba
+          // ─── LOGO ───────────────────────────────────────────────────
+          const SizedBox(height: AppDimens.space24),
           SizedBox(
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             child: Image.asset(
               'assets/icon/botlode_logo.png',
               fit: BoxFit.contain,
             ),
           ),
-          const SizedBox(height: 32),
-          // Zona central scrolleable
+          const SizedBox(height: AppDimens.space4),
+          // Reactor line bajo el logo
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppDimens.space16),
+            child: HudReactorBar(active: true, height: 2),
+          ),
+          const SizedBox(height: AppDimens.space24),
+
+          // ─── ÍTEMS PRINCIPALES ────────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-
-                  // ── PLATAFORMA ──────────────────────────────────────────
                   _SidebarItem(
                     icon: FontAwesomeIcons.robot,
-                    label: "BOTS",
+                    label: 'BOTS',
                     isActive: location.startsWith('/dashboard') || location == '/',
                     onTap: () => context.goNamed(DashboardView.routeName),
                   ),
-                  const SizedBox(height: 20),
                   _SidebarItem(
-                    icon: Icons.layers_sharp,
-                    label: "PLANTILLAS",
+                    icon: FontAwesomeIcons.layerGroup,
+                    label: 'PLANTILLAS',
                     isActive: location.startsWith('/bots'),
                     onTap: () => context.goNamed(BotsLibraryView.routeName),
                   ),
-                  const SizedBox(height: 20),
                   _SidebarItem(
-                    icon: Icons.credit_card_rounded,
-                    label: "PAGOS",
+                    icon: FontAwesomeIcons.creditCard,
+                    label: 'PAGOS',
                     isActive: location == '/billing',
                     onTap: () => context.goNamed(BillingView.routeName),
                   ),
-                  const SizedBox(height: 20),
                   _SidebarItem(
                     icon: FontAwesomeIcons.store,
-                    label: "TIENDA",
+                    label: 'TIENDA',
                     isActive: location == '/store',
                     onTap: () => context.goNamed(StoreView.routeName),
                   ),
 
-                  if (canSeeRestrictedBots) ...[
-
-                    // ── PROSPECCIÓN ────────────────────────────────────────
-                    const _SidebarDivider(label: "PROS."),
+                  if (canSeeRestricted) ...[
+                    _SidebarSection(label: 'PROS.'),
                     _SidebarItem(
                       icon: FontAwesomeIcons.crosshairs,
-                      label: "HUNTER",
+                      label: 'HUNTER',
                       isActive: location == '/hunter',
                       onTap: () => context.goNamed(HunterView.routeName),
                     ),
-                    const SizedBox(height: 20),
                     _SidebarItem(
                       icon: FontAwesomeIcons.seedling,
-                      label: "SEEDER",
+                      label: 'SEEDER',
                       isActive: location == '/seeder',
                       onTap: () => context.goNamed(SeederView.routeName),
                     ),
-
-                    // ── OUTREACH ───────────────────────────────────────────
-                    const _SidebarDivider(label: "OUT."),
+                    _SidebarSection(label: 'OUT.'),
                     _SidebarItem(
                       icon: FontAwesomeIcons.buildingCircleCheck,
-                      label: "APEX",
+                      label: 'APEX',
                       isActive: location == '/empresas',
                       onTap: () => context.goNamed(EmpresasSinDominioView.routeName),
                     ),
-                    const SizedBox(height: 20),
                     _SidebarItem(
                       icon: FontAwesomeIcons.graduationCap,
-                      label: "ASSISTIFY",
+                      label: 'ASSIST.',
                       isActive: location == '/assistify',
                       onTap: () => context.goNamed(AssistifyLeadsView.routeName),
                     ),
-
-                    // ── INBOX ──────────────────────────────────────────────
-                    const _SidebarDivider(label: "MSG"),
+                    _SidebarSection(label: 'MSG'),
                     _SidebarInboxItem(location: location),
                   ],
                 ],
               ),
             ),
           ),
-          // AJUSTES fijo abajo
+
+          // ─── SETTINGS (fijo abajo) ────────────────────────────────
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: AppDimens.space16),
+            child: Divider(color: AppColors.borderSubtle, thickness: 1),
+          ),
           _SidebarItem(
-            icon: Icons.settings_rounded,
-            label: "AJUSTES",
+            icon: FontAwesomeIcons.gear,
+            label: 'AJUSTES',
             isActive: location == '/settings',
             onTap: () => context.goNamed(SettingsView.routeName),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: AppDimens.space24),
         ],
       ),
     );
   }
 }
 
-class _SidebarItem extends StatelessWidget {
+// ─── ÍTEM DE NAV ─────────────────────────────────────────────────────────────
+
+class _SidebarItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool isActive;
   final VoidCallback onTap;
+  final int? badge;
 
   const _SidebarItem({
     required this.icon,
     required this.label,
     required this.isActive,
     required this.onTap,
+    this.badge,
   });
 
   @override
+  State<_SidebarItem> createState() => _SidebarItemState();
+}
+
+class _SidebarItemState extends State<_SidebarItem> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isActive ? AppColors.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: isActive ? [
-                BoxShadow(color: AppColors.primary.withValues(alpha: 0.4), blurRadius: 12, spreadRadius: 2)
-              ] : [],
-            ),
-            child: FaIcon(
-              icon,
-              color: isActive ? Colors.black : AppColors.textSecondary,
-              size: 24,
+    final active = widget.isActive;
+    final hov = _hovered && !active;
+
+    final iconColor = active
+        ? AppColors.textOnGold
+        : (hov ? AppColors.textPrimary : AppColors.textSecondary);
+
+    final labelColor = active
+        ? AppColors.gold
+        : (hov ? AppColors.textSecondary : AppColors.textTertiary);
+
+    return Semantics(
+      selected: active,
+      button: true,
+      label: widget.label,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: AppMotion.durFast,
+            curve: AppMotion.easeHover,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: AppDimens.space8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Indicador activo lateral
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AnimatedContainer(
+                      duration: AppMotion.durFast,
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: active
+                            ? AppColors.gold
+                            : (hov
+                                ? AppColors.borderSubtle
+                                : Colors.transparent),
+                        borderRadius: AppDimens.brM,
+                        boxShadow: active ? AppDimens.glowGold : null,
+                      ),
+                      child: Center(
+                        child: FaIcon(widget.icon, size: 18, color: iconColor),
+                      ),
+                    ),
+                    // Badge de contador
+                    if (widget.badge != null && widget.badge! > 0)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 16),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.danger,
+                            borderRadius: AppDimens.brPill,
+                          ),
+                          child: Text(
+                            widget.badge! > 99 ? '99+' : '${widget.badge}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppDimens.space4),
+                Text(
+                  widget.label,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: labelColor,
+                    fontSize: 9,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 6),
-          _buildLabel(label, isActive),
-        ],
+        ),
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Divisor de sección del sidebar
-// ---------------------------------------------------------------------------
+// ─── SEPARADOR DE SECCIÓN ─────────────────────────────────────────────────────
 
-class _SidebarDivider extends StatelessWidget {
-  const _SidebarDivider({required this.label});
+class _SidebarSection extends StatelessWidget {
   final String label;
+  const _SidebarSection({required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.space12,
+        vertical: AppDimens.space8,
+      ),
       child: Row(
         children: [
           Expanded(
             child: Container(
               height: 1,
-              margin: const EdgeInsets.only(left: 12),
-              color: AppColors.primary.withOpacity(0.15),
+              color: AppColors.borderSubtle,
             ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
               label,
-              style: TextStyle(
-                color: AppColors.primary.withOpacity(0.35),
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.borderGold,
                 fontSize: 7,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.5,
-                fontFamily: 'Oxanium',
+                letterSpacing: 1.6,
               ),
             ),
           ),
           Expanded(
             child: Container(
               height: 1,
-              margin: const EdgeInsets.only(right: 12),
-              color: AppColors.primary.withOpacity(0.15),
+              color: AppColors.borderSubtle,
             ),
           ),
         ],
@@ -226,9 +310,7 @@ class _SidebarDivider extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Ítem INBOX con badge de no leídos
-// ---------------------------------------------------------------------------
+// ─── ÍTEM INBOX CON BADGE ─────────────────────────────────────────────────────
 
 class _SidebarInboxItem extends ConsumerWidget {
   const _SidebarInboxItem({required this.location});
@@ -238,91 +320,15 @@ class _SidebarInboxItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final convsAsync = ref.watch(wppConversationsProvider);
     final totalUnread = convsAsync.valueOrNull?.fold<int>(
-          0, (sum, c) => sum + c.unreadCount) ?? 0;
-    final isActive = location == '/inbox';
+          0, (sum, c) => sum + c.unreadCount) ??
+        0;
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        _SidebarItem(
-          icon: FontAwesomeIcons.whatsapp,
-          label: "INBOX",
-          isActive: isActive,
-          onTap: () => context.goNamed(WppInboxView.routeName),
-        ),
-        if (totalUnread > 0)
-          Positioned(
-            right: 8,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.error,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                totalUnread > 99 ? '99+' : '$totalUnread',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// Widget compartido para los labels con efecto WOW
-Widget _buildLabel(String label, bool isActive) {
-  if (isActive) {
-    return ShaderMask(
-      shaderCallback: (bounds) => LinearGradient(
-        colors: [
-          AppColors.primary,
-          AppColors.primary.withOpacity(0.7),
-          AppColors.primary,
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      ).createShader(bounds),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 9,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1.5,
-          fontFamily: 'Oxanium',
-          shadows: [
-            Shadow(
-              color: AppColors.primary,
-              blurRadius: 8,
-            ),
-            Shadow(
-              color: AppColors.primary,
-              blurRadius: 12,
-            ),
-          ],
-        ),
-      ),
-    ).animate(onPlay: (c) => c.repeat())
-      .shimmer(
-        duration: 2500.ms,
-        color: Colors.white.withOpacity(0.6),
-        angle: 0,
-      );
-  } else {
-    return Text(
-      label,
-      style: TextStyle(
-        color: AppColors.textSecondary.withOpacity(0.6),
-        fontSize: 9,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 1.2,
-        fontFamily: 'Oxanium',
-      ),
+    return _SidebarItem(
+      icon: FontAwesomeIcons.whatsapp,
+      label: 'INBOX',
+      isActive: location == '/inbox',
+      badge: totalUnread > 0 ? totalUnread : null,
+      onTap: () => context.goNamed(WppInboxView.routeName),
     );
   }
 }
