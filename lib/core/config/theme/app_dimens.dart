@@ -118,6 +118,15 @@ class AppDimens {
   static const int zToast            = 200;
   static const int zEpicNotification = 300;
 
+  // --- ICONOS (tamaños) ---
+  // iconM es el default. iconL se reserva para jerarquía.
+  // Un botón solo-ícono debe alcanzar 32×32 px de área de hit:
+  // iconM 22 + space8×2 = 38 px ≥ 32 px mínimo (§10 del archivo 00).
+  static const double iconXS = 14; // iconos inline en texto pequeño, badges
+  static const double iconS  = 18; // iconos en labels, inputs, chips
+  static const double iconM  = 22; // tamaño por defecto: botones, nav, toolbars
+  static const double iconL  = 28; // iconos de encabezado, estados vacíos, acentos
+
   // --- HIT TARGETS ---
   static const double hitTargetMin   = 32; // mínimo desktop (§10)
   static const double hitTargetTouch = 44; // recomendado táctil
