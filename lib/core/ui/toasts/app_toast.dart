@@ -1,195 +1,261 @@
 // lib/core/ui/toasts/app_toast.dart
-// Sistema de toasts HUD: success, warning, error, info.
-// Aparecen en la parte superior derecha. z-index: zToast.
+// Widget visual de toast «Hangar OS»: success, warning, error, info.
+// El ciclo de vida (timer, hover-pause, cola, overlay) vive en toast_service.dart.
 import 'package:flutter/material.dart';
 import '../../config/theme/app_colors.dart';
 import '../../config/theme/app_dimens.dart';
-import '../../config/theme/app_motion.dart';
 import '../../config/theme/app_text_styles.dart';
+import '../hud/hud_corner_brackets.dart';
+import '../widgets/app_button.dart';
+import '../widgets/app_icon_button.dart';
+
+// ─── Tipos semánticos ─────────────────────────────────────────────────────────
 
 enum ToastType { success, warning, error, info }
+
+// ─── Widget visual ────────────────────────────────────────────────────────────
 
 class AppToast extends StatelessWidget {
   final ToastType type;
   final String message;
-  final String? action;
+  final String? title;
+  final String? actionLabel;
   final VoidCallback? onAction;
+  final VoidCallback onDismiss;
+
+  /// Progreso de la barra inferior: 1.0 = llena, 0.0 = vacía.
+  /// Si null, no se muestra barra de progreso.
+  final Animation<double>? progress;
 
   const AppToast({
     super.key,
     required this.type,
     required this.message,
-    this.action,
+    this.title,
+    this.actionLabel,
     this.onAction,
+    required this.onDismiss,
+    this.progress,
   });
 
-  Color get _color => switch (type) {
+  Color get _typeColor => switch (type) {
         ToastType.success => AppColors.success,
         ToastType.warning => AppColors.warning,
-        ToastType.error   => AppColors.danger,
-        ToastType.info    => AppColors.info,
+        ToastType.error => AppColors.danger,
+        ToastType.info => AppColors.info,
       };
 
-  IconData get _icon => switch (type) {
-        ToastType.success => Icons.check_circle_outline,
-        ToastType.warning => Icons.warning_amber_outlined,
-        ToastType.error   => Icons.error_outline,
-        ToastType.info    => Icons.info_outline,
+  IconData get _typeIcon => switch (type) {
+        ToastType.success => Icons.check_circle_outline_rounded,
+        ToastType.warning => Icons.warning_amber_rounded,
+        ToastType.error => Icons.error_outline_rounded,
+        ToastType.info => Icons.info_outline_rounded,
+      };
+
+  String get _semanticsLabel => switch (type) {
+        ToastType.success => 'Notificación de éxito',
+        ToastType.warning => 'Advertencia',
+        ToastType.error => 'Error',
+        ToastType.info => 'Información',
       };
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 360),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimens.space16,
-        vertical: AppDimens.space12,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
-        borderRadius: AppDimens.brM,
-        border: Border.all(
-          color: _color.withValues(alpha: 0.35),
-          width: 1,
-        ),
-        boxShadow: [
-          ...AppDimens.elev3,
-          BoxShadow(
-            color: _color.withValues(alpha: 0.18),
-            blurRadius: 16,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(_icon, color: _color, size: 18),
-          const SizedBox(width: AppDimens.space12),
-          Expanded(
-            child: Text(
-              message,
-              style: AppTextStyles.bodyM.copyWith(color: AppColors.textPrimary),
+    final color = _typeColor;
+    final tintedSurface = Color.lerp(AppColors.surfaceRaised, color, 0.06)!;
+
+    return Semantics(
+      liveRegion: true,
+      label: '$_semanticsLabel: $message',
+      container: true,
+      child: HudCornerBrackets(
+        color: color.withValues(alpha: 0.45),
+        armLength: 14,
+        thickness: 1.5,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Container(
+            decoration: BoxDecoration(
+              color: tintedSurface,
+              borderRadius: AppDimens.brM,
+              border: Border.all(
+                color: color.withValues(alpha: 0.55),
+                width: 1.5,
+              ),
+              boxShadow: [
+                ...AppDimens.elev3,
+                BoxShadow(
+                  color: color.withValues(alpha: 0.18),
+                  blurRadius: 20,
+                ),
+              ],
             ),
-          ),
-          if (action != null && onAction != null) ...[
-            const SizedBox(width: AppDimens.space12),
-            GestureDetector(
-              onTap: onAction,
-              child: Text(
-                action!.toUpperCase(),
-                style: AppTextStyles.label.copyWith(color: _color),
+            child: ClipRRect(
+              borderRadius: AppDimens.brM,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _MainRow(
+                    color: color,
+                    icon: _typeIcon,
+                    title: title,
+                    message: message,
+                    actionLabel: actionLabel,
+                    onAction: onAction != null
+                        ? () {
+                            onAction!();
+                            onDismiss();
+                          }
+                        : null,
+                    onDismiss: onDismiss,
+                  ),
+                  if (progress != null)
+                    _ProgressBar(color: color, progress: progress!),
+                ],
               ),
             ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }
 }
 
-/// Muestra un toast en la pantalla actual.
-/// Duración por defecto: 3 s. Aparece en top-right.
-void showAppToast(
-  BuildContext context, {
-  required ToastType type,
-  required String message,
-  String? action,
-  VoidCallback? onAction,
-  Duration duration = const Duration(seconds: 3),
-}) {
-  final overlay = Overlay.of(context);
-  late final OverlayEntry entry;
+// ─── Fila principal ───────────────────────────────────────────────────────────
 
-  entry = OverlayEntry(
-    builder: (_) => _ToastEntry(
-      type: type,
-      message: message,
-      action: action,
-      onAction: onAction,
-      duration: duration,
-      onDismiss: () => entry.remove(),
-    ),
-  );
-
-  overlay.insert(entry);
-}
-
-class _ToastEntry extends StatefulWidget {
-  final ToastType type;
+class _MainRow extends StatelessWidget {
+  final Color color;
+  final IconData icon;
+  final String? title;
   final String message;
-  final String? action;
+  final String? actionLabel;
   final VoidCallback? onAction;
-  final Duration duration;
   final VoidCallback onDismiss;
 
-  const _ToastEntry({
-    required this.type,
+  const _MainRow({
+    required this.color,
+    required this.icon,
+    this.title,
     required this.message,
-    this.action,
+    this.actionLabel,
     this.onAction,
-    required this.duration,
     required this.onDismiss,
   });
 
   @override
-  State<_ToastEntry> createState() => _ToastEntryState();
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(AppDimens.space16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Ícono semántico del tipo
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: AppDimens.space12),
+
+          // Bloque de texto (title + message)
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (title != null) ...[
+                  Text(
+                    title!.toUpperCase(),
+                    style: AppTextStyles.labelSmall.copyWith(color: color),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: AppDimens.space2),
+                ],
+                Text(
+                  message,
+                  style: AppTextStyles.bodyM
+                      .copyWith(color: AppColors.textPrimary),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+
+          // Botón de acción opcional
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(width: AppDimens.space12),
+            AppButton(
+              label: actionLabel!,
+              onPressed: onAction!,
+              variant: AppButtonVariant.ghost,
+              size: AppButtonSize.sm,
+            ),
+          ],
+
+          // Botón de cierre
+          const SizedBox(width: AppDimens.space8),
+          AppIconButton(
+            icon: Icons.close_rounded,
+            onPressed: onDismiss,
+            tooltip: 'Cerrar',
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.sm,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _ToastEntryState extends State<_ToastEntry>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _opacity;
-  late final Animation<Offset> _slide;
+// ─── Barra de progreso ────────────────────────────────────────────────────────
 
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: AppMotion.durSlow);
-    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: AppMotion.easeEntrance),
-    );
-    _slide = Tween<Offset>(
-      begin: const Offset(0.15, 0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: AppMotion.easeEntrance));
+class _ProgressBar extends AnimatedWidget {
+  final Color color;
 
-    _ctrl.forward();
+  const _ProgressBar({
+    required this.color,
+    required Animation<double> progress,
+  }) : super(listenable: progress);
 
-    Future.delayed(widget.duration, _dismiss);
-  }
-
-  void _dismiss() async {
-    await _ctrl.reverse();
-    widget.onDismiss();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  Animation<double> get _progress => listenable as Animation<double>;
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      top: AppDimens.space32 + MediaQuery.of(context).padding.top + AppDimens.titleBarHeight,
-      right: AppDimens.space24,
-      child: Material(
-        color: Colors.transparent,
-        child: AnimatedBuilder(
-          animation: _ctrl,
-          builder: (_, child) => FadeTransition(
-            opacity: _opacity,
-            child: SlideTransition(position: _slide, child: child),
-          ),
-          child: AppToast(
-            type: widget.type,
-            message: widget.message,
-            action: widget.action,
-            onAction: widget.onAction,
-          ),
+    return SizedBox(
+      height: 2,
+      width: double.infinity,
+      child: CustomPaint(
+        painter: _ProgressPainter(
+          color: color,
+          value: _progress.value.clamp(0.0, 1.0),
         ),
       ),
     );
   }
+}
+
+class _ProgressPainter extends CustomPainter {
+  final Color color;
+  final double value;
+
+  const _ProgressPainter({required this.color, required this.value});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Fondo sutil
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = AppColors.borderSubtle,
+    );
+    // Relleno que se vacía linealmente de derecha a izquierda
+    if (value > 0) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.width * value, size.height),
+        Paint()..color = color,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ProgressPainter old) =>
+      old.value != value || old.color != color;
 }

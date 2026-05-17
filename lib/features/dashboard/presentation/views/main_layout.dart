@@ -4,7 +4,7 @@ import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/config/theme/app_motion.dart';
 import 'package:botslode/core/providers/connectivity_provider.dart';
 import 'package:botslode/core/ui/app_background.dart';
-import 'package:botslode/core/ui/toasts/app_toast.dart';
+import 'package:botslode/core/ui/toasts/toast_service.dart';
 import 'package:botslode/core/ui/widgets/custom_title_bar.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/sidebar.dart';
 import 'package:flutter/material.dart';
@@ -54,16 +54,16 @@ class _MainLayoutState extends ConsumerState<MainLayout>
     ref.listen(connectivityProvider, (prev, next) {
       next.whenData((isOnline) {
         if (!isOnline && !_wasOffline) {
-          showAppToast(
-            context,
+          ToastService.show(
+            context: context,
             type: ToastType.error,
             message: 'CONEXIÓN PERDIDA — Modo offline activado',
             duration: const Duration(days: 1),
           );
           _wasOffline = true;
         } else if (isOnline && _wasOffline) {
-          showAppToast(
-            context,
+          ToastService.show(
+            context: context,
             type: ToastType.success,
             message: 'ENLACE RESTABLECIDO — Sistemas online',
           );
