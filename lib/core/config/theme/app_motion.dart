@@ -32,9 +32,10 @@ class AppMotion {
       Duration(milliseconds: (entrance.inMilliseconds * 0.65).round());
 
   // Duraciones auxiliares para componentes específicos
-  static const Duration durShimmer   = Duration(milliseconds: 3100); // ciclo de shimmer
-  static const Duration durHeartbeat = Duration(milliseconds: 1600); // latido de reactor
-  static const Duration durStagger   = Duration(milliseconds: 36);   // delay por ítem en listas
+  static const Duration durShimmer        = Duration(milliseconds: 3100); // ciclo de shimmer
+  static const Duration durSkeletonCycle  = Duration(milliseconds: 2800); // barrido dorado de skeletons
+  static const Duration durHeartbeat      = Duration(milliseconds: 1600); // latido de reactor
+  static const Duration durStagger        = Duration(milliseconds: 36);   // delay por ítem en listas
 
   // --- CURVAS ---
 
