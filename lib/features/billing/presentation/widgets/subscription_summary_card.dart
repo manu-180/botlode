@@ -1,12 +1,31 @@
 // Archivo: lib/features/billing/presentation/widgets/subscription_summary_card.dart
+// HUD-styled telemetry panel for subscription summary — Hangar OS.
+// Rewritten as part of T4·12 digital card redesign.
+import 'dart:async';
+
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
+import 'package:botslode/core/ui/hud/hud_divider.dart';
+import 'package:botslode/core/ui/hud/hud_grid_texture.dart';
+import 'package:botslode/core/ui/hud/hud_ticker.dart';
+import 'package:botslode/core/ui/panels/holo_panel.dart';
+import 'package:botslode/core/ui/widgets/app_button.dart';
+import 'package:botslode/core/ui/widgets/skeleton_base.dart';
 import 'package:botslode/features/billing/domain/models/plan.dart';
-import 'package:botslode/features/billing/presentation/widgets/empty_state.dart';
 import 'package:botslode/features/billing/domain/models/subscription.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
+import 'package:botslode/features/billing/presentation/widgets/empty_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
+// ---------------------------------------------------------------------------
+// Public entry point
+// ---------------------------------------------------------------------------
 
 class SubscriptionSummaryCard extends ConsumerWidget {
   const SubscriptionSummaryCard({
@@ -40,16 +59,20 @@ class SubscriptionSummaryCard extends ConsumerWidget {
         final sub = state.subscription;
         if (sub == null) {
           return BillingEmptyState(
-            illustration: const Icon(Icons.workspace_premium_rounded, size: 48, color: Colors.white24),
-            title: 'No tenés una suscripción activa',
-            subtitle: 'Elegí un plan para comenzar a usar BotLode.',
-            ctaLabel: 'Ver planes',
+            illustration: const Icon(
+              Icons.workspace_premium_rounded,
+              size: 48,
+              color: AppColors.textTertiary,
+            ),
+            title: 'Sin suscripción activa',
+            subtitle: 'Elegí un plan para comenzar.',
+            ctaLabel: 'VER PLANES',
             onCta: onViewPlans,
           );
         }
         final plan =
             state.availablePlans.where((p) => p.id == sub.planId).firstOrNull;
-        return _CardBody(
+        return _SubscriptionCardBody(
           subscription: sub,
           plan: plan,
           now: now ?? DateTime.now(),
@@ -63,30 +86,103 @@ class SubscriptionSummaryCard extends ConsumerWidget {
     );
   }
 
-  static Widget _buildSkeleton() => Container(
-        height: 180,
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F0F13),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.borderGlass),
-        ),
-        child: const Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppColors.primary,
-            ),
+  static Widget _buildSkeleton() {
+    return HoloPanel(
+      cornerBrackets: true,
+      padding: const EdgeInsets.all(AppDimens.space24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SkeletonBase(
+                    width: 100,
+                    height: 10,
+                    radius: AppDimens.radiusXS,
+                  ),
+                  const SizedBox(height: 6),
+                  SkeletonBase(
+                    width: 160,
+                    height: 20,
+                    radius: AppDimens.radiusS,
+                  ),
+                ],
+              ),
+              SkeletonBase(
+                width: 72,
+                height: 22,
+                radius: AppDimens.radiusPill,
+              ),
+            ],
           ),
-        ),
-      );
+          const SizedBox(height: AppDimens.space20),
+          // Readings row
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonBase(
+                      width: double.infinity,
+                      height: 10,
+                      radius: AppDimens.radiusXS,
+                    ),
+                    const SizedBox(height: 6),
+                    SkeletonBase(
+                      width: 100,
+                      height: 28,
+                      radius: AppDimens.radiusS,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppDimens.space16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonBase(
+                      width: double.infinity,
+                      height: 10,
+                      radius: AppDimens.radiusXS,
+                    ),
+                    const SizedBox(height: 6),
+                    SkeletonBase(
+                      width: 80,
+                      height: 18,
+                      radius: AppDimens.radiusS,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDimens.space20),
+          // Cycle bar
+          SkeletonBase(
+            width: double.infinity,
+            height: 8,
+            radius: AppDimens.radiusPill,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
+// Card body (Stateful — Timer for countdown)
+// ---------------------------------------------------------------------------
 
-class _CardBody extends StatelessWidget {
-  const _CardBody({
+class _SubscriptionCardBody extends StatefulWidget {
+  const _SubscriptionCardBody({
     required this.subscription,
     required this.plan,
     required this.now,
@@ -106,316 +202,693 @@ class _CardBody extends StatelessWidget {
   final VoidCallback? onUpdatePayment;
   final VoidCallback? onCompletePayment;
 
-  static final _dateFmt = DateFormat('d MMM yyyy');
+  @override
+  State<_SubscriptionCardBody> createState() => _SubscriptionCardBodyState();
+}
+
+class _SubscriptionCardBodyState extends State<_SubscriptionCardBody> {
+  Timer? _countdownTimer;
+  late DateTime _now;
+  bool _tickerReady = false;
+
+  static final _dateFmtFull = DateFormat('d MMM yyyy');
+
+  @override
+  void initState() {
+    super.initState();
+    _now = widget.now;
+    _countdownTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _tickerReady = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  // ---- Color treatment -------------------------------------------------------
+
+  bool get _isCancelAtPeriodEnd => widget.subscription.cancelAtPeriodEnd;
+
+  Color get _accentColor {
+    if (_isCancelAtPeriodEnd) return AppColors.warning;
+    return switch (widget.subscription.status) {
+      SubscriptionStatus.active    => AppColors.gold,
+      SubscriptionStatus.trialing  => AppColors.cyan,
+      SubscriptionStatus.pastDue   => AppColors.warning,
+      SubscriptionStatus.incomplete => AppColors.warning,
+      SubscriptionStatus.canceled  => AppColors.danger,
+    };
+  }
 
   Color get _borderColor {
-    if (subscription.cancelAtPeriodEnd) {
+    if (_isCancelAtPeriodEnd) {
       return AppColors.warning.withValues(alpha: 0.4);
     }
-    return switch (subscription.status) {
-      SubscriptionStatus.active => AppColors.primary.withValues(alpha: 0.3),
-      SubscriptionStatus.trialing => AppColors.secondary.withValues(alpha: 0.3),
-      SubscriptionStatus.pastDue => AppColors.warning.withValues(alpha: 0.4),
-      SubscriptionStatus.canceled => AppColors.error.withValues(alpha: 0.2),
-      SubscriptionStatus.incomplete => AppColors.warning.withValues(alpha: 0.4),
+    return switch (widget.subscription.status) {
+      SubscriptionStatus.active    => AppColors.borderGold,
+      SubscriptionStatus.trialing  => AppColors.cyan.withValues(alpha: 0.4),
+      SubscriptionStatus.pastDue   => AppColors.warning,
+      SubscriptionStatus.incomplete => AppColors.warning,
+      SubscriptionStatus.canceled  => AppColors.danger.withValues(alpha: 0.4),
+    };
+  }
+
+  Color get _bracketColor {
+    if (_isCancelAtPeriodEnd) return AppColors.warning;
+    return switch (widget.subscription.status) {
+      SubscriptionStatus.active    => AppColors.borderGold,
+      SubscriptionStatus.trialing  => AppColors.cyan,
+      SubscriptionStatus.pastDue   => AppColors.warning,
+      SubscriptionStatus.incomplete => AppColors.warning,
+      SubscriptionStatus.canceled  => AppColors.danger,
+    };
+  }
+
+  bool get _isCanceled =>
+      widget.subscription.status == SubscriptionStatus.canceled &&
+      !_isCancelAtPeriodEnd;
+
+  // ---- Countdown string ------------------------------------------------------
+
+  String _countdownText() {
+    final end = widget.subscription.currentPeriodEnd;
+    if (end == null) return '—';
+
+    // For fully canceled (no cancelAtPeriodEnd), show the date instead
+    if (widget.subscription.status == SubscriptionStatus.canceled &&
+        !_isCancelAtPeriodEnd) {
+      return _dateFmtFull.format(end);
+    }
+
+    final diff = end.difference(_now);
+    if (diff.isNegative) return '0 D · 00 H';
+    final days = diff.inDays;
+    final hours = diff.inHours % 24;
+    return '${days} D · ${hours.toString().padLeft(2, '0')} H';
+  }
+
+  String get _countdownLabel =>
+      (_isCancelAtPeriodEnd ||
+              widget.subscription.status == SubscriptionStatus.canceled)
+          ? 'FINALIZA EN'
+          : 'RENUEVA EN';
+
+  // ---- Action visibility flags -----------------------------------------------
+
+  bool get _showChangePlan =>
+      widget.subscription.status == SubscriptionStatus.active ||
+      widget.subscription.status == SubscriptionStatus.trialing;
+
+  bool get _showCancel =>
+      _showChangePlan && !_isCancelAtPeriodEnd;
+
+  bool get _showReactivate => _isCancelAtPeriodEnd;
+
+  bool get _showUpdatePayment =>
+      widget.subscription.status == SubscriptionStatus.pastDue;
+
+  bool get _showCompletePayment =>
+      widget.subscription.status == SubscriptionStatus.incomplete;
+
+  bool get _hasActions =>
+      _showChangePlan ||
+      _showCancel ||
+      _showReactivate ||
+      _showUpdatePayment ||
+      _showCompletePayment;
+
+  // ---- Info rows to show -----------------------------------------------------
+
+  List<_InfoRowData> get _infoRows {
+    final rows = <_InfoRowData>[];
+    final end = widget.subscription.currentPeriodEnd;
+
+    if (widget.subscription.status == SubscriptionStatus.trialing && end != null) {
+      final daysLeft = end.difference(_now).inDays.clamp(0, 9999);
+      rows.add(_InfoRowData(
+        icon: Icons.hourglass_top_rounded,
+        color: AppColors.cyan,
+        text: 'Trial: $daysLeft días restantes',
+      ));
+    }
+
+    if (_isCancelAtPeriodEnd && end != null) {
+      rows.add(_InfoRowData(
+        icon: Icons.event_rounded,
+        color: AppColors.warning,
+        text: 'Tu suscripción finaliza el ${_dateFmtFull.format(end)}',
+      ));
+    }
+
+    if (widget.subscription.status == SubscriptionStatus.pastDue) {
+      rows.add(const _InfoRowData(
+        icon: Icons.warning_rounded,
+        color: AppColors.warning,
+        text: 'Cobro pendiente',
+        bold: true,
+      ));
+    }
+
+    if (widget.subscription.status == SubscriptionStatus.incomplete) {
+      rows.add(const _InfoRowData(
+        icon: Icons.lock_outline_rounded,
+        color: AppColors.warning,
+        text: 'Pago incompleto — se requiere autenticación',
+      ));
+    }
+
+    return rows;
+  }
+
+  // ---- Build -----------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    final sub = widget.subscription;
+    final plan = widget.plan;
+    final planName = plan?.name ?? sub.planId;
+    final countdownText = _countdownText();
+    final infoRows = _infoRows;
+
+    Widget body = HudCornerBrackets(
+      color: _bracketColor,
+      child: HoloPanel(
+        cornerBrackets: false,
+        shape: HoloPanelShape.rounded,
+        padding: const EdgeInsets.all(AppDimens.space24),
+        borderColor: _borderColor,
+        child: HudGridTexture(
+        opacity: 0.04,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header row ──────────────────────────────────────────────────
+            MergeSemantics(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left: label + plan name
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '// SUSCRIPCIÓN',
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.textTertiary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        planName,
+                        style: AppTextStyles.titleL.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Right: status tag
+                  _BillingStatusTag(
+                    status: sub.status,
+                    cancelAtPeriodEnd: _isCancelAtPeriodEnd,
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppDimens.space20),
+
+            // ── Readings row ─────────────────────────────────────────────────
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left: renewal amount
+                  Expanded(
+                    child: Semantics(
+                      label: plan != null
+                          ? 'Próxima renovación: \$${plan.priceMonthly.toStringAsFixed(2)} por mes'
+                          : 'Próxima renovación: sin información',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'PRÓXIMO COBRO',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          if (plan != null)
+                            HudTicker(
+                              value: _tickerReady ? plan.priceMonthly : 0.0,
+                              prefix: '\$',
+                              suffix: '/mes',
+                              decimals: 2,
+                              style: AppTextStyles.numericTicker
+                                  .copyWith(color: _accentColor),
+                            )
+                          else
+                            Text(
+                              '—',
+                              style: AppTextStyles.numericTicker.copyWith(
+                                color: AppColors.textTertiary,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Vertical divider
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimens.space16,
+                    ),
+                    child: VerticalDivider(
+                      width: 1,
+                      thickness: 1,
+                      color: AppColors.borderSubtle,
+                    ),
+                  ),
+
+                  // Right: countdown
+                  Expanded(
+                    child: Semantics(
+                      label: sub.status == SubscriptionStatus.active
+                          ? 'Próxima renovación en: $countdownText'
+                          : null,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _countdownLabel,
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          AnimatedSwitcher(
+                            duration: AppMotion.durBase,
+                            child: Text(
+                              countdownText,
+                              key: ValueKey(countdownText),
+                              style: AppTextStyles.hudReadout.copyWith(
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppDimens.space20),
+
+            // ── Cycle progress bar ────────────────────────────────────────────
+            if (sub.currentPeriodStart != null &&
+                sub.currentPeriodEnd != null) ...[
+              _CycleProgressBar(
+                start: sub.currentPeriodStart!,
+                end: sub.currentPeriodEnd!,
+                now: _now,
+                accentColor: _accentColor,
+                status: sub.status,
+                cancelAtPeriodEnd: _isCancelAtPeriodEnd,
+              ),
+              const SizedBox(height: AppDimens.space20),
+            ],
+
+            // ── Info rows ─────────────────────────────────────────────────────
+            for (final row in infoRows) ...[
+              _InfoRow(
+                icon: row.icon,
+                color: row.color,
+                text: row.text,
+                bold: row.bold,
+              ),
+              const SizedBox(height: AppDimens.space8),
+            ],
+
+            // ── Action buttons ────────────────────────────────────────────────
+            if (_hasActions) ...[
+              const SizedBox(height: AppDimens.space8),
+              HudDivider(lineColor: AppColors.borderSubtle),
+              const SizedBox(height: AppDimens.space16),
+              Wrap(
+                spacing: AppDimens.space8,
+                runSpacing: AppDimens.space8,
+                children: [
+                  if (_showChangePlan && widget.onChangePlan != null)
+                    AppButton.primary(
+                      label: 'CAMBIAR PLAN',
+                      leadingIcon: Icons.swap_horiz_rounded,
+                      onPressed: widget.onChangePlan,
+                      size: AppButtonSize.md,
+                    ),
+                  if (_showReactivate && widget.onReactivate != null)
+                    AppButton.primary(
+                      label: 'REACTIVAR',
+                      leadingIcon: Icons.replay_rounded,
+                      onPressed: widget.onReactivate,
+                      size: AppButtonSize.md,
+                    ),
+                  if (_showUpdatePayment && widget.onUpdatePayment != null)
+                    AppButton(
+                      label: 'ACTUALIZAR PAGO',
+                      variant: AppButtonVariant.danger,
+                      leadingIcon: Icons.credit_card_rounded,
+                      onPressed: widget.onUpdatePayment,
+                      size: AppButtonSize.md,
+                    ),
+                  if (_showCompletePayment && widget.onCompletePayment != null)
+                    AppButton(
+                      label: 'COMPLETAR PAGO',
+                      variant: AppButtonVariant.danger,
+                      leadingIcon: Icons.lock_open_rounded,
+                      onPressed: widget.onCompletePayment,
+                      size: AppButtonSize.md,
+                    ),
+                  if (_showCancel && widget.onCancel != null)
+                    AppButton(
+                      label: 'CANCELAR',
+                      variant: AppButtonVariant.danger,
+                      leadingIcon: Icons.cancel_outlined,
+                      onPressed: widget.onCancel,
+                      size: AppButtonSize.md,
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+      ),
+    );
+
+    // Entry animation: fade + translateY (HoloPanel handles its own entry,
+    // but we add flutter_animate for the outer content as well).
+    body = body
+        .animate()
+        .fadeIn(
+          duration: AppMotion.durBase,
+          curve: AppMotion.easeEntrance,
+        )
+        .moveY(
+          begin: 12,
+          end: 0,
+          duration: AppMotion.durBase,
+          curve: AppMotion.easeEntrance,
+        );
+
+    // Desaturated / dimmed for fully canceled
+    if (_isCanceled) {
+      body = Opacity(opacity: 0.65, child: body);
+    }
+
+    return body;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cycle progress bar (Stateful — TweenAnimationBuilder + dot pulse)
+// ---------------------------------------------------------------------------
+
+class _CycleProgressBar extends StatefulWidget {
+  const _CycleProgressBar({
+    required this.start,
+    required this.end,
+    required this.now,
+    required this.accentColor,
+    required this.status,
+    required this.cancelAtPeriodEnd,
+  });
+
+  final DateTime start;
+  final DateTime end;
+  final DateTime now;
+  final Color accentColor;
+  final SubscriptionStatus status;
+  final bool cancelAtPeriodEnd;
+
+  @override
+  State<_CycleProgressBar> createState() => _CycleProgressBarState();
+}
+
+class _CycleProgressBarState extends State<_CycleProgressBar>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _dotPulseCtrl;
+  Animation<double>? _dotOpacity;
+
+  static final _barDateFmt = DateFormat('d MMM');
+
+  @override
+  void initState() {
+    super.initState();
+    // Pulse only for active status
+    if (widget.status == SubscriptionStatus.active &&
+        !widget.cancelAtPeriodEnd) {
+      _dotPulseCtrl = AnimationController(
+        vsync: this,
+        duration: AppMotion.durHeartbeat,
+      );
+      _dotOpacity = Tween<double>(begin: 0.6, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _dotPulseCtrl!,
+          curve: AppMotion.easeStandard,
+        ),
+      );
+      _dotPulseCtrl!.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _dotPulseCtrl?.dispose();
+    super.dispose();
+  }
+
+  double get _progress {
+    final totalMs =
+        widget.end.difference(widget.start).inMilliseconds.toDouble();
+    if (totalMs <= 0) return 0;
+    final elapsedMs =
+        widget.now.difference(widget.start).inMilliseconds.toDouble();
+    return (elapsedMs / totalMs).clamp(0.0, 1.0);
+  }
+
+  // Fill gradient per status/cancelAtPeriodEnd
+  LinearGradient _fillGradient(Color accent) {
+    return LinearGradient(
+      colors: [accent.withValues(alpha: 0.6), accent],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = AppMotion.reduced(context);
+    final targetProgress = _progress;
+    final startLabel = _barDateFmt.format(widget.start);
+    final endLabel = _barDateFmt.format(widget.end);
+
+    return Semantics(
+      label:
+          'Ciclo de facturación al ${(targetProgress * 100).toStringAsFixed(0)}%',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Bar
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: targetProgress),
+            duration: reduced ? Duration.zero : AppMotion.durSlow,
+            curve: AppMotion.easeStandard,
+            builder: (context, value, _) {
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final barWidth = constraints.maxWidth;
+                  final fillWidth = barWidth * value;
+                  final dotX = fillWidth.clamp(0.0, barWidth);
+
+                  Widget dot = Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: widget.accentColor,
+                      boxShadow: AppDimens.glowStatus(widget.accentColor),
+                    ),
+                  );
+
+                  // Pulse for active
+                  if (_dotOpacity != null && !reduced) {
+                    dot = AnimatedBuilder(
+                      animation: _dotOpacity!,
+                      builder: (_, child) =>
+                          Opacity(opacity: _dotOpacity!.value, child: child),
+                      child: dot,
+                    );
+                  }
+
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Track
+                      Container(
+                        height: 8,
+                        width: barWidth,
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceHud,
+                          borderRadius:
+                              BorderRadius.circular(AppDimens.radiusPill),
+                          border: Border.all(
+                            color: AppColors.borderSubtle,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      // Fill
+                      if (fillWidth > 0)
+                        Container(
+                          height: 8,
+                          width: fillWidth.clamp(0.0, barWidth),
+                          decoration: BoxDecoration(
+                            gradient: _fillGradient(widget.accentColor),
+                            borderRadius:
+                                BorderRadius.circular(AppDimens.radiusPill),
+                          ),
+                        ),
+                      // Dot at progress position
+                      Positioned(
+                        left: dotX - 4,
+                        top: 0,
+                        child: dot,
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+          const SizedBox(height: AppDimens.space4),
+          // Date labels below bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                startLabel,
+                style: AppTextStyles.mono.copyWith(
+                  color: AppColors.textTertiary,
+                ),
+              ),
+              Text(
+                endLabel,
+                style: AppTextStyles.mono.copyWith(
+                  color: AppColors.textTertiary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Billing status tag
+// ---------------------------------------------------------------------------
+
+class _BillingStatusTag extends StatelessWidget {
+  const _BillingStatusTag({
+    required this.status,
+    required this.cancelAtPeriodEnd,
+  });
+
+  final SubscriptionStatus status;
+  final bool cancelAtPeriodEnd;
+
+  static (IconData, String, Color) _config(
+    SubscriptionStatus status,
+    bool cancelAtPeriodEnd,
+  ) {
+    if (cancelAtPeriodEnd) {
+      return (Icons.event_rounded, 'FINALIZA', AppColors.warning);
+    }
+    return switch (status) {
+      SubscriptionStatus.active =>
+        (Icons.check_circle_rounded, 'ACTIVA', AppColors.success),
+      SubscriptionStatus.trialing =>
+        (Icons.hourglass_top_rounded, 'TRIAL', AppColors.cyan),
+      SubscriptionStatus.pastDue =>
+        (Icons.warning_rounded, 'VENCIDA', AppColors.warning),
+      SubscriptionStatus.canceled =>
+        (Icons.cancel_rounded, 'CANCELADA', AppColors.danger),
+      SubscriptionStatus.incomplete =>
+        (Icons.pending_rounded, 'INCOMPLETA', AppColors.warning),
     };
   }
 
   @override
   Widget build(BuildContext context) {
-    final planName = plan?.name ?? subscription.planId;
-    final priceText = plan != null ? _formatPrice(plan!) : null;
-    final periodEndFormatted = subscription.currentPeriodEnd != null
-        ? _dateFmt.format(subscription.currentPeriodEnd!)
-        : null;
+    final (icon, label, color) = _config(status, cancelAtPeriodEnd);
 
-    final isActiveOrTrialing =
-        subscription.status == SubscriptionStatus.active ||
-            subscription.status == SubscriptionStatus.trialing;
-
-    final showChangePlan = isActiveOrTrialing;
-    final showCancel = isActiveOrTrialing && !subscription.cancelAtPeriodEnd;
-    final showReactivate = subscription.cancelAtPeriodEnd;
-    final showUpdatePayment =
-        subscription.status == SubscriptionStatus.pastDue;
-    final showCompletePayment =
-        subscription.status == SubscriptionStatus.incomplete;
-
-    final hasActions = showChangePlan ||
-        showCancel ||
-        showReactivate ||
-        showUpdatePayment ||
-        showCompletePayment;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F0F13),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderColor),
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header group: plan name + price + status merged for screen readers
-          MergeSemantics(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header row
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Tu suscripción',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.55),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ),
-                    Semantics(
-                      label: 'Estado de suscripción: ${_statusLabel(subscription.status)}',
-                      child: _StatusChip(status: subscription.status),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Plan name
-                Text(
-                  planName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                // Price
-                if (priceText != null) ...[
-                  const SizedBox(height: 4),
-                  Semantics(
-                    label: 'Precio: $priceText',
-                    child: Text(
-                      priceText,
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+    return Semantics(
+      label: 'Estado de suscripción: $label',
+      child: ExcludeSemantics(
+        child: Container(
+          height: 22,
+          padding: const EdgeInsets.symmetric(horizontal: AppDimens.space8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+            border: Border.all(
+              color: color.withValues(alpha: 0.32),
+              width: 1,
             ),
           ),
-
-          // Trial info
-          if (subscription.status == SubscriptionStatus.trialing &&
-              subscription.trialEnd != null) ...[
-            const SizedBox(height: 10),
-            _InfoRow(
-              icon: Icons.hourglass_top_rounded,
-              color: AppColors.secondary,
-              text:
-                  'Trial: ${subscription.trialEnd!.difference(now).inDays} días restantes',
-            ),
-          ],
-
-          // Period end info
-          if (subscription.cancelAtPeriodEnd &&
-              periodEndFormatted != null) ...[
-            const SizedBox(height: 10),
-            _InfoRow(
-              icon: Icons.event_rounded,
-              color: AppColors.warning,
-              text: 'Tu suscripción finaliza el $periodEndFormatted',
-            ),
-          ] else if (periodEndFormatted != null &&
-              subscription.status != SubscriptionStatus.canceled &&
-              subscription.status != SubscriptionStatus.incomplete) ...[
-            const SizedBox(height: 10),
-            Semantics(
-              label: 'Próxima renovación: $periodEndFormatted',
-              child: _InfoRow(
-                icon: Icons.calendar_today_rounded,
-                color: Colors.white54,
-                text: 'Próximo cobro: $periodEndFormatted',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: AppTextStyles.labelSmall.copyWith(color: color),
               ),
-            ),
-          ],
-
-          // Past due warning
-          if (subscription.status == SubscriptionStatus.pastDue) ...[
-            const SizedBox(height: 10),
-            const _InfoRow(
-              icon: Icons.warning_rounded,
-              color: AppColors.error,
-              text: 'Cobro pendiente',
-              bold: true,
-            ),
-          ],
-
-          // Incomplete / SCA pending
-          if (subscription.status == SubscriptionStatus.incomplete) ...[
-            const SizedBox(height: 10),
-            const _InfoRow(
-              icon: Icons.lock_outline_rounded,
-              color: AppColors.warning,
-              text: 'Pago incompleto — se requiere autenticación',
-            ),
-          ],
-
-          // Action buttons
-          if (hasActions) ...[
-            const SizedBox(height: 20),
-            const Divider(color: Colors.white12, height: 1),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (showChangePlan)
-                  _ActionButton(
-                    icon: Icons.swap_horiz_rounded,
-                    label: 'Cambiar plan',
-                    onPressed: onChangePlan,
-                    filled: true,
-                  ),
-                if (showReactivate)
-                  _ActionButton(
-                    icon: Icons.replay_rounded,
-                    label: 'Reactivar',
-                    onPressed: onReactivate,
-                    filled: true,
-                    backgroundColor: AppColors.success,
-                    foregroundColor: Colors.black,
-                  ),
-                if (showUpdatePayment)
-                  _ActionButton(
-                    icon: Icons.credit_card_rounded,
-                    label: 'Actualizar pago',
-                    onPressed: onUpdatePayment,
-                    filled: true,
-                    backgroundColor: AppColors.warning,
-                    foregroundColor: Colors.black,
-                  ),
-                if (showCompletePayment)
-                  _ActionButton(
-                    icon: Icons.lock_open_rounded,
-                    label: 'Completar pago',
-                    onPressed: onCompletePayment,
-                    filled: true,
-                    backgroundColor: AppColors.warning,
-                    foregroundColor: Colors.black,
-                  ),
-                if (showCancel)
-                  _ActionButton(
-                    icon: Icons.cancel_outlined,
-                    label: 'Cancelar',
-                    onPressed: onCancel,
-                    filled: false,
-                    foregroundColor: AppColors.error,
-                    borderColor: AppColors.error.withValues(alpha: 0.4),
-                  ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  static String _formatPrice(Plan plan) {
-    final price = plan.priceCents / 100;
-    final suffix =
-        plan.interval == BillingInterval.month ? '/mes' : '/año';
-    return '\$${price.toStringAsFixed(2)}$suffix';
-  }
-
-  static String _statusLabel(SubscriptionStatus status) =>
-      switch (status) {
-        SubscriptionStatus.active => 'Activa',
-        SubscriptionStatus.trialing => 'En período de prueba',
-        SubscriptionStatus.pastDue => 'Cobro pendiente',
-        SubscriptionStatus.canceled => 'Cancelada',
-        SubscriptionStatus.incomplete => 'Incompleta',
-      };
-}
-
-// ---------------------------------------------------------------------------
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-
-  final SubscriptionStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, icon, color) = _config(status);
-    return Semantics(
-      label: 'Estado: $label',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.4)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 12, color: color),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-
-  static (String, IconData, Color) _config(SubscriptionStatus status) =>
-      switch (status) {
-        SubscriptionStatus.trialing => (
-          'TRIAL',
-          Icons.hourglass_top_rounded,
-          AppColors.secondary,
-        ),
-        SubscriptionStatus.active => (
-          'ACTIVA',
-          Icons.check_circle_rounded,
-          AppColors.success,
-        ),
-        SubscriptionStatus.pastDue => (
-          'VENCIDA',
-          Icons.warning_rounded,
-          AppColors.warning,
-        ),
-        SubscriptionStatus.canceled => (
-          'CANCELADA',
-          Icons.cancel_rounded,
-          AppColors.error,
-        ),
-        SubscriptionStatus.incomplete => (
-          'INCOMPLETA',
-          Icons.pending_rounded,
-          AppColors.warning,
-        ),
-      };
 }
 
 // ---------------------------------------------------------------------------
+// Info row (restyled)
+// ---------------------------------------------------------------------------
+
+class _InfoRowData {
+  const _InfoRowData({
+    required this.icon,
+    required this.color,
+    required this.text,
+    this.bold = false,
+  });
+  final IconData icon;
+  final Color color;
+  final String text;
+  final bool bold;
+}
 
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
@@ -435,81 +908,18 @@ class _InfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 8),
+        Icon(icon, size: AppDimens.iconXS, color: color),
+        const SizedBox(width: AppDimens.space8),
         Expanded(
           child: Text(
             text,
-            style: TextStyle(
+            style: AppTextStyles.bodyM.copyWith(
               color: color,
-              fontSize: 13,
               fontWeight: bold ? FontWeight.bold : FontWeight.normal,
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-    required this.filled,
-    this.backgroundColor = AppColors.primary,
-    this.foregroundColor = Colors.black,
-    this.borderColor,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onPressed;
-  final bool filled;
-  final Color backgroundColor;
-  final Color foregroundColor;
-  final Color? borderColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16),
-        const SizedBox(width: 6),
-        Text(label),
-      ],
-    );
-
-    if (filled) {
-      return SizedBox(
-        height: 48,
-        child: FilledButton(
-          onPressed: onPressed,
-          style: FilledButton.styleFrom(
-            backgroundColor: backgroundColor,
-            foregroundColor: foregroundColor,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-          ),
-          child: content,
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 48,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: foregroundColor,
-          side: BorderSide(color: borderColor ?? foregroundColor),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-        ),
-        child: content,
-      ),
     );
   }
 }
