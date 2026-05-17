@@ -1,249 +1,465 @@
 // Archivo: lib/features/settings/presentation/views/settings_view.dart
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:botslode/core/providers/auth_provider.dart';
+import 'package:botslode/core/ui/app_background.dart';
+import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
+import 'package:botslode/core/ui/hud/hud_divider.dart';
+import 'package:botslode/core/ui/panels/holo_panel.dart';
+import 'package:botslode/core/ui/widgets/app_button.dart';
+import 'package:botslode/features/settings/presentation/widgets/about_botslode_dialog.dart';
 import 'package:botslode/features/settings/presentation/widgets/change_password_dialog.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class SettingsView extends ConsumerWidget {
+class SettingsView extends ConsumerStatefulWidget {
   static const String routeName = 'settings';
 
   const SettingsView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
+  ConsumerState<SettingsView> createState() => _SettingsViewState();
+}
+
+class _SettingsViewState extends ConsumerState<SettingsView> {
+  bool _isLoggingOut = false;
+
+  void _showChangePassword() {
+    showDialog(
+      context: context,
+      builder: (_) => const ChangePasswordDialog(),
+    );
+  }
+
+  void _showAbout() {
+    showDialog(
+      context: context,
+      builder: (_) => const AboutBotslodeDialog(),
+    );
+  }
+
+  void _showLogoutConfirm() {
+    if (_isLoggingOut) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => _LogoutConfirmDialog(
+        onConfirm: () async {
+          Navigator.of(ctx).pop();
+          setState(() => _isLoggingOut = true);
+          final router = GoRouter.of(context);
+          try {
+            await ref.read(authProvider.notifier).signOut();
+            if (!mounted) return;
+            router.go('/login');
+          } catch (_) {
+            if (!mounted) return;
+            setState(() => _isLoggingOut = false);
+          }
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = AppMotion.reduced(context);
 
     return Scaffold(
-      body: Stack(
-        children: [
-          // FONDO RADIAL INMERSIVO
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0.0, 0.0),
-                  radius: 1.2,
-                  colors: [
-                    AppColors.surface.withOpacity(0.6),
-                    AppColors.background,
+      backgroundColor: Colors.transparent,
+      body: AppBackground(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 540),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppDimens.space32,
+                  horizontal: AppDimens.space20,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // --- Header ---
+                    _SecurityHeader(reduced: reduced)
+                        .animate(delay: AppMotion.staggerDelay(0))
+                        .fadeIn(
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        )
+                        .moveY(
+                          begin: reduced ? 0 : 12,
+                          end: 0,
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        ),
+
+                    const SizedBox(height: AppDimens.space40),
+
+                    // --- Actualizar contraseña ---
+                    HoloPanel(
+                      interactive: true,
+                      onTap: _showChangePassword,
+                      glowAccent: AppColors.gold,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppDimens.space20,
+                        vertical: AppDimens.space16,
+                      ),
+                      child: const _SettingRow(
+                        label: 'Actualizar contraseña',
+                        description:
+                            'Modificar clave de acceso del operador',
+                        accent: AppColors.gold,
+                        icon: Icons.password_rounded,
+                      ),
+                    )
+                        .animate(delay: AppMotion.staggerDelay(1))
+                        .fadeIn(
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        )
+                        .moveY(
+                          begin: reduced ? 0 : 12,
+                          end: 0,
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        ),
+
+                    const SizedBox(height: AppDimens.space12),
+
+                    // --- Sobre BotLode ---
+                    HoloPanel(
+                      interactive: true,
+                      onTap: _showAbout,
+                      glowAccent: AppColors.cyan,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppDimens.space20,
+                        vertical: AppDimens.space16,
+                      ),
+                      child: const _SettingRow(
+                        label: 'Sobre BotLode',
+                        description:
+                            'Versión, motor y licencia del sistema',
+                        accent: AppColors.cyan,
+                        icon: Icons.info_outline_rounded,
+                      ),
+                    )
+                        .animate(delay: AppMotion.staggerDelay(2))
+                        .fadeIn(
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        )
+                        .moveY(
+                          begin: reduced ? 0 : 12,
+                          end: 0,
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        ),
+
+                    const SizedBox(height: AppDimens.space24),
+
+                    // --- Divider SESIÓN ---
+                    const HudDivider(label: 'SESIÓN'),
+
+                    const SizedBox(height: AppDimens.space24),
+
+                    // --- Cerrar sesión ---
+                    HoloPanel(
+                      interactive: true,
+                      onTap: _showLogoutConfirm,
+                      glowAccent: AppColors.danger,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppDimens.space20,
+                        vertical: AppDimens.space16,
+                      ),
+                      child: _SettingRow(
+                        label: 'Cerrar sesión',
+                        description: 'Desconectar del sistema central',
+                        accent: AppColors.danger,
+                        icon: Icons.power_settings_new_rounded,
+                        isLoading: _isLoggingOut,
+                      ),
+                    )
+                        .animate(delay: AppMotion.staggerDelay(3))
+                        .fadeIn(
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        )
+                        .moveY(
+                          begin: reduced ? 0 : 12,
+                          end: 0,
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        ),
+
+                    const SizedBox(height: AppDimens.space32),
+
+                    // --- Footer ---
+                    Text(
+                      'SECURE CONNECTION // ENCRYPTED',
+                      style: AppTextStyles.mono.copyWith(
+                        color: AppColors.textTertiary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ],
                 ),
               ),
             ),
           ),
-
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 500),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // --- ICONO DE SEGURIDAD ANIMADO ---
-                  Container(
-                    width: 120, height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.black,
-                      border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.1),
-                          blurRadius: 50,
-                          spreadRadius: 10,
-                        )
-                      ]
-                    ),
-                    child: Center(
-                      child: Icon(Icons.shield_outlined, size: 50, color: AppColors.primary)
-                          .animate(onPlay: (c) => c.repeat())
-                          .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.5)),
-                    ),
-                  ),
-
-                  const SizedBox(height: 40),
-
-                  // --- TÍTULOS ---
-                  Text(
-                    "PROTOCOLO DE SEGURIDAD",
-                    style: theme.textTheme.displayMedium?.copyWith(
-                      color: Colors.white,
-                      fontFamily: 'Oxanium',
-                      fontSize: 24,
-                      letterSpacing: 2.0,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    "Gestión de credenciales y acceso al sistema central.",
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 14,
-                    ),
-                  ),
-
-                  const SizedBox(height: 60),
-
-                  // --- BOTÓN 1: CAMBIAR CONTRASEÑA ---
-                  _SecurityActionButton(
-                    label: "ACTUALIZAR CONTRASEÑA",
-                    subLabel: "Modificar clave de acceso del operador",
-                    icon: Icons.password_rounded,
-                    color: AppColors.primary,
-                    onTap: () {
-                      showDialog(
-                        context: context, 
-                        builder: (_) => const ChangePasswordDialog()
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // --- BOTÓN 2: CERRAR SESIÓN ---
-                  _SecurityActionButton(
-                    label: "CERRAR SESIÓN",
-                    subLabel: "Desconectar y salir",
-                    icon: Icons.power_settings_new_rounded,
-                    color: AppColors.error,
-                    isDestructive: true,
-                    onTap: () async {
-                      // Ejecutamos logout
-                      await ref.read(authProvider.notifier).signOut();
-                      // Redirección forzada por seguridad (aunque el router debería hacerlo solo)
-                      if (context.mounted) GoRouter.of(context).go('/login');
-                    },
-                  ),
-
-                  const SizedBox(height: 40),
-                  
-                  // FOOTER
-                  Text(
-                    "SECURE CONNECTION // ENCRYPTED",
-                    style: TextStyle(
-                      color: AppColors.textSecondary.withOpacity(0.3),
-                      fontFamily: 'Courier',
-                      fontSize: 10,
-                      letterSpacing: 2.0,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _SecurityActionButton extends StatefulWidget {
-  final String label;
-  final String subLabel;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  final bool isDestructive;
+// ---------------------------------------------------------------------------
+// _SecurityHeader
+// ---------------------------------------------------------------------------
 
-  const _SecurityActionButton({
-    required this.label,
-    required this.subLabel,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-    this.isDestructive = false,
-  });
+class _SecurityHeader extends StatelessWidget {
+  final bool reduced;
 
-  @override
-  State<_SecurityActionButton> createState() => _SecurityActionButtonState();
-}
-
-class _SecurityActionButtonState extends State<_SecurityActionButton> {
-  bool _isHovered = false;
+  const _SecurityHeader({required this.reduced});
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = widget.color;
+    Widget iconWidget = Container(
+      width: 76,
+      height: 76,
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceHud,
+        shape: BoxShape.circle,
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.security_rounded,
+          size: 48,
+          color: AppColors.gold,
+        ),
+      ),
+    );
 
-    return Focus(
-      onKeyEvent: (_, KeyEvent event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
-          widget.onTap();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          decoration: BoxDecoration(
-            color: widget.isDestructive 
-                ? (_isHovered ? baseColor.withOpacity(0.15) : Colors.transparent)
-                : (_isHovered ? baseColor.withOpacity(0.1) : Colors.black.withOpacity(0.3)),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: _isHovered ? baseColor : AppColors.borderGlass,
-              width: 1.5,
-            ),
-            boxShadow: _isHovered 
-                ? [BoxShadow(color: baseColor.withOpacity(0.1), blurRadius: 20)] 
-                : [],
-          ),
-          child: Row(
+    if (!reduced) {
+      iconWidget = iconWidget
+          .animate(onPlay: (c) => c.repeat())
+          .shimmer(
+            duration: AppMotion.durShimmer,
+            color: AppColors.gold.withValues(alpha: 0.4),
+          );
+    }
+
+    return Column(
+      children: [
+        // HUD ring stack
+        SizedBox(
+          width: 116,
+          height: 116,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
+              // Outer ring
               Container(
-                padding: const EdgeInsets.all(12),
+                width: 116,
+                height: 116,
                 decoration: BoxDecoration(
-                  color: baseColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(widget.icon, color: baseColor, size: 24),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.label,
-                      style: TextStyle(
-                        color: _isHovered ? Colors.white : AppColors.textPrimary,
-                        fontFamily: 'Oxanium',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.subLabel,
-                      style: TextStyle(
-                        color: AppColors.textSecondary.withOpacity(0.7),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.borderGold,
+                    width: 1.5,
+                  ),
+                  boxShadow: AppDimens.glowGold,
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios_rounded, 
-                color: baseColor.withOpacity(_isHovered ? 1.0 : 0.3), 
-                size: 16
+              // Mid ring
+              Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.gold.withValues(alpha: 0.20),
+                ),
+              ),
+              // Inner circle with icon
+              iconWidget,
+            ],
+          ),
+        ),
+
+        const SizedBox(height: AppDimens.space24),
+
+        Text(
+          'PROTOCOLO DE SEGURIDAD',
+          style: AppTextStyles.displayM.copyWith(
+            color: AppColors.textPrimary,
+          ),
+          textAlign: TextAlign.center,
+        ),
+
+        const SizedBox(height: AppDimens.space8),
+
+        Text(
+          'Gestión de credenciales y acceso al sistema central.',
+          style: AppTextStyles.bodyM.copyWith(
+            color: AppColors.textSecondary,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _SettingRow — pure StatelessWidget, call site wraps in HoloPanel
+// ---------------------------------------------------------------------------
+
+class _SettingRow extends StatelessWidget {
+  final String label;
+  final String description;
+  final Color accent;
+  final IconData icon;
+  final bool isLoading;
+
+  const _SettingRow({
+    required this.label,
+    required this.description,
+    required this.accent,
+    required this.icon,
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Icon container
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.10),
+            borderRadius: AppDimens.brM,
+            border: Border.all(
+              color: accent.withValues(alpha: 0.28),
+              width: 1,
+            ),
+          ),
+          child: Center(
+            child: Icon(icon, size: AppDimens.iconM, color: accent),
+          ),
+        ),
+
+        const SizedBox(width: AppDimens.space16),
+
+        // Label + description
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: AppTextStyles.titleM.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppDimens.space4),
+              Text(
+                description,
+                style: AppTextStyles.bodyS.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
         ),
+
+        // Trailing: loader or chevron
+        if (isLoading)
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: accent,
+            ),
+          )
+        else
+          Icon(
+            Icons.chevron_right_rounded,
+            size: AppDimens.iconS,
+            color: accent.withValues(alpha: 0.4),
+          ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _LogoutConfirmDialog
+// ---------------------------------------------------------------------------
+
+class _LogoutConfirmDialog extends StatelessWidget {
+  final VoidCallback onConfirm;
+
+  const _LogoutConfirmDialog({required this.onConfirm});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 380),
+        child: HudCornerBrackets(
+          child: HoloPanel(
+            padding: const EdgeInsets.all(AppDimens.space24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '¿CERRAR SESIÓN?',
+                  style: AppTextStyles.titleL.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: AppDimens.space12),
+                Text(
+                  'El operador será desconectado del sistema.',
+                  style: AppTextStyles.bodyM.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppDimens.space24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppButton.ghost(
+                        label: 'Cancelar',
+                        onPressed: () => Navigator.of(context).pop(),
+                        expand: true,
+                      ),
+                    ),
+                    const SizedBox(width: AppDimens.space12),
+                    Expanded(
+                      child: AppButton.danger(
+                        label: 'Cerrar sesión',
+                        onPressed: onConfirm,
+                        expand: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-    ),
     );
   }
 }
