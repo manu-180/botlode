@@ -4,6 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/panels/holo_panel.dart';
+import 'package:botslode/core/ui/hud/hud_divider.dart';
+import 'package:botslode/core/ui/buttons/app_button.dart';
 
 /// Devuelve true cuando la plataforma actual es escritorio nativo
 /// (Windows, Linux, macOS). Retorna false en web y móvil.
@@ -51,12 +57,6 @@ class _StripeElementsCardFormState extends State<StripeElementsCardForm> {
   bool _isLoading = false;
 
   bool get _isFormComplete => _cardDetails?.complete == true;
-
-  @override
-  void dispose() {
-    _cardDetails = null;
-    super.dispose();
-  }
 
   Future<void> _tokenize() async {
     setState(() => _isLoading = true);
@@ -162,18 +162,9 @@ class _CardFormBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.4),
-        ),
-      ),
+    return HoloPanel(
+      padding: const EdgeInsets.all(AppDimens.space24),
+      borderColor: AppColors.borderDefault,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -181,32 +172,31 @@ class _CardFormBody extends StatelessWidget {
           // Encabezado
           Row(
             children: [
-              Icon(Icons.credit_card_outlined,
-                  color: colorScheme.primary, size: 22),
-              const SizedBox(width: 10),
+              const Icon(
+                Icons.credit_card_outlined,
+                size: AppDimens.iconS,
+                color: AppColors.gold,
+              ),
+              const SizedBox(width: AppDimens.space8),
               Text(
                 'DATOS DE TARJETA',
-                style: textTheme.labelMedium?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.55),
-                  fontFamily: 'Oxanium',
+                style: AppTextStyles.label.copyWith(
+                  color: AppColors.textSecondary,
                   letterSpacing: 1.4,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppDimens.space12),
+          const HudDivider(),
+          const SizedBox(height: AppDimens.space20),
 
           // Visible label for the card field (required for sighted users and a11y)
           Text(
-            'Datos de tu tarjeta',
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurface.withValues(alpha: 0.7),
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-            ),
+            'Número, vencimiento y CVV',
+            style: AppTextStyles.bodyS.copyWith(color: AppColors.textSecondary),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppDimens.space8),
 
           // NOTE: Full a11y inside CardField is limited by Stripe's WebView —
           // the internal inputs are managed by Stripe Elements (WebView/native).
@@ -217,56 +207,40 @@ class _CardFormBody extends StatelessWidget {
             hint: 'Ingrese número de tarjeta, fecha de vencimiento y CVV',
             child: CardField(
               onCardChanged: onCardChanged,
-              style: TextStyle(
-                color: colorScheme.onSurface,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
                 fontFamily: 'Oxanium',
                 fontSize: 15,
               ),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: colorScheme.surface.withValues(alpha: 0.6),
+                fillColor: AppColors.surface,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: colorScheme.outline.withValues(alpha: 0.3),
-                  ),
+                  borderRadius: AppDimens.brM,
+                  borderSide: const BorderSide(color: AppColors.borderDefault),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: colorScheme.outline.withValues(alpha: 0.3),
-                  ),
+                  borderRadius: AppDimens.brM,
+                  borderSide: const BorderSide(color: AppColors.borderDefault),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: colorScheme.primary,
-                    width: 1.5,
-                  ),
+                  borderRadius: AppDimens.brM,
+                  borderSide: const BorderSide(color: AppColors.cyan, width: 1.5),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppDimens.space24),
 
           // Botón de tokenización
-          FilledButton.icon(
+          AppButton(
+            label: isLoading ? 'PROCESANDO...' : 'VALIDAR TARJETA',
             onPressed: (isFormComplete && !isLoading) ? onTokenize : null,
-            icon: isLoading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.lock_outline, size: 18),
-            label: Text(
-              isLoading ? 'PROCESANDO...' : 'VALIDAR TARJETA',
-              style: const TextStyle(
-                fontFamily: 'Oxanium',
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-              ),
-            ),
+            variant: AppButtonVariant.primary,
+            size: AppButtonSize.md,
+            leadingIcon: isLoading ? null : Icons.lock_outline,
+            loading: isLoading,
+            expand: true,
           ),
         ],
       ),
@@ -281,49 +255,122 @@ class _CardFormBody extends StatelessWidget {
 class _DesktopFallback extends StatelessWidget {
   const _DesktopFallback();
 
+  static const List<String> _instructions = [
+    'Abrí BotLode en tu teléfono',
+    'Entrá a Facturación',
+    'Agregá la tarjeta',
+  ];
+
+  Widget _buildInstructions() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(_instructions.length, (i) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: i < _instructions.length - 1 ? AppDimens.space8 : 0,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: AppDimens.space20,
+                child: Text(
+                  '${i + 1}.',
+                  style: AppTextStyles.bodyS.copyWith(
+                    color: AppColors.textTertiary,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  _instructions[i],
+                  style: AppTextStyles.bodyS.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.4),
-        ),
+    return HoloPanel(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.space24,
+        vertical: AppDimens.space32,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.phone_android_outlined,
-            size: 52,
-            color: colorScheme.primary,
+          // HUD ring con ícono de smartphone
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceHud,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.borderGold,
+                width: 1.5,
+              ),
+              boxShadow: AppDimens.glowGold,
+            ),
+            child: const Icon(
+              Icons.phone_iphone,
+              color: AppColors.gold,
+              size: AppDimens.iconL,
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppDimens.space20),
+
+          // Título
+          Semantics(
+            header: true,
+            child: Text(
+              'Continuá en la app móvil',
+              style: AppTextStyles.titleM,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: AppDimens.space12),
+
+          // Cuerpo descriptivo
           Text(
-            'Stripe requiere la app móvil',
-            style: textTheme.titleMedium?.copyWith(
-              color: colorScheme.onSurface,
-              fontFamily: 'Oxanium',
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.8,
+            'Stripe Elements se completa desde la app móvil de BotLode por seguridad en la tokenización.',
+            style: AppTextStyles.bodyM.copyWith(
+              color: AppColors.textSecondary,
+              height: 1.5,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
-          Text(
-            'La integración con Stripe Elements no está disponible en la '
-            'versión de escritorio. Por favor, usá la aplicación móvil para '
-            'agregar una tarjeta de crédito.',
-            style: textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface.withValues(alpha: 0.65),
-              height: 1.55,
-            ),
-            textAlign: TextAlign.center,
+          const SizedBox(height: AppDimens.space20),
+
+          // Instrucciones numeradas
+          _buildInstructions(),
+          const SizedBox(height: AppDimens.space20),
+
+          // Nota de seguridad
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.lock_outline,
+                size: AppDimens.iconXS,
+                color: AppColors.success,
+              ),
+              const SizedBox(width: AppDimens.space4),
+              Text(
+                'Tokenización segura vía Stripe',
+                style: AppTextStyles.bodyS.copyWith(
+                  color: AppColors.textTertiary,
+                ),
+              ),
+            ],
           ),
         ],
       ),
