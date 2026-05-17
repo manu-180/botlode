@@ -14,6 +14,7 @@ import 'package:rive/rive.dart'; // IMPORTACIÓN CRÍTICA AÑADIDA
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:botslode/core/logging/app_logger.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 final _log = AppLogger('Main');
 
@@ -32,6 +33,13 @@ void main() {
       _log.info("🔐 [SEGURIDAD] Variables de entorno cargadas correctamente.");
     } catch (e) {
       _log.error("🔥 [FALLO CRÍTICO] No se pudo leer .env", error: e);
+    }
+
+    // 0.5 PRECARGA DE FUENTES (JetBrains Mono via google_fonts)
+    try {
+      await GoogleFonts.pendingFonts([GoogleFonts.jetBrainsMono()]);
+    } catch (e) {
+      _log.warn("🔤 [FONTS] JetBrains Mono no pudo precargarse, se usará el fallback del sistema", error: e);
     }
 
     // 1. INICIALIZACIÓN DE STRIPE

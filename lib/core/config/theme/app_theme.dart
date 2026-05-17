@@ -24,11 +24,12 @@ class AppTheme {
     ),
 
     textTheme: TextTheme(
-      displayLarge:  AppTextStyles.displayXL,
-      displayMedium: AppTextStyles.displayL,
-      displaySmall:  AppTextStyles.displayM,
-      titleLarge:    AppTextStyles.titleL,
-      titleMedium:   AppTextStyles.titleM,
+      displayLarge:   AppTextStyles.displayXL,
+      displayMedium:  AppTextStyles.displayL,
+      displaySmall:   AppTextStyles.displayM,
+      headlineMedium: AppTextStyles.titleL,
+      titleLarge:     AppTextStyles.titleL,
+      titleMedium:    AppTextStyles.titleM,
       labelLarge:    AppTextStyles.label,
       labelMedium:   AppTextStyles.label,
       labelSmall:    AppTextStyles.labelSmall,
@@ -103,7 +104,7 @@ class AppTheme {
       backgroundColor: Colors.transparent,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: AppTextStyles.titleL,
+      titleTextStyle: AppTextStyles.titleM,
     ),
 
     dividerTheme: const DividerThemeData(
