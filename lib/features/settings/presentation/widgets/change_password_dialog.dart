@@ -160,7 +160,9 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 20),
                     child: ErrorFeedbackCard(
+                      title: 'ERROR AL GUARDAR',
                       message: _errorMessage!,
+                      onRetry: _submit,
                       onDismiss: () => setState(() => _errorMessage = null),
                     ),
                   ),
