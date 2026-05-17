@@ -90,6 +90,7 @@ class AppIcons {
   static const IconData chevronDown  = Icons.expand_more;
   static const IconData winMinimize  = Icons.remove;
   static const IconData winMaximize  = Icons.crop_square;
+  static const IconData winRestore   = Icons.filter_none;
   static const IconData winClose     = Icons.close;
 
   // ─── HELPERS ──────────────────────────────────────────────────────────────

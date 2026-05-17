@@ -49,6 +49,15 @@ class _MainLayoutState extends ConsumerState<MainLayout>
     super.dispose();
   }
 
+  String? _breadcrumbFor(String location) {
+    if (location.startsWith('/dashboard') || location == '/') return 'HANGAR';
+    if (location.startsWith('/bots')) return 'BIBLIOTECA';
+    if (location.startsWith('/billing')) return 'FACTURACIÓN';
+    if (location.startsWith('/settings')) return 'AJUSTES';
+    if (location.startsWith('/store')) return 'TIENDA';
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(connectivityProvider, (prev, next) {
@@ -85,7 +94,10 @@ class _MainLayoutState extends ConsumerState<MainLayout>
               child: Column(
                 children: [
                   // Title bar solo en el área de contenido
-                  const CustomTitleBar(),
+                  CustomTitleBar(
+                    breadcrumb: _breadcrumbFor(GoRouterState.of(context).uri.toString()),
+                    systemStatus: SystemStatus.operational,
+                  ),
 
                   // Page content con fade/slide de entrada
                   Expanded(

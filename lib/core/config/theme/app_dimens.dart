@@ -136,7 +136,7 @@ class AppDimens {
   static const double sidebarWidthExpanded = 220;
 
   // --- TITLE BAR ---
-  static const double titleBarHeight = 40;
+  static const double titleBarHeight = 36;
 
   // --- VENTANA ---
   static const double windowMinWidth   = 1024;
