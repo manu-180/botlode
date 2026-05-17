@@ -5,6 +5,10 @@ import 'package:botslode/core/config/theme/app_dimens.dart';
 import 'package:botslode/core/config/theme/app_icons.dart';
 import 'package:botslode/core/config/theme/app_motion.dart';
 import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
+import 'package:botslode/core/ui/panels/holo_panel.dart';
+import 'package:botslode/core/ui/toasts/toast_service.dart';
+import 'package:botslode/core/ui/widgets/app_button.dart';
 import 'package:botslode/features/bots_library/domain/models/blueprint.dart';
 import 'package:botslode/features/dashboard/presentation/providers/bots_provider.dart';
 import 'package:botslode/features/dashboard/presentation/views/dashboard_view.dart';
@@ -27,13 +31,17 @@ class CreateBotModal extends ConsumerStatefulWidget {
   ConsumerState<CreateBotModal> createState() => _CreateBotModalState();
 }
 
-class _CreateBotModalState extends ConsumerState<CreateBotModal> {
+class _CreateBotModalState extends ConsumerState<CreateBotModal>
+    with SingleTickerProviderStateMixin {
   late Color _selectedColor;
   late TextEditingController _nameController;
   late TextEditingController _promptController;
   late TextEditingController _hexController;
 
   bool _isHexInputError = false;
+
+  late final AnimationController _entryCtrl;
+  late final Animation<double> _entryAnim;
 
   @override
   void initState() {
@@ -43,7 +51,6 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
     if (template != null) {
       _selectedColor = template.techColor;
       _nameController = TextEditingController(text: "${template.name} - Unit 01");
-      // Usamos el Master Prompt completo
       _promptController = TextEditingController(text: template.masterPrompt);
     } else {
       _selectedColor = AppColors.gold;
@@ -52,8 +59,21 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
     }
 
     _hexController = TextEditingController(
-      text: _selectedColor.value.toRadixString(16).toUpperCase().substring(2)
+      text: _selectedColor.value.toRadixString(16).toUpperCase().substring(2),
     );
+
+    _entryCtrl = AnimationController(vsync: this, duration: AppMotion.durSlow);
+    _entryAnim = CurvedAnimation(parent: _entryCtrl, curve: AppMotion.easeEntrance);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final reduce = AppMotion.reduced(context);
+      if (reduce) {
+        _entryCtrl.value = 1.0;
+      } else {
+        _entryCtrl.forward();
+      }
+    });
   }
 
   void _updateHexText(Color color) {
@@ -99,111 +119,166 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
       if (mounted) context.goNamed(DashboardView.routeName);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al crear bot: $e')),
+        ToastService.show(
+          context: context,
+          type: ToastType.error,
+          title: 'ERROR AL CREAR',
+          message: e.toString(),
         );
       }
     }
   }
 
-  // ⬅️ NUEVO: Diálogo para mostrar credenciales
   void _showCredentialsDialog(BuildContext context, Map<String, String> credentials) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Shortcuts(
-        shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+      barrierColor: AppColors.scrim,
+      builder: (ctx) => Shortcuts(
+        shortcuts: const {SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent()},
         child: Actions(
           actions: {
             _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
-              Navigator.of(context).pop();
+              Navigator.of(ctx).pop();
               return null;
             }),
           },
-          child: AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Row(
-          children: [
-            AppIcons.icon(AppIcons.lock, size: AppDimens.iconM, color: AppColors.gold),
-            SizedBox(width: AppDimens.space12),
-            Expanded(
-              child: Text(
-                "CREDENCIALES GENERADAS",
-                style: AppTextStyles.bodyL.copyWith(
-                  color: AppColors.gold,
-                  fontWeight: FontWeight.bold,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(AppDimens.space24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: HudCornerBrackets(
+                  color: AppColors.borderGold,
+                  child: HoloPanel(
+                    padding: const EdgeInsets.all(AppDimens.space24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header
+                        Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AppColors.gold.withValues(alpha: 0.10),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.gold.withValues(alpha: 0.40),
+                                  width: 1.5,
+                                ),
+                                boxShadow: AppDimens.glowGold,
+                              ),
+                              child: Center(
+                                child: AppIcons.icon(
+                                  AppIcons.lock,
+                                  size: AppDimens.iconS,
+                                  color: AppColors.gold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: AppDimens.space12),
+                            Expanded(
+                              child: Text(
+                                'CREDENCIALES GENERADAS',
+                                style: AppTextStyles.titleL.copyWith(
+                                  color: AppColors.gold,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppDimens.space8),
+                        Text(
+                          'Bot creado: ${credentials['name']}',
+                          style: AppTextStyles.bodyS.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: AppDimens.space20),
+                        _CredentialField(
+                          label: 'ALIAS',
+                          value: credentials['alias'] ?? '',
+                          icon: Icons.alternate_email,
+                        ),
+                        const SizedBox(height: AppDimens.space16),
+                        _CredentialField(
+                          label: 'PIN DE ACCESO',
+                          value: credentials['pin'] ?? '',
+                          icon: Icons.lock,
+                          isPin: true,
+                        ),
+                        const SizedBox(height: AppDimens.space20),
+                        Container(
+                          padding: const EdgeInsets.all(AppDimens.space12),
+                          decoration: BoxDecoration(
+                            color: AppColors.warning.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(AppDimens.radiusS),
+                            border: Border.all(
+                              color: AppColors.warning.withValues(alpha: 0.30),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              AppIcons.icon(
+                                AppIcons.warning,
+                                size: AppDimens.iconS,
+                                color: AppColors.warning,
+                              ),
+                              const SizedBox(width: AppDimens.space8),
+                              Expanded(
+                                child: Text(
+                                  'Guardá estas credenciales. Necesitarás el PIN para acceder al historial.',
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: AppColors.warning,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: AppDimens.space24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppButton.ghost(
+                                label: 'COPIAR PIN',
+                                leadingIcon: Icons.copy_rounded,
+                                onPressed: () {
+                                  Clipboard.setData(
+                                    ClipboardData(text: credentials['pin'] ?? ''),
+                                  );
+                                  ToastService.show(
+                                    context: ctx,
+                                    type: ToastType.success,
+                                    title: 'PIN copiado',
+                                    message: 'El PIN fue copiado al portapapeles.',
+                                  );
+                                },
+                                expand: true,
+                              ),
+                            ),
+                            const SizedBox(width: AppDimens.space12),
+                            Expanded(
+                              child: AppButton.primary(
+                                label: 'ENTENDIDO',
+                                onPressed: () => Navigator.of(ctx).pop(),
+                                expand: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Bot creado exitosamente: ${credentials['name']}",
-              style: AppTextStyles.bodyM.copyWith(color: AppColors.textSecondary),
-            ),
-            SizedBox(height: AppDimens.space24),
-            _CredentialField(
-              label: "ALIAS",
-              value: credentials['alias'] ?? '',
-              icon: Icons.alternate_email,
-            ),
-            SizedBox(height: AppDimens.space16),
-            _CredentialField(
-              label: "PIN DE ACCESO",
-              value: credentials['pin'] ?? '',
-              icon: Icons.lock,
-              isPin: true,
-            ),
-            SizedBox(height: AppDimens.space20),
-            Container(
-              padding: EdgeInsets.all(AppDimens.space12),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppDimens.radiusS),
-                border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  AppIcons.icon(AppIcons.warning, size: AppDimens.iconS, color: AppColors.warning),
-                  SizedBox(width: AppDimens.space8),
-                  Expanded(
-                    child: Text(
-                      "Guarda estas credenciales. Necesitarás el PIN para acceder al historial.",
-                      style: AppTextStyles.labelSmall.copyWith(
-                        color: AppColors.warning,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // Copiar PIN al portapapeles
-              Clipboard.setData(ClipboardData(text: credentials['pin'] ?? ''));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('PIN copiado al portapapeles')),
-              );
-            },
-            child: const Text("COPIAR PIN"),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.gold,
-              foregroundColor: AppColors.textOnGold,
-            ),
-            child: const Text("ENTENDIDO"),
-          ),
-        ],
           ),
         ),
       ),
@@ -215,6 +290,7 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
     _nameController.dispose();
     _promptController.dispose();
     _hexController.dispose();
+    _entryCtrl.dispose();
     super.dispose();
   }
 
@@ -226,23 +302,36 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
       child: Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.all(AppDimens.space24),
-        child: Container(
-          width: 550,
-          constraints: const BoxConstraints(maxHeight: 850),
-          decoration: BoxDecoration(
-            color: AppColors.surface.withValues(alpha: 0.95),
-            borderRadius: BorderRadius.circular(AppDimens.radiusXL),
-            border: Border.all(color: AppColors.borderDefault),
-            boxShadow: [
-              BoxShadow(
-                color: _selectedColor.withValues(alpha: 0.15),
-                blurRadius: 40,
-                offset: const Offset(0, 10),
+        insetPadding: const EdgeInsets.all(AppDimens.space24),
+        child: AnimatedBuilder(
+          animation: _entryAnim,
+          builder: (_, child) {
+            final t = _entryAnim.value;
+            return Opacity(
+              opacity: t,
+              child: Transform.scale(scale: 0.96 + 0.04 * t, child: child),
+            );
+          },
+          child: HudCornerBrackets(
+            color: AppColors.borderGold,
+            child: AnimatedContainer(
+              duration: AppMotion.durFast,
+              width: 550,
+              constraints: const BoxConstraints(maxHeight: 850),
+              decoration: BoxDecoration(
+                color: AppColors.glassSurfaceStrong,
+                borderRadius: BorderRadius.circular(AppDimens.radiusXL),
+                border: Border.all(color: AppColors.borderDefault),
+                boxShadow: [
+                  ...AppDimens.elev3,
+                  BoxShadow(
+                    color: _selectedColor.withValues(alpha: 0.18),
+                    blurRadius: 40,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Column(
+              child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
@@ -491,25 +580,21 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
               ),
 
               Padding(
-                padding: EdgeInsets.all(AppDimens.space24),
+                padding: const EdgeInsets.all(AppDimens.space24),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton(
+                    AppButton.ghost(
+                      label: 'CANCELAR',
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text("CANCELAR"),
+                      size: AppButtonSize.md,
                     ),
-                    SizedBox(width: AppDimens.space16),
-                    ElevatedButton.icon(
+                    const SizedBox(width: AppDimens.space16),
+                    AppButton.primary(
+                      label: isTemplateMode ? 'INSTALAR UNIDAD' : 'INICIAR SECUENCIA',
                       onPressed: _createBot,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _selectedColor,
-                        foregroundColor: ThemeData.estimateBrightnessForColor(_selectedColor) == Brightness.dark
-                            ? AppColors.textPrimary
-                            : AppColors.textOnGold,
-                      ),
-                      icon: AppIcons.icon(AppIcons.power, size: AppDimens.iconS, color: null),
-                      label: Text(isTemplateMode ? "INSTALAR UNIDAD" : "INICIAR SECUENCIA"),
+                      leadingIcon: AppIcons.power,
+                      size: AppButtonSize.md,
                     ),
                   ],
                 ),
@@ -518,6 +603,8 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
           ),
         ),
       ),
+    ),
+  ),
     );
   }
 

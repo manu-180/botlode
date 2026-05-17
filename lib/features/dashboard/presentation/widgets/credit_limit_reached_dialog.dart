@@ -4,6 +4,8 @@ import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/config/theme/app_dimens.dart';
 import 'package:botslode/core/config/theme/app_icons.dart';
 import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
+import 'package:botslode/core/ui/widgets/app_button.dart';
 import 'package:botslode/features/billing/presentation/views/billing_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -70,107 +72,86 @@ class CreditLimitReachedDialog extends StatelessWidget {
               ),
             ],
           ),
-          child: Container(
-            padding: EdgeInsets.all(AppDimens.space24),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(AppDimens.radiusXL),
-              border: Border.all(
-                color: AppColors.borderDefault,
-                width: 0.5,
+          child: HudCornerBrackets(
+            armLength: 16,
+            color: AppColors.borderGold,
+            child: Container(
+              padding: const EdgeInsets.all(AppDimens.space24),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppDimens.radiusXL),
+                border: Border.all(
+                  color: AppColors.borderDefault,
+                  width: 0.5,
+                ),
               ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Icono con anillo de estado
-                Container(
-                  padding: EdgeInsets.all(AppDimens.space16),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.warning.withValues(alpha: 0.12),
-                    border: Border.all(
-                      color: AppColors.warning.withValues(alpha: 0.4),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.warning.withValues(alpha: 0.2),
-                        blurRadius: 16,
-                        spreadRadius: 0,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icono con anillo de estado
+                  Container(
+                    padding: const EdgeInsets.all(AppDimens.space16),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.warning.withValues(alpha: 0.12),
+                      border: Border.all(
+                        color: AppColors.warning.withValues(alpha: 0.4),
+                        width: 1.5,
                       ),
-                    ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.warning.withValues(alpha: 0.2),
+                          blurRadius: 16,
+                          spreadRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: AppIcons.icon(AppIcons.warning, size: AppDimens.iconL, color: AppColors.warning),
                   ),
-                  child: AppIcons.icon(AppIcons.warning, size: AppDimens.iconL, color: AppColors.warning),
-                ),
-                SizedBox(height: AppDimens.space20),
-                Text(
-                  'LÍMITE DE CRÉDITO ALCANZADO',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.bodyL.copyWith(
-                    color: AppColors.textPrimary,
-                    letterSpacing: 1.8,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: AppDimens.space20),
+                  Text(
+                    'LÍMITE DE CRÉDITO ALCANZADO',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.titleM.copyWith(
+                      color: AppColors.textPrimary,
+                      letterSpacing: 1.8,
+                    ),
                   ),
-                ),
-                SizedBox(height: AppDimens.space12),
-                Text(
-                  'Tu pozo de crédito está al tope. No podés activar más unidades hasta que realices un pago y liberes capacidad.',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.label.copyWith(
-                    color: AppColors.textSecondary,
-                    height: 1.45,
-                    letterSpacing: 0.3,
+                  const SizedBox(height: AppDimens.space12),
+                  Text(
+                    'Tu pozo de crédito está al tope. No podés activar más unidades hasta que realices un pago y liberes capacidad.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodyM.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.45,
+                    ),
                   ),
-                ),
-                SizedBox(height: AppDimens.space24),
-                Text(
-                  'Realizá un pago para seguir operando.',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.bodyS.copyWith(
-                    color: AppColors.gold.withValues(alpha: 0.95),
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.8,
+                  const SizedBox(height: AppDimens.space16),
+                  Text(
+                    'Realizá un pago para seguir operando.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodyS.copyWith(
+                      color: AppColors.gold,
+                    ),
                   ),
-                ),
-                SizedBox(height: AppDimens.space24),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
+                  const SizedBox(height: AppDimens.space24),
+                  AppButton.primary(
+                    label: 'IR A PAGOS',
                     onPressed: () {
                       Navigator.of(context).pop();
                       context.goNamed(BillingView.routeName);
                     },
-                    icon: const Icon(Icons.payment_rounded, size: 20),
-                    label: const Text('IR A PAGOS'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.gold,
-                      foregroundColor: AppColors.textOnGold,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppDimens.radiusM),
-                      ),
-                      elevation: 0,
-                      textStyle: AppTextStyles.label.copyWith(
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
+                    leadingIcon: Icons.payment_rounded,
+                    expand: true,
                   ),
-                ),
-                SizedBox(height: AppDimens.space8),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    'CERRAR',
-                    style: AppTextStyles.bodyS.copyWith(
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.0,
-                    ),
+                  const SizedBox(height: AppDimens.space8),
+                  AppButton.ghost(
+                    label: 'CERRAR',
+                    onPressed: () => Navigator.of(context).pop(),
+                    expand: true,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
