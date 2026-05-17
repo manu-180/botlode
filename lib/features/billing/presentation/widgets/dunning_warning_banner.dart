@@ -1,13 +1,14 @@
 // Archivo: lib/features/billing/presentation/widgets/dunning_warning_banner.dart
 //
-// T4·19 — DunningWarningBanner
+// T4·19 — DunningWarningBanner (HUD redesign T4-60)
 //
-// Banner rojo persistente (no descartable) que aparece cuando la suscripción
-// está en `past_due`. Incluye:
-//   - Mensaje principal con fecha de suspensión estimada (currentPeriodEnd).
-//   - Último error de cobro si está disponible en el estado de billing.
-//   - CTA primaria: "Actualizar método de pago" → abre AddCardModal.
-//   - CTA secundaria: "Reintentar cobro" → llama retryPayment() en el provider.
+// Banner HUD Hangar OS persistente (no descartable) para suscripción en `past_due`.
+// Usa HudCornerBrackets, HudReactorBar y HudScanlines del design system.
+// Incluye animación de entrada slide-down.
+//
+// Severidad:
+//   currentPeriodEnd futuro → warning (AppColors.warning), icon error_outline_rounded
+//   ya vencido / null       → danger  (AppColors.danger),  icon report_rounded
 //
 // El banner solo se renderiza cuando:
 //   - El provider tiene datos (no loading/error).
@@ -16,6 +17,13 @@
 // A diferencia de TrialCountdownBanner, este banner NO es descartable.
 
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
+import 'package:botslode/core/ui/hud/hud_reactor_bar.dart';
+import 'package:botslode/core/ui/hud/hud_scanlines.dart';
+import 'package:botslode/core/ui/widgets/app_button.dart';
 import 'package:botslode/features/billing/domain/models/subscription.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/billing/presentation/widgets/add_card_modal.dart';
@@ -67,7 +75,7 @@ class _DunningWarningBannerState extends ConsumerState<DunningWarningBanner> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.message),
-            backgroundColor: AppColors.error,
+            backgroundColor: AppColors.danger,
           ),
         );
       }
@@ -91,19 +99,82 @@ class _DunningWarningBannerState extends ConsumerState<DunningWarningBanner> {
           return const SizedBox.shrink();
         }
 
+        final now = widget.now ?? DateTime.now();
         final gracePeriodEnd = sub.currentPeriodEnd;
         final dateStr = gracePeriodEnd != null
             ? _dateFormat.format(gracePeriodEnd.toLocal())
             : null;
 
-        return _DunningBannerBody(
-          dateStr: dateStr,
-          lastErrorMessage: state.errorMessage,
-          isRetrying: _isRetrying,
-          onUpdatePaymentMethod: _openUpdatePaymentMethod,
-          onRetryPayment: _handleRetry,
+        // Determine severity based on whether grace period is still active
+        final bool isGraceActive =
+            gracePeriodEnd != null && gracePeriodEnd.isAfter(now);
+
+        final severityColor =
+            isGraceActive ? AppColors.warning : AppColors.danger;
+        final severityIcon = isGraceActive
+            ? Icons.error_outline_rounded
+            : Icons.report_rounded;
+
+        return _AnimatedBannerEntry(
+          child: _DunningBannerBody(
+            dateStr: dateStr,
+            lastErrorMessage: state.errorMessage,
+            isRetrying: _isRetrying,
+            severityColor: severityColor,
+            severityIcon: severityIcon,
+            onUpdatePaymentMethod: _openUpdatePaymentMethod,
+            onRetryPayment: _handleRetry,
+          ),
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _AnimatedBannerEntry — slide-down + fade entrance
+// ---------------------------------------------------------------------------
+
+class _AnimatedBannerEntry extends StatefulWidget {
+  final Widget child;
+  const _AnimatedBannerEntry({required this.child});
+
+  @override
+  State<_AnimatedBannerEntry> createState() => _AnimatedBannerEntryState();
+}
+
+class _AnimatedBannerEntryState extends State<_AnimatedBannerEntry>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<Offset> _slide;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: AppMotion.durSlow);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -0.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: AppMotion.easeEntrance));
+    _fade = Tween<double>(begin: 0, end: 1)
+        .animate(CurvedAnimation(parent: _ctrl, curve: AppMotion.easeEntrance));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = AppMotion.isReduced(context);
+    if (reduced) return widget.child;
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(position: _slide, child: widget.child),
     );
   }
 }
@@ -117,6 +188,8 @@ class _DunningBannerBody extends StatelessWidget {
     required this.dateStr,
     required this.lastErrorMessage,
     required this.isRetrying,
+    required this.severityColor,
+    required this.severityIcon,
     required this.onUpdatePaymentMethod,
     required this.onRetryPayment,
   });
@@ -124,138 +197,126 @@ class _DunningBannerBody extends StatelessWidget {
   final String? dateStr;
   final String? lastErrorMessage;
   final bool isRetrying;
+  final Color severityColor;
+  final IconData severityIcon;
   final VoidCallback onUpdatePaymentMethod;
   final VoidCallback onRetryPayment;
 
   @override
   Widget build(BuildContext context) {
-    const color = AppColors.error;
-
     final mainText = dateStr != null
-        ? 'No pudimos cobrar tu suscripción. Tu acceso podría suspenderse el $dateStr.'
-        : 'No pudimos cobrar tu suscripción. Tu acceso podría suspenderse pronto.';
+        ? 'Actualizá tu método de pago. Tu acceso podría suspenderse el $dateStr.'
+        : 'Actualizá tu método de pago. Tu acceso podría suspenderse pronto.';
 
     return Semantics(
-      label: 'Advertencia: pago fallido. $mainText',
       liveRegion: true,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header: icon + title + message
-            Row(
+      label: 'Advertencia: pago fallido. $mainText',
+      child: HudCornerBrackets(
+        color: severityColor,
+        armLength: 12,
+        thickness: 1.0,
+        child: Container(
+          margin: const EdgeInsets.symmetric(
+            horizontal: AppDimens.space16,
+            vertical: AppDimens.space8,
+          ),
+          padding: const EdgeInsets.all(AppDimens.space16),
+          decoration: BoxDecoration(
+            color: severityColor.withValues(alpha: 0.08),
+            border: Border.all(
+              color: severityColor.withValues(alpha: 0.35),
+              width: 1.0,
+            ),
+            borderRadius: BorderRadius.circular(AppDimens.radiusM),
+          ),
+          child: HudScanlines(
+            opacity: 0.035,
+            animate: false,
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Decorative icon — meaning is conveyed by the parent
-                // Semantics label; exclude to avoid redundant announcement.
-                const ExcludeSemantics(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 2),
-                    child: Icon(
-                      Icons.error_outline_rounded,
-                      color: color,
-                      size: 20,
+                // Header row: reactor bar + icon + text
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    HudReactorBar(
+                      axis: Axis.vertical,
+                      thickness: 3,
+                      color: severityColor,
+                      pulsing: true,
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Pago fallido',
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        mainText,
-                        style: const TextStyle(
-                          color: Color(0xCCFF003C), // error a 80% opacidad
-                          fontSize: 12,
-                        ),
-                      ),
-                      if (lastErrorMessage != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          lastErrorMessage!,
-                          style: const TextStyle(
-                            color: Color(0x99FF003C), // error a 60% opacidad
-                            fontSize: 11,
-                            fontStyle: FontStyle.italic,
+                    const SizedBox(width: AppDimens.space12),
+
+                    ExcludeSemantics(
+                      child: Icon(severityIcon, color: severityColor, size: 20),
+                    ),
+                    const SizedBox(width: AppDimens.space12),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'PAGO RECHAZADO',
+                            style: AppTextStyles.label
+                                .copyWith(color: severityColor),
                           ),
-                        ),
-                      ],
-                    ],
+                          const SizedBox(height: AppDimens.space4),
+                          Text(
+                            mainText,
+                            style: AppTextStyles.bodyS.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          if (lastErrorMessage != null) ...[
+                            const SizedBox(height: AppDimens.space4),
+                            Text(
+                              lastErrorMessage!,
+                              style: AppTextStyles.mono.copyWith(
+                                color: AppColors.textTertiary,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: AppDimens.space12),
+
+                // CTA primaria
+                AppButton(
+                  label: AppStrings.billingDunningUpdatePayment,
+                  variant: AppButtonVariant.danger,
+                  size: AppButtonSize.md,
+                  expand: true,
+                  onPressed: onUpdatePaymentMethod,
+                ),
+
+                const SizedBox(height: AppDimens.space8),
+
+                // CTA secundaria — retry
+                Semantics(
+                  label: isRetrying
+                      ? 'Reintentando cobro...'
+                      : 'Reintentar cobro - suscripción en riesgo',
+                  button: true,
+                  child: AppButton(
+                    label: AppStrings.billingDunningRetryCharge,
+                    variant: AppButtonVariant.ghost,
+                    size: AppButtonSize.md,
+                    expand: true,
+                    loading: isRetrying,
+                    onPressed: isRetrying ? null : onRetryPayment,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-
-            // CTA primaria
-            Semantics(
-              label: 'Actualizar método de pago - suscripción en riesgo',
-              button: true,
-              child: SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: FilledButton(
-                  onPressed: onUpdatePaymentMethod,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: color,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text(AppStrings.billingDunningUpdatePayment),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // CTA secundaria
-            Semantics(
-              label: isRetrying
-                  ? 'Reintentando cobro...'
-                  : 'Reintentar cobro - suscripción en riesgo',
-              button: true,
-              child: SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton(
-                  onPressed: isRetrying ? null : onRetryPayment,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(
-                      color: Color(0x66FF003C), // error a 40% opacidad
-                    ),
-                    foregroundColor: color,
-                  ),
-                  child: isRetrying
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: color,
-                          ),
-                        )
-                      : const Text(AppStrings.billingDunningRetryCharge),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

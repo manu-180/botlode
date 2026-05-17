@@ -1,22 +1,30 @@
 // Archivo: lib/features/billing/presentation/widgets/trial_countdown_banner.dart
 //
-// T4·18 — TrialCountdownBanner
+// T4·18 — TrialCountdownBanner (HUD redesign T4-60)
 //
-// Banner Material 3 que muestra el conteo regresivo del período de prueba con
-// color y severidad adaptados a la cantidad de días restantes. Incluye un CTA
-// para agregar un método de pago cuando el tenant no tiene uno configurado.
+// Banner HUD Hangar OS que muestra el conteo regresivo del período de prueba.
+// Usa HudCornerBrackets, HudReactorBar, HudTicker y HudScanlines del design system.
+// Incluye animación de entrada slide-down y salida slide-up al descartarlo.
 //
-// Severidad (basada en días calendario, no horas):
+// Severidad (días calendario restantes):
 //   daysLeft > 7  → cyan   (AppColors.secondary) — informativo
 //   daysLeft 3–7  → naranja (AppColors.warning)   — advertencia
-//   daysLeft ≤ 2  → rojo   (AppColors.error)      — crítico
+//   daysLeft ≤ 2  → rojo   (AppColors.danger)     — crítico
 //
 // El banner solo se renderiza cuando:
 //   - El provider tiene datos (no loading/error).
-//   - sub.status == SubscriptionStatus.trialing && sub.trialEnd != null.
+//   - sub.status == SubscriptionStatus.trialing && sub.currentPeriodEnd != null.
 //   - El usuario no lo descartó (_dismissed == false).
 
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
+import 'package:botslode/core/ui/hud/hud_reactor_bar.dart';
+import 'package:botslode/core/ui/hud/hud_scanlines.dart';
+import 'package:botslode/core/ui/hud/hud_ticker.dart';
+import 'package:botslode/core/ui/widgets/app_button.dart';
 import 'package:botslode/features/billing/domain/models/subscription.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/billing/presentation/widgets/add_card_modal.dart';
@@ -63,7 +71,7 @@ class _TrialCountdownBannerState extends ConsumerState<TrialCountdownBanner> {
     if (daysLeft >= 3) {
       return (color: AppColors.warning, icon: Icons.hourglass_bottom_rounded);
     }
-    return (color: AppColors.error, icon: Icons.hourglass_disabled_rounded);
+    return (color: AppColors.danger, icon: Icons.hourglass_disabled_rounded);
   }
 
   // ---------------------------------------------------------------------------
@@ -80,8 +88,6 @@ class _TrialCountdownBannerState extends ConsumerState<TrialCountdownBanner> {
 
   @override
   Widget build(BuildContext context) {
-    if (_dismissed) return const SizedBox.shrink();
-
     final billingAsync = ref.watch(billingV2Provider);
 
     return billingAsync.when(
@@ -92,17 +98,16 @@ class _TrialCountdownBannerState extends ConsumerState<TrialCountdownBanner> {
 
         if (sub == null ||
             sub.status != SubscriptionStatus.trialing ||
-            sub.trialEnd == null) {
+            sub.currentPeriodEnd == null) {
           return const SizedBox.shrink();
         }
 
         final now = widget.now ?? DateTime.now();
-        final daysLeft = _daysLeft(sub.trialEnd!, now);
-        final hasDefaultPaymentMethod =
-            state.defaultPaymentMethodId != null;
+        final daysLeft = _daysLeft(sub.currentPeriodEnd!, now);
+        final hasDefaultPaymentMethod = state.defaultPaymentMethodId != null;
         final sev = _severity(daysLeft);
 
-        return _BannerBody(
+        final body = _BannerBody(
           daysLeft: daysLeft,
           hasDefaultPaymentMethod: hasDefaultPaymentMethod,
           color: sev.color,
@@ -110,7 +115,65 @@ class _TrialCountdownBannerState extends ConsumerState<TrialCountdownBanner> {
           onDismiss: () => setState(() => _dismissed = true),
           onAddPaymentMethod: _openAddCard,
         );
+
+        return AnimatedSize(
+          duration: Duration(
+            milliseconds:
+                (AppMotion.durSlow.inMilliseconds * 0.65).round(),
+          ),
+          curve: AppMotion.easeExit,
+          child:
+              _dismissed ? const SizedBox.shrink() : _AnimatedBannerEntry(child: body),
+        );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _AnimatedBannerEntry — slide-down + fade entrance
+// ---------------------------------------------------------------------------
+
+class _AnimatedBannerEntry extends StatefulWidget {
+  final Widget child;
+  const _AnimatedBannerEntry({required this.child});
+
+  @override
+  State<_AnimatedBannerEntry> createState() => _AnimatedBannerEntryState();
+}
+
+class _AnimatedBannerEntryState extends State<_AnimatedBannerEntry>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<Offset> _slide;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: AppMotion.durSlow);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -0.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: AppMotion.easeEntrance));
+    _fade = Tween<double>(begin: 0, end: 1)
+        .animate(CurvedAnimation(parent: _ctrl, curve: AppMotion.easeEntrance));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = AppMotion.isReduced(context);
+    if (reduced) return widget.child;
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(position: _slide, child: widget.child),
     );
   }
 }
@@ -136,100 +199,132 @@ class _BannerBody extends StatelessWidget {
   final VoidCallback onDismiss;
   final VoidCallback onAddPaymentMethod;
 
+  bool get _isDanger => color == AppColors.danger;
+  bool get _isPulsing => color == AppColors.warning || color == AppColors.danger;
+
   @override
   Widget build(BuildContext context) {
-    final dayLabel =
-        'Trial: $daysLeft día${daysLeft == 1 ? '' : 's'} restante${daysLeft == 1 ? '' : 's'}';
+    final semanticsLabel =
+        'Trial activo: $daysLeft días restantes. Severidad: ${_isDanger ? "crítica" : "advertencia"}';
 
-    // El botón CTA usa texto negro sobre cyan, blanco sobre naranja/rojo.
-    final bool isCyan = color == AppColors.secondary;
-    final Color foregroundColor =
-        isCyan ? Colors.black : Colors.white;
+    // Dismiss button hidden when danger AND !hasDefaultPaymentMethod
+    final showDismiss = !(_isDanger && !hasDefaultPaymentMethod);
 
     return Semantics(
-      label: 'Trial activo: $daysLeft días restantes',
       liveRegion: true,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          border: Border.all(color: color.withValues(alpha: 0.35)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Severity icon — decorative; meaning is conveyed by the
-            // Semantics label on the parent container.
-            ExcludeSemantics(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Icon(icon, color: color, size: 20),
-              ),
+      label: semanticsLabel,
+      child: HudCornerBrackets(
+        color: color,
+        armLength: 12,
+        thickness: 1.0,
+        child: Container(
+          margin: const EdgeInsets.symmetric(
+            horizontal: AppDimens.space16,
+            vertical: AppDimens.space8,
+          ),
+          padding: const EdgeInsets.all(AppDimens.space16),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            border: Border.all(
+              color: color.withValues(alpha: 0.35),
+              width: 1.0,
             ),
-            const SizedBox(width: 12),
+            borderRadius: BorderRadius.circular(AppDimens.radiusM),
+          ),
+          child: HudScanlines(
+            opacity: 0.035,
+            animate: false,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left: reactor bar spanning full content height
+                HudReactorBar(
+                  axis: Axis.vertical,
+                  thickness: 3,
+                  color: color,
+                  pulsing: _isPulsing,
+                ),
+                const SizedBox(width: AppDimens.space12),
 
-            // Content column
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Title
-                  Text(
-                    dayLabel,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                // Severity icon — decorative
+                ExcludeSemantics(
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                const SizedBox(width: AppDimens.space12),
 
-                  // Subtitle + CTA (only when no default payment method)
-                  if (!hasDefaultPaymentMethod) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      AppStrings.billingTrialAddPaymentWarning,
-                      style: TextStyle(
-                        color: color.withValues(alpha: 0.8),
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Semantics(
-                      label: 'Agregar método de pago - quedan $daysLeft días de trial',
-                      button: true,
-                      child: SizedBox(
-                        height: 48,
-                        child: FilledButton(
-                          onPressed: onAddPaymentMethod,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: color,
-                            foregroundColor: foregroundColor,
+                // Center: count + optional CTA
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Days ticker row
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            'QUEDAN ',
+                            style: AppTextStyles.label.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
                           ),
-                          child: const Text(AppStrings.billingTrialAddPaymentCta),
-                        ),
+                          HudTicker(
+                            value: daysLeft.toDouble(),
+                            decimals: 0,
+                            style: AppTextStyles.label.copyWith(
+                              color: color,
+                              fontSize: 18,
+                            ),
+                          ),
+                          Text(
+                            ' DÍAS DE PRUEBA',
+                            style: AppTextStyles.label.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
 
-            // Dismiss button (40×40 touch target)
-            SizedBox(
-              width: 40,
-              height: 40,
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                iconSize: 18,
-                tooltip: 'Cerrar',
-                onPressed: onDismiss,
-                icon: Icon(Icons.close, color: color.withValues(alpha: 0.7)),
-              ),
+                      if (!hasDefaultPaymentMethod) ...[
+                        const SizedBox(height: AppDimens.space4),
+                        Text(
+                          AppStrings.billingTrialAddPaymentWarning,
+                          style: AppTextStyles.bodyS.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: AppDimens.space12),
+                        AppButton(
+                          label: 'MEJORAR AHORA',
+                          variant: AppButtonVariant.primary,
+                          size: AppButtonSize.sm,
+                          onPressed: onAddPaymentMethod,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // Right: dismiss button
+                if (showDismiss)
+                  IconButton(
+                    tooltip: 'Cerrar aviso de prueba',
+                    icon: Icon(
+                      Icons.close,
+                      size: 16,
+                      color: color.withValues(alpha: 0.6),
+                    ),
+                    onPressed: onDismiss,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    padding: EdgeInsets.zero,
+                  ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
