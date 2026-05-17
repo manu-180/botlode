@@ -3,20 +3,22 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:botslode/core/config/app_config.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
-import 'package:botslode/core/providers/connectivity_provider.dart'; 
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/providers/connectivity_provider.dart';
 import 'package:botslode/core/ui/widgets/animated_ticker.dart';
+import 'package:botslode/core/ui/widgets/status_tag.dart';
 import 'package:botslode/features/bot_engine/presentation/providers/bot_mood_provider.dart';
-import 'package:botslode/features/bot_engine/presentation/widgets/bot_chat_console.dart';
 import 'package:botslode/features/bot_engine/presentation/widgets/rive_bot_display.dart';
 import 'package:botslode/features/bot_engine/presentation/widgets/status_indicator.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/presentation/providers/bots_provider.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/credit_limit_reached_dialog.dart';
-import 'package:botslode/features/dashboard/presentation/widgets/delete_protocol_dialog.dart';
-import 'package:botslode/features/dashboard/presentation/widgets/edit_color_dialog.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/unit_command_header.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/unit_tab_bar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart'; 
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -36,7 +38,42 @@ class BotDetailView extends ConsumerStatefulWidget {
 }
 
 class _BotDetailViewState extends ConsumerState<BotDetailView> {
-  int _selectedTab = 0; 
+  int _selectedTab = 0;
+  // 1 = navigating right (index increases), -1 = navigating left.
+  int _tabDirection = 1;
+
+  void _setTab(int index) {
+    if (index == _selectedTab) return;
+    setState(() {
+      _tabDirection = index > _selectedTab ? 1 : -1;
+      _selectedTab = index;
+    });
+  }
+
+  UnitStatus _mapBotStatus(BotStatus s) => switch (s) {
+        BotStatus.active          => UnitStatus.online,
+        BotStatus.maintenance     => UnitStatus.processing,
+        BotStatus.disabled        => UnitStatus.offline,
+        BotStatus.creditSuspended => UnitStatus.suspended,
+      };
+
+  Widget _buildTabContent(Bot bot, bool isActive) {
+    return switch (_selectedTab) {
+      0 => _MonitorPanel(
+            key: const ValueKey(0),
+            bot: bot,
+            isActive: isActive,
+            ref: ref,
+            onOpenWppPhoneDialog: () => _showWppPhoneDialog(bot),
+            onEnergyToggle: _handleEnergyToggle,
+          ),
+      1 => const _PlaceholderTab(key: ValueKey(1), label: 'CONFIG'),
+      2 => const _PlaceholderTab(key: ValueKey(2), label: 'KNOWLEDGE'),
+      3 => const _PlaceholderTab(key: ValueKey(3), label: 'MOOD'),
+      4 => const _PlaceholderTab(key: ValueKey(4), label: 'EMBED'),
+      _ => const SizedBox.shrink(),
+    };
+  }
 
   // --- NOTIFICACIÓN "EPIC" ---
   void _showEpicNotify(String message) {
@@ -1698,219 +1735,247 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     final botsAsync = ref.watch(botsProvider);
     final currentMoodIndex = ref.watch(terminalBotMoodProvider);
     final connectivityAsync = ref.watch(connectivityProvider);
-    final isOnline = connectivityAsync.asData?.value ?? true; 
+    final isOnline = connectivityAsync.asData?.value ?? true;
+    final reduce = AppMotion.reduced(context);
 
     return botsAsync.when(
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.primary))),
-      error: (err, stack) => Scaffold(body: Center(child: Text("ERROR DE ENLACE: $err"))),
+      loading: () => const Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(child: CircularProgressIndicator(color: AppColors.gold)),
+      ),
+      error: (err, stack) => Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: Text('ERROR DE ENLACE: $err',
+              style: const TextStyle(color: AppColors.textSecondary)),
+        ),
+      ),
       data: (bots) {
-        final bot = bots.cast<Bot?>().firstWhere((b) => b?.id == widget.botId, orElse: () => null);
-        if (bot == null) return const Scaffold(body: Center(child: Text("UNIDAD NO ENCONTRADA")));
+        final bot = bots.cast<Bot?>().firstWhere(
+          (b) => b?.id == widget.botId,
+          orElse: () => null,
+        );
+        if (bot == null) {
+          return const Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Center(
+              child: Text('UNIDAD NO ENCONTRADA',
+                  style: TextStyle(color: AppColors.textSecondary)),
+            ),
+          );
+        }
 
         final isActive = bot.status == BotStatus.active;
+        final unitStatus = _mapBotStatus(bot.status);
 
         return MouseRegion(
           onHover: (event) {
             final screenWidth = MediaQuery.of(context).size.width;
             final screenHeight = MediaQuery.of(context).size.height;
-            final double dx = event.position.dx - (screenWidth * 0.3); 
-            final double dy = event.position.dy - (screenHeight * 0.5);
-            ref.read(terminalPointerPositionProvider.notifier).state = Offset(dx, dy);
+            final dx = event.position.dx - (screenWidth * 0.3);
+            final dy = event.position.dy - (screenHeight * 0.5);
+            ref.read(terminalPointerPositionProvider.notifier).state =
+                Offset(dx, dy);
           },
-          onExit: (_) => ref.read(terminalPointerPositionProvider.notifier).state = null,
+          onExit: (_) =>
+              ref.read(terminalPointerPositionProvider.notifier).state = null,
           child: Scaffold(
-            appBar: AppBar(
-              automaticallyImplyLeading: false, // 2. SACAR FLECHA ATRÁS
-              
-              title: Row(
-                children: [
-                  Container(
-                    width: 4, height: 24,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(2),
-                      boxShadow: [
-                        BoxShadow(color: AppColors.primary.withValues(alpha: 0.6), blurRadius: 10, spreadRadius: 1)
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  
-                  // 3. NOMBRE EDITABLE (CLICK-TO-EDIT)
-                  Expanded(
-                    child: _EditableHeader(
-                      initialName: bot.name,
-                      onSave: (newName) async {
-                        if (newName.trim().isNotEmpty && newName != bot.name) {
-                          await ref.read(botsProvider.notifier).updateBotName(bot.id, newName.trim());
-                        }
-                      },
-                    ),
-                  ),
-                ],
+            backgroundColor: Colors.transparent,
+            body: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.space32,
+                vertical: AppDimens.space24,
               ),
-              
-              actions: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderGlass),
-                  ),
-                  child: Row(
-                    children: [
-                      _ActionButton(
-                        icon: Icons.edit_note_rounded,
-                        color: AppColors.secondary,
-                        tooltip: "Editar Prompt",
-                        onTap: () => _showEditPromptDialog(bot),
-                      ),
-                      Container(width: 1, height: 20, color: AppColors.borderGlass),
-                      _ActionButton(
-                        icon: Icons.chat_bubble_outline_rounded,
-                        color: AppColors.secondary,
-                        tooltip: "Editar Mensaje Inicial",
-                        onTap: () => _showEditInitialMessageDialog(bot),
-                      ),
-                      Container(width: 1, height: 20, color: AppColors.borderGlass),
-                      _ActionButton(
-                        icon: Icons.code_rounded,
-                        color: AppColors.primary,
-                        tooltip: "Código Web",
-                        onTap: () => _showEmbedDialog(bot),
-                      ),
-                      Container(width: 1, height: 20, color: AppColors.borderGlass),
-                      _ActionButton(
-                        icon: Icons.lock_rounded,
-                        color: AppColors.success,
-                        tooltip: "PIN de Acceso",
-                        onTap: () => _showPinDialog(bot),
-                      ),
-                      Container(width: 1, height: 20, color: AppColors.borderGlass),
-                      _ActionButton(
-                        icon: Icons.palette_rounded,
-                        color: bot.primaryColor,
-                        tooltip: "Editar Color",
-                        onTap: () => showDialog(
-                          context: context,
-                          builder: (c) => EditColorDialog(bot: bot),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final totalWidth = constraints.maxWidth;
+
+                  // ── Left column width by breakpoint ────────────────
+                  // ≥ 1440 px: flex 42 (capped 380–460)
+                  // 1180–1439 px: fixed 380
+                  // < 1180 px (minimum): compressed 340
+                  final double leftWidth;
+                  if (totalWidth >= 1440) {
+                    leftWidth = (totalWidth * 0.42).clamp(380.0, 460.0);
+                  } else if (totalWidth >= 1180) {
+                    leftWidth = 380;
+                  } else {
+                    leftWidth = 340;
+                  }
+
+                  // ── Header ────────────────────────────────────────
+                  Widget header = UnitCommandHeader(
+                    botName: bot.name,
+                    botId: bot.id,
+                    status: unitStatus,
+                    onBack: () => context.pop(),
+                  );
+
+                  // ── Left column (avatar + status) ──────────────────
+                  // Content will be redesigned by prompt 31.
+                  Widget leftColumn = SizedBox(
+                    width: leftWidth,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 350),
+                      curve: Curves.easeInOut,
+                      decoration: BoxDecoration(
+                        color: bot.themeMode == 'light'
+                            ? const Color(0xFFE8EAED)
+                            : const Color(0xFF181818),
+                        borderRadius:
+                            BorderRadius.circular(AppDimens.radiusL),
+                        border: Border.all(
+                          color: bot.themeMode == 'light'
+                              ? Colors.black.withValues(alpha: 0.12)
+                              : AppColors.borderDefault,
+                          width: 1.0,
                         ),
+                        boxShadow: AppDimens.elev1,
                       ),
-                      Container(width: 1, height: 20, color: AppColors.borderGlass),
-                      _ActionButton(
-                        icon: Icons.delete_forever_rounded,
-                        color: AppColors.error,
-                        tooltip: "Desmantelar",
-                        isDangerous: true,
-                        onTap: () => showDialog(
-                          context: context, 
-                          builder: (c) => DeleteProtocolDialog(
-                            botName: bot.name, 
-                            currentBalance: bot.calculatedDebt, 
-                            onConfirm: () { 
-                              ref.read(botsProvider.notifier).removeBot(widget.botId); 
-                              context.pop(); 
-                            }
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const RiveBotDisplay(),
+                          Positioned(
+                            top: AppDimens.space24,
+                            right: AppDimens.space24,
+                            child: StatusIndicator(
+                              isLoading: false,
+                              isOnline: isOnline,
+                              moodIndex: currentMoodIndex,
+                              isDarkMode: bot.themeMode == 'dark',
+                            ),
                           ),
+                        ],
+                      ),
+                    ),
+                  );
+
+                  // ── Tab bar ───────────────────────────────────────
+                  Widget tabBar = UnitTabBar(
+                    selectedIndex: _selectedTab,
+                    onTabSelected: _setTab,
+                  );
+
+                  // ── Tab content with directional crossfade ─────────
+                  Widget tabContent = AnimatedSwitcher(
+                    duration: reduce
+                        ? AppMotion.durCrossfadeReduced
+                        : AppMotion.durBase,
+                    reverseDuration: reduce
+                        ? AppMotion.durCrossfadeReduced
+                        : AppMotion.exitOf(AppMotion.durBase),
+                    switchInCurve: AppMotion.easeEntrance,
+                    switchOutCurve: AppMotion.easeExit,
+                    transitionBuilder: (child, animation) {
+                      if (reduce) {
+                        return FadeTransition(
+                            opacity: animation, child: child);
+                      }
+                      return SlideTransition(
+                        position: Tween<Offset>(
+                          begin: Offset(_tabDirection * 0.06, 0),
+                          end: Offset.zero,
+                        ).animate(CurvedAnimation(
+                          parent: animation,
+                          curve: AppMotion.easeEntrance,
+                          reverseCurve: AppMotion.easeExit,
+                        )),
+                        child:
+                            FadeTransition(opacity: animation, child: child),
+                      );
+                    },
+                    child: _buildTabContent(bot, isActive),
+                  );
+
+                  // ── Entry animations ───────────────────────────────
+                  if (!reduce) {
+                    header = header
+                        .animate()
+                        .fade(
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        )
+                        .move(
+                          begin: const Offset(0, 12),
+                          end: Offset.zero,
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        );
+                    leftColumn = leftColumn
+                        .animate(
+                          delay: AppMotion.staggerDelay(1),
+                        )
+                        .fade(
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        )
+                        .move(
+                          begin: const Offset(0, 12),
+                          end: Offset.zero,
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        );
+                    tabBar = tabBar
+                        .animate(
+                          delay: AppMotion.staggerDelay(2),
+                        )
+                        .fade(
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        )
+                        .move(
+                          begin: const Offset(0, 12),
+                          end: Offset.zero,
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        );
+                    tabContent = tabContent
+                        .animate(
+                          delay: AppMotion.staggerDelay(3),
+                        )
+                        .fade(
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        )
+                        .move(
+                          begin: const Offset(0, 12),
+                          end: Offset.zero,
+                          duration: AppMotion.durBase,
+                          curve: AppMotion.easeEntrance,
+                        );
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      header,
+                      const SizedBox(height: AppDimens.space24),
+                      Expanded(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            leftColumn,
+                            const SizedBox(width: AppDimens.space24),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.stretch,
+                                children: [
+                                  tabBar,
+                                  const SizedBox(
+                                      height: AppDimens.space20),
+                                  Expanded(child: tabContent),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-              ],
-            ),
-            body: Row(
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.easeInOut,
-                    margin: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: bot.themeMode == 'light'
-                          ? const Color(0xFFE8EAED)
-                          : const Color(0xFF181818),
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(
-                        color: bot.themeMode == 'light'
-                            ? Colors.black.withValues(alpha: 0.12)
-                            : AppColors.borderGlass,
-                        width: 1.0,
-                      ),
-                      boxShadow: [
-                        if (bot.themeMode == 'light')
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            blurRadius: 28,
-                            spreadRadius: -6,
-                            offset: const Offset(0, 4),
-                          )
-                        else
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            blurRadius: 20,
-                            offset: const Offset(0, 4),
-                          ),
-                        if (bot.themeMode == 'light')
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.06),
-                            blurRadius: 40,
-                            spreadRadius: -8,
-                            offset: Offset.zero,
-                          ),
-                      ],
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        const RiveBotDisplay(),
-                        Positioned(
-                          top: 24,
-                          right: 24,
-                          child: StatusIndicator(
-                            isLoading: false,
-                            isOnline: isOnline,
-                            moodIndex: currentMoodIndex,
-                            isDarkMode: bot.themeMode == 'dark',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 24, 24, 24),
-                    child: Column(
-                      children: [
-                        _SciFiSlidingTabs(
-                          selectedIndex: _selectedTab,
-                          onTabSelected: (index) => setState(() => _selectedTab = index),
-                        ),
-                        const SizedBox(height: 24),
-                        Expanded(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: _selectedTab == 0
-                                ? _MonitorPanel(
-                                    bot: bot,
-                                    isActive: isActive,
-                                    ref: ref,
-                                    onOpenWppPhoneDialog: () => _showWppPhoneDialog(bot),
-                                    onEnergyToggle: _handleEnergyToggle,
-                                  )
-                                : BotChatConsole(botName: bot.name, botColor: AppColors.primary, botId: bot.id),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                  );
+                },
+              ),
             ),
           ),
         );
@@ -2069,108 +2134,23 @@ class _ActionButtonState extends State<_ActionButton> {
   }
 }
 
-class _SciFiSlidingTabs extends StatefulWidget {
-  final int selectedIndex;
-  final ValueChanged<int> onTabSelected;
+// ─── Placeholder shown for tabs not yet implemented (prompts 32–36) ──────────
 
-  const _SciFiSlidingTabs({required this.selectedIndex, required this.onTabSelected});
-
-  @override
-  State<_SciFiSlidingTabs> createState() => _SciFiSlidingTabsState();
-}
-
-class _SciFiSlidingTabsState extends State<_SciFiSlidingTabs> {
-  final List<GlobalKey> _keys = [GlobalKey(), GlobalKey()];
-  double _indicatorLeft = 0;
-  double _indicatorWidth = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    SchedulerBinding.instance.addPostFrameCallback((_) => _updateIndicator());
-  }
-
-  @override
-  void didUpdateWidget(covariant _SciFiSlidingTabs oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    SchedulerBinding.instance.addPostFrameCallback((_) => _updateIndicator());
-  }
-
-  void _updateIndicator() {
-    if (!mounted) return;
-    final key = _keys[widget.selectedIndex];
-    final RenderBox? renderBox = key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null) {
-      final parentRenderBox = context.findRenderObject() as RenderBox?;
-      if (parentRenderBox != null) {
-        final itemOffset = renderBox.localToGlobal(Offset.zero);
-        final parentOffset = parentRenderBox.localToGlobal(Offset.zero);
-        setState(() {
-          _indicatorLeft = itemOffset.dx - parentOffset.dx;
-          _indicatorWidth = renderBox.size.width;
-        });
-      }
-    }
-  }
+class _PlaceholderTab extends StatelessWidget {
+  final String label;
+  const _PlaceholderTab({super.key, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 55,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0A),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderGlass, width: 1.5),
-      ),
-      child: Stack(
-        children: [
-          Row(
-            children: [
-              _buildTabItem(0, "MONITOR", Icons.monitor_heart_outlined),
-              Container(width: 1, height: 30, color: AppColors.borderGlass), 
-              _buildTabItem(1, "TERMINAL", Icons.terminal_rounded),
-            ],
-          ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 400),
-            curve: const Cubic(0.25, 0.8, 0.25, 1.0), 
-            left: _indicatorLeft,
-            width: _indicatorWidth,
-            bottom: 0, 
-            child: Container(
-              height: 3,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                boxShadow: [
-                  BoxShadow(color: AppColors.primary.withValues(alpha: 0.6), blurRadius: 8, offset: const Offset(0, -2)),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabItem(int index, String label, IconData icon) {
-    final isSelected = widget.selectedIndex == index;
-    return Expanded(
-      child: InkWell(
-        onTap: () => widget.onTabSelected(index),
-        overlayColor: WidgetStateProperty.all(Colors.transparent),
-        child: Center(
-          child: Container(
-            key: _keys[index], 
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8), 
-            child: Row(
-              mainAxisSize: MainAxisSize.min, 
-              children: [
-                Icon(icon, size: 16, color: isSelected ? Colors.white : AppColors.textSecondary),
-                const SizedBox(width: 8),
-                Text(label, style: TextStyle(color: isSelected ? Colors.white : AppColors.textSecondary, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.2)),
-              ],
-            ),
-          ),
+    return Center(
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Oxanium',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.4,
+          color: AppColors.textTertiary,
         ),
       ),
     );
@@ -2185,6 +2165,7 @@ class _MonitorPanel extends StatelessWidget {
   final void Function(BuildContext context, String botId)? onEnergyToggle;
 
   const _MonitorPanel({
+    super.key,
     required this.bot,
     required this.isActive,
     required this.ref,
