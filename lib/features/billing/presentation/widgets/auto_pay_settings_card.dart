@@ -43,12 +43,7 @@ class _AutoPaySettingsCardState extends ConsumerState<AutoPaySettingsCard> {
   }
 
   void _openManageCards(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const ManageCardsModal(),
-    );
+    ManageCardsModal.show(context);
   }
 
   @override

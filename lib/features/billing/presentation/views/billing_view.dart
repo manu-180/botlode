@@ -24,6 +24,7 @@ import 'package:botslode/features/billing/presentation/providers/billing_provide
 import 'package:botslode/features/billing/presentation/providers/billing_state.dart';
 import 'package:botslode/features/billing/presentation/widgets/billing_tab_bar.dart';
 import 'package:botslode/features/billing/presentation/widgets/dunning_warning_banner.dart';
+import 'package:botslode/features/billing/presentation/widgets/manage_cards_modal.dart';
 import 'package:botslode/features/billing/presentation/widgets/trial_countdown_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -547,9 +548,7 @@ class _PaymentMethodsTab extends StatelessWidget {
 
           AppButton(
             label: 'GESTIONAR MÉTODOS',
-            onPressed: () {
-              // TODO(T4·53): open ManageCardsModal
-            },
+            onPressed: () => ManageCardsModal.show(context),
             variant: AppButtonVariant.secondary,
             size: AppButtonSize.md,
           ),
