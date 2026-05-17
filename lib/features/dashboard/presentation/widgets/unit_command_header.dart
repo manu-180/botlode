@@ -1,6 +1,6 @@
 // lib/features/dashboard/presentation/widgets/unit_command_header.dart
 // Barra de comando para la pantalla de detalle de unidad.
-// Muestra: botón volver · nombre + HudIdTag · clase · StatusTag.
+// Muestra: botón volver · nombre + HudIdTag · clase · StatusTag · UnitActionBar.
 import 'dart:math' show min;
 
 import 'package:botslode/core/config/theme/app_colors.dart';
@@ -10,6 +10,7 @@ import 'package:botslode/core/ui/hud/hud_id_tag.dart';
 import 'package:botslode/core/ui/widgets/app_button.dart';
 import 'package:botslode/core/ui/widgets/app_icon_button.dart';
 import 'package:botslode/core/ui/widgets/status_tag.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/unit_action_bar.dart';
 import 'package:flutter/material.dart';
 
 class UnitCommandHeader extends StatelessWidget {
@@ -17,6 +18,9 @@ class UnitCommandHeader extends StatelessWidget {
   final String botId;
   final UnitStatus status;
   final VoidCallback onBack;
+  final VoidCallback? onEdit;
+  final VoidCallback? onShare;
+  final VoidCallback? onDelete;
 
   const UnitCommandHeader({
     super.key,
@@ -24,6 +28,9 @@ class UnitCommandHeader extends StatelessWidget {
     required this.botId,
     required this.status,
     required this.onBack,
+    this.onEdit,
+    this.onShare,
+    this.onDelete,
   });
 
   // Short ID: strip dashes, take first 6 chars uppercase.
@@ -89,6 +96,15 @@ class UnitCommandHeader extends StatelessWidget {
 
             // ─── Status tag ───────────────────────────────────────────
             StatusTag(status: status),
+
+            const SizedBox(width: AppDimens.space16),
+
+            // ─── Action bar ───────────────────────────────────────────
+            UnitActionBar(
+              onEdit: onEdit,
+              onShare: onShare,
+              onDelete: onDelete,
+            ),
           ],
         ),
       ),

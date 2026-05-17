@@ -10,7 +10,9 @@ import 'package:botslode/core/ui/widgets/status_tag.dart';
 import 'package:botslode/features/bot_engine/presentation/providers/bot_mood_provider.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/presentation/providers/bots_provider.dart';
+import 'package:botslode/core/ui/widgets/system_broadcast_overlay.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/credit_limit_reached_dialog.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/delete_protocol_dialog.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/unit_avatar_panel.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/unit_command_header.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/unit_tab_bar.dart';
@@ -76,49 +78,9 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     };
   }
 
-  // --- NOTIFICACIÓN "EPIC" ---
-  void _showEpicNotify(String message) {
-    OverlayState? overlayState = Overlay.of(context);
-    late OverlayEntry overlayEntry;
-    overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        top: MediaQuery.of(context).size.height * 0.4,
-        left: MediaQuery.of(context).size.width * 0.35,
-        right: MediaQuery.of(context).size.width * 0.35,
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.0, end: 1.0),
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.elasticOut,
-          builder: (context, value, child) => Opacity(
-            opacity: value.clamp(0.0, 1.0),
-            child: Transform.scale(scale: 0.9 + (0.1 * value), child: child),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 32),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.95),
-                border: Border.all(color: AppColors.primary, width: 2),
-                boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 40, spreadRadius: 10)],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.terminal_rounded, color: AppColors.primary, size: 40),
-                  const SizedBox(height: 16),
-                  Text(message, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 4, fontFamily: 'Courier')),
-                  const SizedBox(height: 8),
-                  Text("SISTEMA ACTUALIZADO", style: TextStyle(color: AppColors.primary.withValues(alpha: 0.7), fontSize: 9, letterSpacing: 2, fontFamily: 'Courier')),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    overlayState.insert(overlayEntry);
-    Future.delayed(const Duration(seconds: 2), () => overlayEntry.remove());
+  // --- NOTIFICACIÓN DE SISTEMA ---
+  void _showEpicNotify(String message, {BroadcastType type = BroadcastType.info}) {
+    SystemBroadcastOverlay.show(context, message: message, type: type);
   }
 
   void _handleEnergyToggle(BuildContext context, String botId) {
@@ -127,6 +89,28 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
         CreditLimitReachedDialog.show(context);
       }
     });
+  }
+
+  void _handleDelete(BuildContext ctx, Bot bot) {
+    showDialog<void>(
+      context: ctx,
+      builder: (_) => DeleteProtocolDialog(
+        botName: bot.name,
+        currentBalance: bot.calculatedDebt,
+        onConfirm: () async {
+          await ref.read(botsProvider.notifier).removeBot(bot.id);
+          if (ctx.mounted) {
+            SystemBroadcastOverlay.show(
+              ctx,
+              message: 'UNIDAD ELIMINADA',
+              type: BroadcastType.success,
+              statusLine: 'PROTOCOLO EJECUTADO',
+            );
+            ctx.pop();
+          }
+        },
+      ),
+    );
   }
 
   // --- DIÁLOGOS ---
@@ -1808,6 +1792,9 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                     botId: bot.id,
                     status: unitStatus,
                     onBack: () => context.pop(),
+                    onEdit: () => _setTab(1),
+                    onShare: () => _setTab(4),
+                    onDelete: () => _handleDelete(context, bot),
                   );
 
                   // ── Left column (avatar + status) ──────────────────
@@ -2045,74 +2032,6 @@ class _EditableHeaderState extends State<_EditableHeader> {
         ),
         overflow: TextOverflow.ellipsis,
       ),
-    );
-  }
-}
-
-// ... _ActionButton, _SciFiSlidingTabs se mantienen igual ...
-class _ActionButton extends StatefulWidget {
-  final IconData icon;
-  final Color color;
-  final String tooltip;
-  final VoidCallback onTap;
-  final bool isDangerous; 
-
-  const _ActionButton({
-    required this.icon,
-    required this.color,
-    required this.tooltip,
-    required this.onTap,
-    this.isDangerous = false, 
-  });
-
-  @override
-  State<_ActionButton> createState() => _ActionButtonState();
-}
-
-class _ActionButtonState extends State<_ActionButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final bgHoverColor = widget.isDangerous 
-        ? widget.color.withValues(alpha: 0.25) 
-        : widget.color.withValues(alpha: 0.1);
-
-    return Focus(
-      onKeyEvent: (_, KeyEvent event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
-          widget.onTap();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: Tooltip(
-          message: '${widget.tooltip} (Enter)',
-          child: InkWell(
-            onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(8),
-            child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _isHovered ? bgHoverColor : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              border: (_isHovered && widget.isDangerous)
-                  ? Border.all(color: widget.color.withValues(alpha: 0.5))
-                  : Border.all(color: Colors.transparent),
-            ),
-            child: Icon(
-              widget.icon, 
-              color: _isHovered ? widget.color : widget.color.withValues(alpha: 0.7),
-              size: 20,
-            ),
-          ),
-        ),
-      ),
-    ),
     );
   }
 }
