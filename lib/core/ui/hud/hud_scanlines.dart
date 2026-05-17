@@ -32,22 +32,30 @@ class _HudScanlinesState extends State<HudScanlines>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 6),
+      duration: AppMotion.durScanlinesCycle,
     );
-    if (widget.animate) _ctrl.repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncAnimation();
+  }
+
+  void _syncAnimation() {
+    final reduced = AppMotion.isReduced(context);
+    if (widget.animate && !reduced) {
+      if (!_ctrl.isAnimating) _ctrl.repeat();
+    } else {
+      _ctrl.stop();
+      _ctrl.value = 0;
+    }
   }
 
   @override
   void didUpdateWidget(HudScanlines old) {
     super.didUpdateWidget(old);
-    if (old.animate != widget.animate) {
-      if (widget.animate) {
-        _ctrl.repeat();
-      } else {
-        _ctrl.stop();
-        _ctrl.value = 0;
-      }
-    }
+    _syncAnimation();
   }
 
   @override

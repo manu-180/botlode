@@ -163,7 +163,9 @@ class _DigitalCardState extends State<DigitalCard>
   void _onEnter(PointerEnterEvent _) {
     if (!mounted) return;
     setState(() => _isHovered = true);
-    _tiltCtrl.forward();
+    if (!AppMotion.isReduced(context)) {
+      _tiltCtrl.forward();
+    }
     if (_state != _CardState.expired && !AppMotion.isReduced(context)) {
       _hoverSheenCtrl.forward(from: 0).then((_) {
         if (mounted) _hoverSheenCtrl.reset();
@@ -183,7 +185,11 @@ class _DigitalCardState extends State<DigitalCard>
 
   void _onExit(PointerExitEvent _) {
     if (!mounted) return;
-    _tiltCtrl.reverse();
+    if (AppMotion.isReduced(context)) {
+      _tiltCtrl.value = 0;
+    } else {
+      _tiltCtrl.reverse();
+    }
     setState(() {
       _isHovered = false;
       _mouseFraction = Offset.zero;

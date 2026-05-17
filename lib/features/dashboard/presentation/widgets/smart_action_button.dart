@@ -52,10 +52,10 @@ class _SmartActionButtonState extends State<SmartActionButton>
   @override
   void initState() {
     super.initState();
-    // ~1400 ms: más rápido que durHeartbeat (1600 ms) para reforzar urgencia.
+    // durPulseUrgent: pulso más rápido que durHeartbeat para reforzar urgencia.
     _pulseCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: AppMotion.durPulseUrgent,
     );
     _pulseOpacity = Tween<double>(begin: 0.30, end: 0.50).animate(
       CurvedAnimation(parent: _pulseCtrl, curve: AppMotion.easeStandard),

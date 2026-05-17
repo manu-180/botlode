@@ -45,11 +45,26 @@ class _SkeletonShimmerState extends State<SkeletonShimmer>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat();
-    _anim = Tween<double>(begin: -1.5, end: 2.5).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+      duration: AppMotion.durShimmerSkeleton,
     );
+    _anim = Tween<double>(begin: -1.5, end: 2.5).animate(
+      CurvedAnimation(parent: _ctrl, curve: AppMotion.easeStandard),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncAnimation();
+  }
+
+  void _syncAnimation() {
+    final reduced = AppMotion.isReduced(context);
+    if (reduced) {
+      _ctrl.stop();
+    } else if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
   }
 
   @override

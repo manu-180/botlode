@@ -668,7 +668,24 @@ class _CycleProgressBarState extends State<_CycleProgressBar>
           curve: AppMotion.easeStandard,
         ),
       );
-      _dotPulseCtrl!.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncDotPulse();
+  }
+
+  void _syncDotPulse() {
+    final ctrl = _dotPulseCtrl;
+    if (ctrl == null) return;
+    final reduced = AppMotion.reduced(context);
+    if (!reduced && !ctrl.isAnimating) {
+      ctrl.repeat(reverse: true);
+    } else if (reduced) {
+      ctrl.stop();
+      ctrl.value = 0.6;
     }
   }
 

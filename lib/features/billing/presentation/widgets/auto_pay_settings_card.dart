@@ -238,8 +238,21 @@ class _HudToggleState extends State<_HudToggle>
       duration: AppMotion.durHeartbeat,
     );
 
-    if (widget.loading) {
-      _pulseCtrl.repeat(reverse: true);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncPulse();
+  }
+
+  void _syncPulse() {
+    final reduced = AppMotion.reduced(context);
+    if (widget.loading && !reduced) {
+      if (!_pulseCtrl.isAnimating) _pulseCtrl.repeat(reverse: true);
+    } else {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 0.0;
     }
   }
 
@@ -261,12 +274,7 @@ class _HudToggleState extends State<_HudToggle>
     }
 
     if (oldWidget.loading != widget.loading) {
-      if (widget.loading) {
-        _pulseCtrl.repeat(reverse: true);
-      } else {
-        _pulseCtrl.stop();
-        _pulseCtrl.value = 0.0;
-      }
+      _syncPulse();
     }
   }
 

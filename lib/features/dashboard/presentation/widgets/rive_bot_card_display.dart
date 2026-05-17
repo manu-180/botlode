@@ -1,6 +1,7 @@
 // Archivo: lib/features/dashboard/presentation/widgets/rive_bot_card_display.dart
 import 'dart:ui';
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
 import 'package:botslode/core/providers/rive_provider.dart'; // Importamos el caché
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -140,9 +141,18 @@ class _RiveBotCardDisplayState extends ConsumerState<RiveBotCardDisplay> with Si
                   onInit: _onRiveInit,
                 ),
                 loading: () => Container(color: AppColors.voidBlack), // Instantáneo
-                error: (_, __) => Icon(Icons.error, size: 20, color: AppColors.danger)
-                    .animate(onPlay: (c) => c.repeat())
-                    .shimmer(duration: 2000.ms, color: AppColors.textPrimary.withValues(alpha: 0.5)),
+                error: (_, __) => Builder(
+                  builder: (context) {
+                    final reduced = AppMotion.isReduced(context);
+                    Widget icon = Icon(Icons.error, size: 20, color: AppColors.danger);
+                    if (!reduced) {
+                      icon = icon
+                          .animate(onPlay: (c) => c.repeat())
+                          .shimmer(duration: AppMotion.durShimmer, color: AppColors.textPrimary.withValues(alpha: 0.5));
+                    }
+                    return icon;
+                  },
+                ),
               ),
             ),
           ),

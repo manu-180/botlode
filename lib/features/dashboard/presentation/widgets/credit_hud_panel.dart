@@ -111,9 +111,9 @@ class CreditHudPanel extends StatelessWidget {
     };
 
     final reactorDuration = switch (health) {
-      FinanceHealth.stable   => const Duration(milliseconds: 1800),
+      FinanceHealth.stable   => AppMotion.durHeartbeatSlow,
       FinanceHealth.warning  => AppMotion.durHeartbeat,
-      FinanceHealth.critical => const Duration(milliseconds: 1100),
+      FinanceHealth.critical => AppMotion.durHeartbeatFast,
     };
 
     final labelText =

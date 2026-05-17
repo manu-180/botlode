@@ -883,7 +883,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal>
           .scale(
             begin: const Offset(0, 0),
             end: const Offset(1, 1),
-            duration: const Duration(milliseconds: 400),
+            duration: AppMotion.durDeliberate,
             curve: AppMotion.easeEntrance,
           ),
     );

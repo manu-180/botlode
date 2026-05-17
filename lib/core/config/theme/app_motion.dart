@@ -36,6 +36,11 @@ class AppMotion {
   static const Duration durSkeletonCycle  = Duration(milliseconds: 2800); // barrido dorado de skeletons
   static const Duration durHeartbeat      = Duration(milliseconds: 1600); // latido de reactor
   static const Duration durStagger        = Duration(milliseconds: 36);   // delay por ítem en listas
+  static const Duration durHeartbeatSlow  = Duration(milliseconds: 1800); // reactor estable (latido lento)
+  static const Duration durHeartbeatFast  = Duration(milliseconds: 1100); // reactor crítico (latido rápido)
+  static const Duration durPulseUrgent    = Duration(milliseconds: 1400); // pulso de urgencia (smart action)
+  static const Duration durScanlinesCycle = Duration(seconds: 6);         // ciclo de scroll de scanlines
+  static const Duration durShimmerSkeleton = Duration(milliseconds: 1800); // shimmer de placeholder skeleton
 
   // --- CURVAS ---
 

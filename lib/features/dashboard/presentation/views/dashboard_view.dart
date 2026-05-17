@@ -77,10 +77,10 @@ class _DashboardViewState extends ConsumerState<DashboardView>
         }
       } else {
         _headerCtrl.forward();
-        Future.delayed(const Duration(milliseconds: 80), () {
+        Future.delayed(AppMotion.durInstant, () {
           if (mounted) _toolbarCtrl.forward();
         });
-        Future.delayed(const Duration(milliseconds: 160), () {
+        Future.delayed(AppMotion.durFast, () {
           if (mounted) _gridCtrl.forward();
         });
       }

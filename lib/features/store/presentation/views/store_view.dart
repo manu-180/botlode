@@ -519,14 +519,13 @@ class _StoreProductGrid extends StatelessWidget {
           if (reduced) {
             return Opacity(opacity: 1, child: card);
           }
-          final delayMs =
-              AppMotion.staggerDelay(index).inMilliseconds;
+          final staggerDelay = AppMotion.staggerDelay(index);
           return TweenAnimationBuilder<double>(
             tween: Tween(begin: 0.0, end: 1.0),
-            duration: AppMotion.durBase + Duration(milliseconds: delayMs),
+            duration: AppMotion.durBase + staggerDelay,
             curve: Interval(
-              delayMs /
-                  (AppMotion.durBase.inMilliseconds + delayMs)
+              staggerDelay.inMilliseconds /
+                  (AppMotion.durBase.inMilliseconds + staggerDelay.inMilliseconds)
                       .toDouble()
                       .clamp(0.0, 1.0),
               1.0,

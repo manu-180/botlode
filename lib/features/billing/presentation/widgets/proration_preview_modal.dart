@@ -942,7 +942,7 @@ class _PlanCapsule extends StatelessWidget {
           .animate()
           .custom(
             duration: AppMotion.durBase,
-            curve: Curves.easeOut,
+            curve: AppMotion.easeHover,
             builder: (context, value, child) => child,
           )
           .fadeIn(
