@@ -164,11 +164,11 @@ class _DigitalCardState extends State<DigitalCard>
     };
   }
 
-  HudDotStatus get _dotStatus => switch (_state) {
-        _CardState.empty => HudDotStatus.offline,
-        _CardState.valid => HudDotStatus.online,
-        _CardState.expiringSoon => HudDotStatus.warning,
-        _CardState.expired => HudDotStatus.offline,
+  HudStatus get _dotStatus => switch (_state) {
+        _CardState.empty => HudStatus.offline,
+        _CardState.valid => HudStatus.online,
+        _CardState.expiringSoon => HudStatus.suspended,
+        _CardState.expired => HudStatus.offline,
       };
 
   // ─── Expiry display string  "MM/YY" ───────────────────────────────────────
@@ -270,7 +270,7 @@ class _DigitalCardState extends State<DigitalCard>
                         child: HudCornerBrackets(
                           color: _bracketColor,
                           armLength: 15,
-                          strokeWidth: 1.4,
+                          thickness: 1.4,
                           child: const SizedBox.expand(),
                         ),
                       ),

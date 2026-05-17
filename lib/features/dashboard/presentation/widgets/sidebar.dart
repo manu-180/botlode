@@ -56,7 +56,7 @@ class Sidebar extends ConsumerWidget {
           // Reactor line bajo el logo
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppDimens.space16),
-            child: HudReactorBar(active: true, height: 2),
+            child: HudReactorBar(axis: Axis.horizontal, color: AppColors.gold, thickness: 2),
           ),
           const SizedBox(height: AppDimens.space24),
 

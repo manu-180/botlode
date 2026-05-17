@@ -80,6 +80,11 @@ class ChamferBorder extends ShapeBorder {
         chamfer: chamfer * t,
         side: side.scale(t),
       );
+
+  ChamferBorder copyWith({double? chamfer, BorderSide? side}) => ChamferBorder(
+        chamfer: chamfer ?? this.chamfer,
+        side: side ?? this.side,
+      );
 }
 
 /// Widget conveniente: recorta su hijo con cantos biselados y dibuja un borde.

@@ -1,27 +1,24 @@
 // lib/core/ui/hud/hud_reactor_bar.dart
 // Barra de reactor que «late» con glow — indica energía/estado activo.
-// Solo latido en estado activo. Respeta reduced-motion.
+// Respeta reduced-motion. No captura puntero.
 import 'package:flutter/material.dart';
-import '../../config/theme/app_colors.dart';
 import '../../config/theme/app_dimens.dart';
 import '../../config/theme/app_motion.dart';
 
 class HudReactorBar extends StatefulWidget {
-  final bool active;
-  final Color activeColor;
-  final Color inactiveColor;
-  final double height;
-  final double width;
-  final bool horizontal;
+  final Axis axis;
+  final double thickness;
+  final double? length;
+  final Color color;
+  final bool pulsing;
 
   const HudReactorBar({
     super.key,
-    this.active = true,
-    this.activeColor = AppColors.gold,
-    this.inactiveColor = AppColors.borderDefault,
-    this.height = 3,
-    this.width = double.infinity,
-    this.horizontal = true,
+    this.axis = Axis.vertical,
+    this.thickness = 3,
+    this.length,
+    required this.color,
+    this.pulsing = true,
   });
 
   @override
@@ -41,16 +38,16 @@ class _HudReactorBarState extends State<HudReactorBar>
       duration: AppMotion.durHeartbeat,
     );
     _opacity = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _ctrl, curve: AppMotion.easeStandard),
     );
-    if (widget.active) _ctrl.repeat(reverse: true);
+    if (widget.pulsing) _ctrl.repeat(reverse: true);
   }
 
   @override
   void didUpdateWidget(HudReactorBar old) {
     super.didUpdateWidget(old);
-    if (widget.active != old.active) {
-      if (widget.active) {
+    if (widget.pulsing != old.pulsing) {
+      if (widget.pulsing) {
         _ctrl.repeat(reverse: true);
       } else {
         _ctrl.stop();
@@ -68,22 +65,20 @@ class _HudReactorBarState extends State<HudReactorBar>
   @override
   Widget build(BuildContext context) {
     final reduced = AppMotion.isReduced(context);
-    final color = widget.active ? widget.activeColor : widget.inactiveColor;
-    final glow = widget.active
-        ? AppDimens.glowStatus(color)
-        : AppDimens.elev0;
+    final isH = widget.axis == Axis.horizontal;
+    final len = widget.length;
 
     Widget bar = Container(
-      width: widget.horizontal ? widget.width : widget.height,
-      height: widget.horizontal ? widget.height : widget.width,
+      width: isH ? (len ?? double.infinity) : widget.thickness,
+      height: isH ? widget.thickness : (len ?? double.infinity),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(widget.height),
-        boxShadow: glow,
+        color: widget.color,
+        borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+        boxShadow: AppDimens.glowStatus(widget.color),
       ),
     );
 
-    if (widget.active && !reduced) {
+    if (widget.pulsing && !reduced) {
       bar = AnimatedBuilder(
         animation: _opacity,
         builder: (_, child) => Opacity(opacity: _opacity.value, child: child),

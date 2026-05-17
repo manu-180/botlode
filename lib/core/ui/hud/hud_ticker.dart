@@ -13,16 +13,20 @@ class HudTicker extends StatefulWidget {
   final TextStyle? style;
   final Duration duration;
   final Curve curve;
+  final bool animate;
+  final bool showSign;
 
   const HudTicker({
     super.key,
     required this.value,
     this.prefix = '',
     this.suffix = '',
-    this.decimals = 0,
+    this.decimals = 2,
     this.style,
     this.duration = AppMotion.durTicker,
     this.curve = AppMotion.easeTicker,
+    this.animate = true,
+    this.showSign = false,
   });
 
   @override
@@ -65,23 +69,21 @@ class _HudTickerState extends State<HudTicker>
   Widget build(BuildContext context) {
     final reduced = AppMotion.isReduced(context);
     final style = widget.style ?? AppTextStyles.numericTicker;
+    final shouldAnimate = widget.animate && !reduced;
 
-    if (reduced) {
-      return Text(
-        _formatValue(widget.value),
-        style: style,
-      );
+    if (!shouldAnimate) {
+      return Text(_formatValue(widget.value), style: style);
     }
 
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, __) => Text(
-        _formatValue(_anim.value),
-        style: style,
-      ),
+      builder: (_, __) => Text(_formatValue(_anim.value), style: style),
     );
   }
 
-  String _formatValue(double v) =>
-      '${widget.prefix}${v.toStringAsFixed(widget.decimals)}${widget.suffix}';
+  String _formatValue(double v) {
+    final formatted = v.toStringAsFixed(widget.decimals);
+    final sign = widget.showSign && v > 0 ? '+' : '';
+    return '${widget.prefix}$sign$formatted${widget.suffix}';
+  }
 }

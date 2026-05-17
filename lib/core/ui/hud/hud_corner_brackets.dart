@@ -1,6 +1,7 @@
 // lib/core/ui/hud/hud_corner_brackets.dart
 // Escuadras de esquina tipo HUD — marcan jerarquía en paneles principales.
 // Usar SOLO en paneles primarios, modales y el panel de crédito (no en cada caja).
+// No captura puntero (IgnorePointer sobre el painter).
 import 'package:flutter/material.dart';
 import '../../config/theme/app_colors.dart';
 
@@ -8,27 +9,48 @@ class HudCornerBrackets extends StatelessWidget {
   final Widget child;
   final Color color;
   final double armLength;
-  final double strokeWidth;
-  final EdgeInsets padding;
+  final double thickness;
+  final double inset;
+  final bool topLeft;
+  final bool topRight;
+  final bool bottomLeft;
+  final bool bottomRight;
 
   const HudCornerBrackets({
     super.key,
     required this.child,
     this.color = AppColors.borderGold,
-    this.armLength = 18,
-    this.strokeWidth = 1.5,
-    this.padding = EdgeInsets.zero,
+    this.armLength = 20,
+    this.thickness = 1.5,
+    this.inset = 0,
+    this.topLeft = true,
+    this.topRight = true,
+    this.bottomLeft = true,
+    this.bottomRight = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _BracketPainter(
-        color: color,
-        armLength: armLength,
-        strokeWidth: strokeWidth,
-      ),
-      child: Padding(padding: padding, child: child),
+    return Stack(
+      children: [
+        child,
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: _BracketPainter(
+                color: color,
+                armLength: armLength,
+                strokeWidth: thickness,
+                inset: inset,
+                topLeft: topLeft,
+                topRight: topRight,
+                bottomLeft: bottomLeft,
+                bottomRight: bottomRight,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -37,11 +59,21 @@ class _BracketPainter extends CustomPainter {
   final Color color;
   final double armLength;
   final double strokeWidth;
+  final double inset;
+  final bool topLeft;
+  final bool topRight;
+  final bool bottomLeft;
+  final bool bottomRight;
 
   const _BracketPainter({
     required this.color,
     required this.armLength,
     required this.strokeWidth,
+    required this.inset,
+    required this.topLeft,
+    required this.topRight,
+    required this.bottomLeft,
+    required this.bottomRight,
   });
 
   @override
@@ -53,29 +85,38 @@ class _BracketPainter extends CustomPainter {
       ..strokeCap = StrokeCap.square;
 
     final arm = armLength;
-    final w = size.width;
-    final h = size.height;
+    final i = inset;
+    final l = i;
+    final t = i;
+    final r = size.width - i;
+    final b = size.height - i;
 
-    // ── Top-left ──
-    canvas.drawLine(Offset(0, arm), Offset(0, 0), paint);
-    canvas.drawLine(Offset(0, 0), Offset(arm, 0), paint);
-
-    // ── Top-right ──
-    canvas.drawLine(Offset(w - arm, 0), Offset(w, 0), paint);
-    canvas.drawLine(Offset(w, 0), Offset(w, arm), paint);
-
-    // ── Bottom-right ──
-    canvas.drawLine(Offset(w, h - arm), Offset(w, h), paint);
-    canvas.drawLine(Offset(w, h), Offset(w - arm, h), paint);
-
-    // ── Bottom-left ──
-    canvas.drawLine(Offset(arm, h), Offset(0, h), paint);
-    canvas.drawLine(Offset(0, h), Offset(0, h - arm), paint);
+    if (topLeft) {
+      canvas.drawLine(Offset(l, t + arm), Offset(l, t), paint);
+      canvas.drawLine(Offset(l, t), Offset(l + arm, t), paint);
+    }
+    if (topRight) {
+      canvas.drawLine(Offset(r - arm, t), Offset(r, t), paint);
+      canvas.drawLine(Offset(r, t), Offset(r, t + arm), paint);
+    }
+    if (bottomRight) {
+      canvas.drawLine(Offset(r, b - arm), Offset(r, b), paint);
+      canvas.drawLine(Offset(r, b), Offset(r - arm, b), paint);
+    }
+    if (bottomLeft) {
+      canvas.drawLine(Offset(l + arm, b), Offset(l, b), paint);
+      canvas.drawLine(Offset(l, b), Offset(l, b - arm), paint);
+    }
   }
 
   @override
   bool shouldRepaint(_BracketPainter old) =>
       old.color != color ||
       old.armLength != armLength ||
-      old.strokeWidth != strokeWidth;
+      old.strokeWidth != strokeWidth ||
+      old.inset != inset ||
+      old.topLeft != topLeft ||
+      old.topRight != topRight ||
+      old.bottomLeft != bottomLeft ||
+      old.bottomRight != bottomRight;
 }

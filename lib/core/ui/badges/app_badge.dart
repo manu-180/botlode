@@ -29,11 +29,11 @@ class StatusBadge extends StatelessWidget {
         BotStatus.processing => AppColors.cyan,
       };
 
-  HudDotStatus get _dotStatus => switch (status) {
-        BotStatus.online     => HudDotStatus.online,
-        BotStatus.offline    => HudDotStatus.offline,
-        BotStatus.warning    => HudDotStatus.warning,
-        BotStatus.processing => HudDotStatus.processing,
+  HudStatus get _dotStatus => switch (status) {
+        BotStatus.online     => HudStatus.online,
+        BotStatus.offline    => HudStatus.offline,
+        BotStatus.warning    => HudStatus.suspended,
+        BotStatus.processing => HudStatus.processing,
       };
 
   String get _label => switch (status) {

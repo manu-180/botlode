@@ -13,7 +13,7 @@ class HudDivider extends StatelessWidget {
     super.key,
     this.label,
     this.lineColor = AppColors.borderDefault,
-    this.nodeColor = AppColors.borderGold,
+    this.nodeColor = AppColors.cyan,
   });
 
   @override
@@ -27,9 +27,9 @@ class HudDivider extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(
-              label!.toUpperCase(),
+              '// ${label!.toUpperCase()}',
               style: AppTextStyles.mono.copyWith(
-                color: nodeColor,
+                color: AppColors.textTertiary,
                 letterSpacing: 1.6,
               ),
             ),
@@ -39,8 +39,8 @@ class HudDivider extends StatelessWidget {
           ),
         ] else ...[
           Container(
-            width: 6,
-            height: 6,
+            width: 8,
+            height: 8,
             margin: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: nodeColor,

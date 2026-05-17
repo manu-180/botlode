@@ -61,10 +61,10 @@ class _BotCardState extends State<BotCard> with SingleTickerProviderStateMixin {
     return AppColors.danger;
   }
 
-  HudDotStatus get _dotStatus {
-    if (_isActive)    return HudDotStatus.online;
-    if (_isSuspended) return HudDotStatus.warning;
-    return HudDotStatus.offline;
+  HudStatus get _dotStatus {
+    if (_isActive)    return HudStatus.online;
+    if (_isSuspended) return HudStatus.suspended;
+    return HudStatus.offline;
   }
 
   String get _statusLabel {
@@ -170,7 +170,7 @@ class _BotCardState extends State<BotCard> with SingleTickerProviderStateMixin {
 
                       // ── ID tag ───────────────────────────────────────
                       HudIdTag(
-                        id: 'ID: ${widget.bot.id.substring(0, 8)}…',
+                        text: 'ID: ${widget.bot.id.substring(0, 8)}…',
                         color: AppColors.textTertiary,
                       ),
                     ],
@@ -189,7 +189,7 @@ class _BotCardState extends State<BotCard> with SingleTickerProviderStateMixin {
 
 class _StatusBadge extends StatelessWidget {
   final Color color;
-  final HudDotStatus dotStatus;
+  final HudStatus dotStatus;
   final String label;
 
   const _StatusBadge({

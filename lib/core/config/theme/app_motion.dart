@@ -72,6 +72,9 @@ class AppMotion {
   static bool reduced(BuildContext context) =>
       MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
+  /// Alias para [reduced] — preferir `reduced` en código nuevo.
+  static bool isReduced(BuildContext context) => reduced(context);
+
   /// Duración a usar para el crossfade de reemplazo cuando reduced == true.
   static const Duration durCrossfadeReduced = Duration(milliseconds: 120);
 

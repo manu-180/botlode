@@ -22,7 +22,7 @@ class AppBackground extends StatelessWidget {
         // ── Capa 1: gradiente void base ──────────────────────────────
         Positioned.fill(
           child: DecoratedBox(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: AppColors.gradVoid,
             ),
           ),
@@ -34,7 +34,7 @@ class AppBackground extends StatelessWidget {
         // ── Capa 3: retícula tenue ───────────────────────────────────
         const Positioned.fill(
           child: IgnorePointer(
-            child: HudGridTexture(opacity: 0.03, cellSize: 32),
+            child: HudGridTexture(opacity: 0.03, cell: 32),
           ),
         ),
 

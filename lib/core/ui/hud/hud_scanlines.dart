@@ -5,33 +5,83 @@ import 'package:flutter/material.dart';
 import '../../config/theme/app_colors.dart';
 import '../../config/theme/app_motion.dart';
 
-class HudScanlines extends StatelessWidget {
+class HudScanlines extends StatefulWidget {
   final Widget child;
   final double opacity;
   final double lineSpacing;
+  final bool animate;
 
   const HudScanlines({
     super.key,
     required this.child,
     this.opacity = 0.035,
     this.lineSpacing = 3,
+    this.animate = false,
   });
 
   @override
+  State<HudScanlines> createState() => _HudScanlinesState();
+}
+
+class _HudScanlinesState extends State<HudScanlines>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    );
+    if (widget.animate) _ctrl.repeat();
+  }
+
+  @override
+  void didUpdateWidget(HudScanlines old) {
+    super.didUpdateWidget(old);
+    if (old.animate != widget.animate) {
+      if (widget.animate) {
+        _ctrl.repeat();
+      } else {
+        _ctrl.stop();
+        _ctrl.value = 0;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (AppMotion.isReduced(context)) return child;
+    final reduced = AppMotion.isReduced(context);
 
     return Stack(
       children: [
-        child,
+        widget.child,
         Positioned.fill(
           child: IgnorePointer(
-            child: CustomPaint(
-              painter: _ScanlinePainter(
-                opacity: opacity,
-                lineSpacing: lineSpacing,
-              ),
-            ),
+            child: widget.animate && !reduced
+                ? AnimatedBuilder(
+                    animation: _ctrl,
+                    builder: (_, __) => CustomPaint(
+                      painter: _ScanlinePainter(
+                        opacity: widget.opacity,
+                        lineSpacing: widget.lineSpacing,
+                        offsetFraction: _ctrl.value,
+                      ),
+                    ),
+                  )
+                : CustomPaint(
+                    painter: _ScanlinePainter(
+                      opacity: widget.opacity,
+                      lineSpacing: widget.lineSpacing,
+                    ),
+                  ),
           ),
         ),
       ],
@@ -42,8 +92,13 @@ class HudScanlines extends StatelessWidget {
 class _ScanlinePainter extends CustomPainter {
   final double opacity;
   final double lineSpacing;
+  final double offsetFraction;
 
-  const _ScanlinePainter({required this.opacity, required this.lineSpacing});
+  const _ScanlinePainter({
+    required this.opacity,
+    required this.lineSpacing,
+    this.offsetFraction = 0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -51,14 +106,19 @@ class _ScanlinePainter extends CustomPainter {
       ..color = AppColors.textPrimary.withValues(alpha: opacity)
       ..strokeWidth = 1;
 
-    double y = 0;
+    final offset = offsetFraction * lineSpacing;
+    double y = -lineSpacing + offset;
     while (y < size.height) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      if (y >= 0) {
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      }
       y += lineSpacing;
     }
   }
 
   @override
   bool shouldRepaint(_ScanlinePainter old) =>
-      old.opacity != opacity || old.lineSpacing != lineSpacing;
+      old.opacity != opacity ||
+      old.lineSpacing != lineSpacing ||
+      old.offsetFraction != offsetFraction;
 }
