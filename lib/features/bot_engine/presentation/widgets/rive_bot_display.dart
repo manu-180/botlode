@@ -9,7 +9,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart';
 
 class RiveBotDisplay extends ConsumerStatefulWidget {
-  const RiveBotDisplay({super.key});
+  final double size;
+
+  /// Color de acento del bot. Actualmente no se usa internamente;
+  /// se expone para que el widget padre pueda construir decoraciones
+  /// (glow, brackets) coordinadas con el color del bot sin necesidad
+  /// de un Provider adicional.
+  final Color? botColor;
+
+  const RiveBotDisplay({super.key, this.size = 280.0, this.botColor});
+
   @override
   ConsumerState<RiveBotDisplay> createState() => _RiveBotDisplayState();
 }
@@ -89,7 +98,7 @@ class _RiveBotDisplayState extends ConsumerState<RiveBotDisplay> with SingleTick
     });
 
     return SizedBox(
-      width: 300, height: 300,
+      width: widget.size, height: widget.size,
       child: riveFileAsync.when(
         data: (file) => RiveAnimation.direct(
           file, 

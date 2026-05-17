@@ -5,17 +5,16 @@ import 'package:botslode/core/config/app_config.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/config/theme/app_dimens.dart';
 import 'package:botslode/core/config/theme/app_motion.dart';
-import 'package:botslode/core/providers/connectivity_provider.dart';
 import 'package:botslode/core/ui/widgets/animated_ticker.dart';
 import 'package:botslode/core/ui/widgets/status_tag.dart';
 import 'package:botslode/features/bot_engine/presentation/providers/bot_mood_provider.dart';
-import 'package:botslode/features/bot_engine/presentation/widgets/rive_bot_display.dart';
-import 'package:botslode/features/bot_engine/presentation/widgets/status_indicator.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/presentation/providers/bots_provider.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/credit_limit_reached_dialog.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/unit_avatar_panel.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/unit_command_header.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/unit_tab_bar.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/unit_telemetry_console.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -1734,8 +1733,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
   Widget build(BuildContext context) {
     final botsAsync = ref.watch(botsProvider);
     final currentMoodIndex = ref.watch(terminalBotMoodProvider);
-    final connectivityAsync = ref.watch(connectivityProvider);
-    final isOnline = connectivityAsync.asData?.value ?? true;
     final reduce = AppMotion.reduced(context);
 
     return botsAsync.when(
@@ -1812,42 +1809,26 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                   );
 
                   // ── Left column (avatar + status) ──────────────────
-                  // Content will be redesigned by prompt 31.
                   Widget leftColumn = SizedBox(
                     width: leftWidth,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 350),
-                      curve: Curves.easeInOut,
-                      decoration: BoxDecoration(
-                        color: bot.themeMode == 'light'
-                            ? const Color(0xFFE8EAED)
-                            : const Color(0xFF181818),
-                        borderRadius:
-                            BorderRadius.circular(AppDimens.radiusL),
-                        border: Border.all(
-                          color: bot.themeMode == 'light'
-                              ? Colors.black.withValues(alpha: 0.12)
-                              : AppColors.borderDefault,
-                          width: 1.0,
-                        ),
-                        boxShadow: AppDimens.elev1,
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          const RiveBotDisplay(),
-                          Positioned(
-                            top: AppDimens.space24,
-                            right: AppDimens.space24,
-                            child: StatusIndicator(
-                              isLoading: false,
-                              isOnline: isOnline,
-                              moodIndex: currentMoodIndex,
-                              isDarkMode: bot.themeMode == 'dark',
-                            ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: UnitAvatarPanel(
+                            bot: bot,
+                            moodIndex: currentMoodIndex,
+                            unitStatus: unitStatus,
+                            leftWidth: leftWidth,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: AppDimens.space16),
+                        UnitTelemetryConsole(
+                          bot: bot,
+                          moodIndex: currentMoodIndex,
+                          unitStatus: unitStatus,
+                        ),
+                      ],
                     ),
                   );
 
