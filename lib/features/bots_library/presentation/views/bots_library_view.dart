@@ -14,7 +14,6 @@ import 'package:botslode/features/bots_library/presentation/widgets/blueprint_ca
 import 'package:botslode/features/dashboard/presentation/widgets/create_bot_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 // _LibraryCategoryChip design constants
 const double _kChipHeight = AppDimens.hitTargetMin; // 32px — minimum hit target per §10
@@ -364,9 +363,7 @@ class _LibraryGrid extends StatelessWidget {
       );
     }
 
-    // ── Default: grid with stagger entrance ───────────────────────────────────
-    final isReduced = AppMotion.reduced(context);
-
+    // ── Default: grid — stagger handled internally by BlueprintCard ──────────
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 350,
@@ -378,35 +375,14 @@ class _LibraryGrid extends StatelessWidget {
       itemCount: filteredBlueprints.length,
       itemBuilder: (context, index) {
         final bp = filteredBlueprints[index];
-
-        Widget card = BlueprintCard(
+        return BlueprintCard(
           blueprint: bp,
+          staggerIndex: index,
           onTap: () => showDialog(
             context: context,
             builder: (_) => CreateBotModal(template: bp),
           ),
         );
-
-        if (isReduced) {
-          card = card
-              .animate()
-              .fadeIn(duration: AppMotion.durCrossfadeReduced);
-        } else {
-          card = card
-              .animate(delay: AppMotion.staggerDelay(index))
-              .fadeIn(
-                duration: AppMotion.durBase,
-                curve: AppMotion.easeEntrance,
-              )
-              .move(
-                begin: const Offset(0, 12),
-                end: Offset.zero,
-                duration: AppMotion.durBase,
-                curve: AppMotion.easeEntrance,
-              );
-        }
-
-        return card;
       },
     );
   }
