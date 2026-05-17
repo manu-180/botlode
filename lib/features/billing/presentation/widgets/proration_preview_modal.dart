@@ -1,16 +1,31 @@
 // Archivo: lib/features/billing/presentation/widgets/proration_preview_modal.dart
 //
-// T4·05 — ProrationPreviewModal
+// T4·56 — ProrationPreviewModal · Rediseño HUD «Hangar OS»
 //
-// Modal that shows a line-by-line proration breakdown before the user confirms
-// a plan change. Opens as a Dialog on desktop (width ≥ 600) or as a
-// ModalBottomSheet on mobile.
+// Panel de cómputo de prorrateo: hoja de cálculo HUD con crédito, cargo y total
+// animado (HudTicker). Banda «antes → después» de plan. Variante modal de HoloPanel.
+//
+// Lógica conservada: previewProration, changePlan, idempotencyKey, BillingException.
+
+import 'dart:ui';
 
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/hud/hud_chamfer.dart';
+import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
+import 'package:botslode/core/ui/hud/hud_divider.dart';
+import 'package:botslode/core/ui/hud/hud_ticker.dart';
+import 'package:botslode/core/ui/widgets/app_button.dart';
+import 'package:botslode/core/ui/widgets/app_icon_button.dart';
+import 'package:botslode/core/ui/widgets/error_feedback_card.dart';
+import 'package:botslode/core/ui/widgets/skeleton_base.dart';
 import 'package:botslode/features/billing/domain/proration/proration_output.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/l10n/app_strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
@@ -19,20 +34,12 @@ import 'package:uuid/uuid.dart';
 // Public entry point
 // ---------------------------------------------------------------------------
 
-/// Shows a [_ProrationPreviewModal] as a [Dialog] on desktop (width ≥ 600) or
-/// as a [ModalBottomSheet] on mobile.
-///
-/// Immediately calls `billingV2Provider.notifier.previewProration(targetPlanId)`
-/// on open and blocks confirmation until the preview has loaded successfully.
 Future<void> showProrationPreviewModal(
   BuildContext context,
   WidgetRef ref,
   String targetPlanId,
 ) async {
   final isDesktop = MediaQuery.of(context).size.width >= 600;
-
-  // Capture the container before showing the dialog so that providers are
-  // shared with the modal even when it runs in a separate route/overlay.
   final container = ProviderScope.containerOf(context);
 
   final modal = UncontrolledProviderScope(
@@ -44,6 +51,7 @@ Future<void> showProrationPreviewModal(
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
+      barrierColor: AppColors.scrim,
       builder: (_) => modal,
     );
   } else {
@@ -71,16 +79,21 @@ class _ProrationPreviewModal extends ConsumerStatefulWidget {
       _ProrationPreviewModalState();
 }
 
-class _ProrationPreviewModalState
-    extends ConsumerState<_ProrationPreviewModal> {
-  // Proration loading / result
+class _ProrationPreviewModalState extends ConsumerState<_ProrationPreviewModal>
+    with SingleTickerProviderStateMixin {
+  // ── Preview state ──────────────────────────────────────────────────────────
   bool _loadingPreview = true;
   ProrationOutput? _preview;
   String? _previewError;
 
-  // Confirmation mutation
+  // ── Confirm state ──────────────────────────────────────────────────────────
   bool _confirming = false;
   String? _mutationError;
+
+  // ── Entry animation ────────────────────────────────────────────────────────
+  late final AnimationController _entryCtrl;
+  late final Animation<double> _fadeAnim;
+  late final Animation<double> _scaleAnim;
 
   static const _kDisclaimer =
       'El cálculo final lo confirma la pasarela; pueden existir diferencias mínimas.';
@@ -88,8 +101,29 @@ class _ProrationPreviewModalState
   @override
   void initState() {
     super.initState();
+    _entryCtrl = AnimationController(vsync: this, duration: AppMotion.durBase);
+    _fadeAnim = CurvedAnimation(parent: _entryCtrl, curve: AppMotion.easeEntrance);
+    _scaleAnim = Tween<double>(begin: 0.96, end: 1.0)
+        .animate(CurvedAnimation(parent: _entryCtrl, curve: AppMotion.easeEntrance));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (AppMotion.reduced(context)) {
+        _entryCtrl.duration = AppMotion.durCrossfadeReduced;
+      }
+      _entryCtrl.forward();
+    });
+
     _loadPreview();
   }
+
+  @override
+  void dispose() {
+    _entryCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── Logic ──────────────────────────────────────────────────────────────────
 
   Future<void> _loadPreview() async {
     setState(() {
@@ -164,22 +198,22 @@ class _ProrationPreviewModalState
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Build
-  // ---------------------------------------------------------------------------
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 600;
+    final reduced = AppMotion.reduced(context);
 
-    final content = _buildContent();
+    Widget panel = _buildAnimatedPanel(reduced);
 
     if (isDesktop) {
       return Dialog(
         backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
-          child: _ModalContainer(child: content),
+          child: panel,
         ),
       );
     }
@@ -189,10 +223,76 @@ class _ProrationPreviewModalState
       minChildSize: 0.5,
       maxChildSize: 0.95,
       expand: false,
-      builder: (_, scrollController) => _ModalContainer(
-        child: SingleChildScrollView(
-          controller: scrollController,
-          child: content,
+      builder: (_, scrollController) => SingleChildScrollView(
+        controller: scrollController,
+        child: panel,
+      ),
+    );
+  }
+
+  Widget _buildAnimatedPanel(bool reduced) {
+    return AnimatedBuilder(
+      animation: _entryCtrl,
+      builder: (_, child) {
+        final t = _fadeAnim.value;
+        final scale = reduced ? 1.0 : _scaleAnim.value;
+        return Opacity(
+          opacity: t,
+          child: Transform.scale(scale: scale, child: child),
+        );
+      },
+      child: _buildGlassPanel(),
+    );
+  }
+
+  Widget _buildGlassPanel() {
+    return HudCornerBrackets(
+      color: AppColors.borderGold,
+      armLength: 18,
+      thickness: 1.0,
+      child: ClipRRect(
+        borderRadius: AppDimens.brXL,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.glassSurfaceStrong,
+              borderRadius: AppDimens.brXL,
+              border: Border.all(color: AppColors.glassBorder),
+              boxShadow: AppDimens.elev3,
+            ),
+            child: Stack(
+              children: [
+                // Top highlight hairline
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 1,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          AppColors.glassHighlightTop,
+                          Colors.transparent,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(AppDimens.radiusXL),
+                        topRight: Radius.circular(AppDimens.radiusXL),
+                      ),
+                    ),
+                  ),
+                ),
+                // Content
+                Padding(
+                  padding: const EdgeInsets.all(AppDimens.space24),
+                  child: _buildContent(),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -204,192 +304,431 @@ class _ProrationPreviewModalState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildHeader(),
-        const SizedBox(height: 24),
-        if (_loadingPreview) _buildSkeleton(),
-        if (!_loadingPreview && _previewError != null) _buildPreviewError(),
-        if (!_loadingPreview && _preview != null) _buildTable(_preview!),
+        const SizedBox(height: AppDimens.space20),
+        _buildBeforeAfterBand(),
+        const SizedBox(height: AppDimens.space20),
+        AnimatedSwitcher(
+          duration: AppMotion.durBase,
+          switchInCurve: AppMotion.easeStandard,
+          switchOutCurve: AppMotion.easeStandard,
+          child: _loadingPreview
+              ? _buildSkeleton()
+              : _previewError != null
+                  ? _buildPreviewError()
+                  : _buildHudSpreadsheet(_preview!),
+        ),
         if (_mutationError != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppDimens.space12),
           _buildMutationError(_mutationError!),
         ],
-        const SizedBox(height: 16),
+        const SizedBox(height: AppDimens.space16),
         _buildDisclaimer(),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppDimens.space24),
         _buildActions(),
       ],
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Header
-  // ---------------------------------------------------------------------------
+  // ── Header ─────────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
     return Row(
       children: [
+        // Chip biselado 40×40 con ícono swap
         Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
+          width: 40,
+          height: 40,
+          decoration: const ShapeDecoration(
+            shape: ChamferBorder(
+              chamfer: AppDimens.chamferM,
+              side: BorderSide(
+                color: AppColors.borderGold,
+                width: 1,
+              ),
+            ),
+            color: AppColors.goldGlow,
           ),
-          child: const Icon(
-            Icons.swap_horiz_rounded,
-            color: AppColors.primary,
-            size: 22,
+          child: const Center(
+            child: Icon(
+              Icons.swap_horiz_rounded,
+              color: AppColors.gold,
+              size: 22,
+            ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppDimens.space12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Semantics(
                 header: true,
-                child: const Text(
-                  'Cambio de plan',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Oxanium',
-                  ),
+                child: Text(
+                  'CAMBIO DE PLAN',
+                  style: AppTextStyles.titleL,
                 ),
               ),
               const SizedBox(height: 2),
-              const Text(
+              Text(
                 'Revisá el detalle antes de confirmar',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
+                style: AppTextStyles.bodyS,
               ),
             ],
           ),
+        ),
+        AppIconButton(
+          icon: Icons.close_rounded,
+          onPressed: _confirming ? null : () => Navigator.of(context).pop(),
+          tooltip: 'Cerrar',
+          variant: AppButtonVariant.ghost,
+          size: AppButtonSize.sm,
         ),
       ],
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Skeleton (loading)
-  // ---------------------------------------------------------------------------
+  // ── Before → After band ────────────────────────────────────────────────────
 
-  Widget _buildSkeleton() {
-    return Column(
-      children: List.generate(
-        3,
-        (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _SkeletonRow(),
-        ),
+  Widget _buildBeforeAfterBand() {
+    final billingState = ref.watch(billingV2Provider).valueOrNull;
+    final currentPlan = billingState?.availablePlans
+        .where((p) => p.id == (billingState.subscription?.planId ?? ''))
+        .firstOrNull;
+    final targetPlan = billingState?.availablePlans
+        .where((p) => p.id == widget.targetPlanId)
+        .firstOrNull;
+
+    Widget band;
+    if (_loadingPreview) {
+      band = const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SkeletonBase(width: 100, height: 32, radius: AppDimens.radiusPill),
+          SizedBox(width: AppDimens.space12),
+          SkeletonBase(width: 24, height: 24, shape: BoxShape.circle),
+          SizedBox(width: AppDimens.space12),
+          SkeletonBase(width: 100, height: 32, radius: AppDimens.radiusPill),
+        ],
+      );
+    } else {
+      band = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _PlanCapsule(
+            name: currentPlan?.name ?? '—',
+            energized: false,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppDimens.space12),
+            child: _buildArrow(),
+          ),
+          _PlanCapsule(
+            name: targetPlan?.name ?? widget.targetPlanId,
+            energized: true,
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceHud,
+        borderRadius: AppDimens.brM,
       ),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: AppDimens.space12),
+      child: band,
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Preview error
-  // ---------------------------------------------------------------------------
+  Widget _buildArrow() {
+    final reduced = AppMotion.reduced(context);
 
-  Widget _buildPreviewError() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.error_outline_rounded,
-              color: AppColors.error, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              _previewError!,
-              style: const TextStyle(color: AppColors.error, fontSize: 13),
-            ),
+    Widget arrow = const Icon(
+      Icons.arrow_forward_rounded,
+      color: AppColors.cyan,
+      size: 18,
+    );
+
+    if (!reduced && !_loadingPreview) {
+      arrow = arrow
+          .animate()
+          .moveX(
+            begin: -4,
+            end: 0,
+            duration: AppMotion.durFast,
+            curve: AppMotion.easeStandard,
+          );
+    }
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.cyanGlow,
+            blurRadius: 8,
+            spreadRadius: 0,
           ),
         ],
       ),
+      child: arrow,
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Proration table
-  // ---------------------------------------------------------------------------
+  // ── HUD Spreadsheet ────────────────────────────────────────────────────────
 
-  Widget _buildTable(ProrationOutput output) {
+  Widget _buildSkeleton() {
+    return Column(
+      key: const ValueKey('skeleton'),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppDimens.space16),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceHud,
+            borderRadius: AppDimens.brM,
+            border: Border.all(color: AppColors.borderSubtle),
+          ),
+          child: Column(
+            children: [
+              _buildSkeletonRow(),
+              const SizedBox(height: AppDimens.space8),
+              const HudDivider(),
+              const SizedBox(height: AppDimens.space8),
+              _buildSkeletonRow(),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppDimens.space12),
+        const HudDivider(),
+        const SizedBox(height: AppDimens.space12),
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            SkeletonBase(width: 140, height: 14),
+            SkeletonBase(width: 80, height: 28),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSkeletonRow() {
+    return const Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SkeletonBase(height: 14),
+              SizedBox(height: 4),
+              SkeletonBase(height: 11, width: 120),
+            ],
+          ),
+        ),
+        SizedBox(width: AppDimens.space16),
+        SkeletonBase(width: 70, height: 14),
+      ],
+    );
+  }
+
+  Widget _buildPreviewError() {
+    return ErrorFeedbackCard(
+      key: const ValueKey('preview-error'),
+      title: 'Error al calcular el prorrateo',
+      message: _previewError!,
+      onRetry: () async => _loadPreview(),
+      retryLabel: 'Reintentar',
+      variant: ErrorVariant.inline,
+    );
+  }
+
+  Widget _buildHudSpreadsheet(ProrationOutput output) {
     final billingState = ref.watch(billingV2Provider).valueOrNull;
-    final periodEnd = billingState?.subscription?.currentPeriodEnd;
+    final subscription = billingState?.subscription;
+    final periodEnd = subscription?.currentPeriodEnd;
+    final reduced = AppMotion.reduced(context);
 
-    // Build proration description for screen readers from line items.
-    final creditLines = output.lines
-        .where((l) => l.amountCents < 0)
-        .map((l) => '\$${(l.amountCents.abs() / 100).toStringAsFixed(2)}')
-        .toList();
-    final chargeLines = output.lines
-        .where((l) => l.amountCents > 0)
-        .map((l) => '\$${(l.amountCents / 100).toStringAsFixed(2)}')
-        .toList();
+    // Build accessibility description
     final creditStr =
-        creditLines.isNotEmpty ? 'se acreditarán ${creditLines.join(', ')} del plan actual' : '';
+        '\$${output.creditAmount.toStringAsFixed(2)} de crédito por días no usados del plan actual';
     final chargeStr =
-        chargeLines.isNotEmpty ? 'se cobrarán ${chargeLines.join(', ')} por el nuevo plan' : '';
+        '\$${output.chargeAmount.toStringAsFixed(2)} de cargo por el nuevo plan';
     final netStr =
-        'Total a cobrar hoy: \$${(output.netAmountCents / 100).toStringAsFixed(2)}';
+        'Total a cobrar hoy: \$${output.netAmount.abs().toStringAsFixed(2)}';
     final prorationDescription =
-        'Ajuste de precio: ${[creditStr, chargeStr, netStr].where((s) => s.isNotEmpty).join(' y ')}';
+        'Ajuste de precio: $creditStr, $chargeStr. $netStr';
+
+    final now = DateTime.now();
+    final creditEnd = periodEnd ?? now.add(Duration(days: output.daysRemaining));
+    final chargeEnd = creditEnd;
 
     return Semantics(
       label: prorationDescription,
       child: Column(
+        key: const ValueKey('spreadsheet'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ...output.lines.map((line) => _ProrationLineRow(line: line)),
-
-          const Divider(color: AppColors.borderGlass, height: 24),
-
-          // Subtotal row
-          Semantics(
-            label: 'Total a cobrar hoy: \$${(output.netAmountCents / 100).toStringAsFixed(2)}',
-            child: _TotalRow(
-              label: 'Total a cobrar hoy',
-              amountCents: output.netAmountCents,
+          // Spreadsheet container
+          Container(
+            padding: const EdgeInsets.all(AppDimens.space16),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceHud,
+              borderRadius: AppDimens.brM,
+              border: Border.all(color: AppColors.borderSubtle),
+            ),
+            child: Column(
+              children: [
+                _buildLineRow(
+                  index: 0,
+                  description: 'Crédito plan actual',
+                  dateFrom: now,
+                  dateTo: creditEnd,
+                  amount: output.creditAmount,
+                  isCredit: true,
+                  reduced: reduced,
+                ),
+                const SizedBox(height: AppDimens.space4),
+                const HudDivider(),
+                const SizedBox(height: AppDimens.space4),
+                _buildLineRow(
+                  index: 1,
+                  description: 'Cargo nuevo plan',
+                  dateFrom: now,
+                  dateTo: chargeEnd,
+                  amount: output.chargeAmount,
+                  isCredit: false,
+                  reduced: reduced,
+                ),
+              ],
             ),
           ),
 
+          const SizedBox(height: AppDimens.space12),
+
+          // Total divider with node
+          const HudDivider(),
+
+          const SizedBox(height: AppDimens.space12),
+
+          // Total row
+          _buildTotalRow(output, reduced: reduced),
+
+          // Next period
           if (periodEnd != null) ...[
-            const SizedBox(height: 8),
-            _NextPeriodRow(periodEnd: periodEnd),
+            const SizedBox(height: AppDimens.space8),
+            _buildNextPeriodRow(periodEnd),
           ],
         ],
       ),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Mutation error
-  // ---------------------------------------------------------------------------
+  Widget _buildLineRow({
+    required int index,
+    required String description,
+    required DateTime dateFrom,
+    required DateTime dateTo,
+    required double amount,
+    required bool isCredit,
+    required bool reduced,
+  }) {
+    final color = isCredit ? AppColors.success : AppColors.warning;
+    final prefix = isCredit ? '−' : '+';
+    final prefixIcon = isCredit ? Icons.remove_rounded : Icons.add_rounded;
+    final formatted =
+        '\$${amount.toStringAsFixed(2)}';
 
-  Widget _buildMutationError(String message) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+    Widget row = Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppDimens.space8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  description,
+                  style: AppTextStyles.bodyM,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _formatDateRange(dateFrom, dateTo),
+                  style: AppTextStyles.mono.copyWith(
+                    color: AppColors.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppDimens.space12),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(prefixIcon, color: color, size: 12),
+              const SizedBox(width: 2),
+              Text(
+                '$prefix$formatted',
+                style: AppTextStyles.hudReadout.copyWith(color: color),
+              ),
+            ],
+          ),
+        ],
       ),
+    );
+
+    if (!reduced) {
+      row = row
+          .animate(delay: AppMotion.staggerDelay(index))
+          .fadeIn(
+            duration: AppMotion.durBase,
+            curve: AppMotion.easeEntrance,
+          )
+          .moveY(
+            begin: 12,
+            end: 0,
+            duration: AppMotion.durBase,
+            curve: AppMotion.easeEntrance,
+          );
+    }
+
+    return row;
+  }
+
+  Widget _buildTotalRow(ProrationOutput output, {required bool reduced}) {
+    final isCharge = output.netAmount >= 0;
+    final color = isCharge ? AppColors.gold : AppColors.success;
+    final glowColor = isCharge ? AppColors.goldGlow : AppColors.successGlow;
+
+    return Semantics(
+      label: 'Total a cobrar hoy: \$${output.netAmount.abs().toStringAsFixed(2)}',
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded,
-              color: AppColors.error, size: 16),
-          const SizedBox(width: 8),
           Expanded(
             child: Text(
-              message,
-              style: const TextStyle(color: AppColors.error, fontSize: 12),
+              'TOTAL A COBRAR HOY',
+              style: AppTextStyles.label.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              boxShadow: [
+                BoxShadow(
+                  color: glowColor,
+                  blurRadius: 12,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: HudTicker(
+              value: output.netAmount.abs(),
+              prefix: '\$',
+              decimals: 2,
+              style: AppTextStyles.numericTicker.copyWith(color: color),
+              animate: !reduced,
             ),
           ),
         ],
@@ -397,30 +736,92 @@ class _ProrationPreviewModalState
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Disclaimer
-  // ---------------------------------------------------------------------------
+  Widget _buildNextPeriodRow(DateTime periodEnd) {
+    final fmt = DateFormat('dd/MM/yyyy');
+    return Row(
+      children: [
+        const Icon(
+          Icons.calendar_today_outlined,
+          color: AppColors.textTertiary,
+          size: 13,
+        ),
+        const SizedBox(width: AppDimens.space8),
+        Expanded(
+          child: Text(
+            'Próximo cobro completo: ${fmt.format(periodEnd)}',
+            style: AppTextStyles.bodyS,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Mutation error ─────────────────────────────────────────────────────────
+
+  Widget _buildMutationError(String message) {
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimens.space12,
+          vertical: AppDimens.space8,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.dangerGlow.withValues(alpha: 0.3),
+          borderRadius: AppDimens.brS,
+          border: Border.all(
+            color: AppColors.danger.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.danger,
+              size: AppDimens.iconS,
+            ),
+            const SizedBox(width: AppDimens.space8),
+            Expanded(
+              child: Text(
+                message,
+                style: AppTextStyles.bodyS.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Disclaimer ─────────────────────────────────────────────────────────────
 
   Widget _buildDisclaimer() {
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.borderGlass),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.space12,
+        vertical: AppDimens.space8,
       ),
-      child: const Row(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppDimens.brS,
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded,
-              color: AppColors.textSecondary, size: 15),
-          SizedBox(width: 8),
+          const Icon(
+            Icons.info_outline_rounded,
+            color: AppColors.textTertiary,
+            size: 15,
+          ),
+          const SizedBox(width: AppDimens.space8),
           Expanded(
             child: Text(
               _kDisclaimer,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
+              style: AppTextStyles.bodyS.copyWith(
+                color: AppColors.textTertiary,
                 height: 1.4,
               ),
             ),
@@ -430,9 +831,7 @@ class _ProrationPreviewModalState
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Action buttons
-  // ---------------------------------------------------------------------------
+  // ── Actions ────────────────────────────────────────────────────────────────
 
   Widget _buildActions() {
     final canConfirm = !_loadingPreview &&
@@ -440,14 +839,13 @@ class _ProrationPreviewModalState
         _preview != null &&
         !_confirming;
 
-    // Resolve target plan details for the accessibility label.
     final billingState = ref.watch(billingV2Provider).valueOrNull;
     final targetPlan = billingState?.availablePlans
         .where((p) => p.id == widget.targetPlanId)
         .firstOrNull;
     final targetPlanName = targetPlan?.name ?? widget.targetPlanId;
     final targetPlanPrice = targetPlan != null
-        ? '\$${(targetPlan.priceCents / 100).toStringAsFixed(2)}/mes'
+        ? '\$${targetPlan.priceMonthly.toStringAsFixed(2)}/mes'
         : '';
     final confirmLabel = _confirming
         ? 'Procesando cambio de plan, por favor espere'
@@ -457,141 +855,30 @@ class _ProrationPreviewModalState
     return Row(
       children: [
         Expanded(
-          child: OutlinedButton(
+          child: AppButton.ghost(
+            label: AppStrings.billingProrationCancel,
             onPressed: _confirming ? null : () => Navigator.of(context).pop(),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white24),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text(AppStrings.billingProrationCancel),
+            size: AppButtonSize.md,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppDimens.space12),
         Expanded(
           child: Semantics(
             label: confirmLabel,
             liveRegion: _confirming,
-            child: FilledButton(
+            child: AppButton.primary(
+              label: 'CONFIRMAR CAMBIO',
               onPressed: canConfirm ? _confirm : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.black,
-                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.3),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: _confirming
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.black,
-                      ),
-                    )
-                  : const Text(
-                      'Confirmar cambio',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
+              size: AppButtonSize.md,
+              loading: _confirming,
             ),
           ),
         ),
       ],
     );
   }
-}
 
-// ---------------------------------------------------------------------------
-// Container decoration
-// ---------------------------------------------------------------------------
-
-class _ModalContainer extends StatelessWidget {
-  const _ModalContainer({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: const Color(0xFF09090B),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.borderGlass),
-      ),
-      child: child,
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Proration line row
-// ---------------------------------------------------------------------------
-
-class _ProrationLineRow extends StatelessWidget {
-  const _ProrationLineRow({required this.line});
-
-  final ProrationLine line;
-
-  @override
-  Widget build(BuildContext context) {
-    final isCredit = line.amountCents < 0;
-    final color = isCredit ? AppColors.success : AppColors.error;
-    final formatted = _formatCents(line.amountCents);
-    final dateRange = _formatDateRange(line.periodStart, line.periodEnd);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  line.description,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  dateRange,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            formatted,
-            style: TextStyle(
-              color: color,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Courier',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatCents(int cents) {
-    final dollars = cents.abs() / 100.0;
-    final formatted =
-        NumberFormat.currency(symbol: r'$', decimalDigits: 2).format(dollars);
-    return cents < 0 ? '-$formatted' : '+$formatted';
-  }
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   String _formatDateRange(DateTime start, DateTime end) {
     final fmt = DateFormat('dd/MM/yyyy');
@@ -600,109 +887,70 @@ class _ProrationLineRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Total row
+// Plan capsule (before/after band)
 // ---------------------------------------------------------------------------
 
-class _TotalRow extends StatelessWidget {
-  const _TotalRow({required this.label, required this.amountCents});
+class _PlanCapsule extends StatelessWidget {
+  const _PlanCapsule({
+    required this.name,
+    required this.energized,
+  });
 
-  final String label;
-  final int amountCents;
+  final String name;
+  final bool energized;
 
   @override
   Widget build(BuildContext context) {
-    final isCredit = amountCents < 0;
-    final color = isCredit ? AppColors.success : AppColors.primary;
-    final dollars = amountCents.abs() / 100.0;
-    final formatted =
-        NumberFormat.currency(symbol: r'$', decimalDigits: 2).format(dollars);
-    final display = isCredit ? '-$formatted' : formatted;
+    final reduced = AppMotion.reduced(context);
 
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
+    Widget capsule = Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.space12,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: energized
+            ? AppColors.goldGlow.withValues(alpha: 0.5)
+            : Colors.transparent,
+        borderRadius: AppDimens.brPill,
+        border: Border.all(
+          color: energized ? AppColors.borderGold : AppColors.borderDefault,
+          width: 1,
         ),
-        Text(
-          display,
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            fontFamily: 'Courier',
-          ),
+        boxShadow: energized
+            ? const [
+                BoxShadow(
+                  color: AppColors.goldGlow,
+                  blurRadius: 10,
+                  spreadRadius: 0,
+                ),
+              ]
+            : null,
+      ),
+      child: Text(
+        name.toUpperCase(),
+        style: AppTextStyles.label.copyWith(
+          color: energized ? AppColors.gold : AppColors.textTertiary,
+          fontSize: 11,
         ),
-      ],
+      ),
     );
-  }
-}
 
-// ---------------------------------------------------------------------------
-// Next period row
-// ---------------------------------------------------------------------------
+    // Glow pulse on reveal for destination capsule
+    if (energized && !reduced) {
+      capsule = capsule
+          .animate()
+          .custom(
+            duration: AppMotion.durBase,
+            curve: Curves.easeOut,
+            builder: (context, value, child) => child,
+          )
+          .fadeIn(
+            duration: AppMotion.durBase,
+            curve: AppMotion.easeEntrance,
+          );
+    }
 
-class _NextPeriodRow extends StatelessWidget {
-  const _NextPeriodRow({required this.periodEnd});
-
-  final DateTime periodEnd;
-
-  @override
-  Widget build(BuildContext context) {
-    final fmt = DateFormat('dd/MM/yyyy');
-    return Row(
-      children: [
-        const Icon(Icons.calendar_today_outlined,
-            color: AppColors.textSecondary, size: 13),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            'Próximo cobro completo: ${fmt.format(periodEnd)}',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Skeleton row (loading placeholder)
-// ---------------------------------------------------------------------------
-
-class _SkeletonRow extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 14,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Container(
-          width: 70,
-          height: 14,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-      ],
-    );
+    return capsule;
   }
 }
