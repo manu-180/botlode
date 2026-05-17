@@ -2,17 +2,16 @@
 // Panel de crédito HUD — instrumento sci-fi del Hangar OS.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../../core/config/theme/app_colors.dart';
 import '../../../../core/config/theme/app_dimens.dart';
 import '../../../../core/config/theme/app_motion.dart';
 import '../../../../core/config/theme/app_text_styles.dart';
-import '../../../../core/ui/buttons/app_button.dart';
 import '../../../../core/ui/hud/hud.dart';
 import '../../../../core/ui/panels/holo_panel.dart';
 import '../../../../core/ui/widgets/skeleton_base.dart';
 import '../../../billing/presentation/providers/billing_provider.dart';
+import 'smart_action_button.dart';
 
 class CreditHudPanel extends StatelessWidget {
   final AsyncValue<BillingState> billingAsync;
@@ -244,7 +243,7 @@ class CreditHudPanel extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppDimens.space16),
-              _SmartActionButton(
+              SmartActionButton(
                 isCritical: health == FinanceHealth.critical,
                 hasCard: billing.primaryCard != null,
                 debtAmount: billing.totalDebt,
@@ -293,45 +292,3 @@ class _MicroReading extends StatelessWidget {
   }
 }
 
-// ─── SMART ACTION BUTTON ──────────────────────────────────────────────────────
-
-class _SmartActionButton extends StatelessWidget {
-  final bool isCritical;
-  final bool hasCard;
-  final double debtAmount;
-  final VoidCallback onAssemble;
-  final VoidCallback onPayCard;
-  final VoidCallback onPayLink;
-
-  const _SmartActionButton({
-    required this.isCritical,
-    required this.hasCard,
-    required this.debtAmount,
-    required this.onAssemble,
-    required this.onPayCard,
-    required this.onPayLink,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (!isCritical) {
-      return AppButton.primary(
-        label: 'Ensamblar unidad',
-        onPressed: onAssemble,
-        leadingIcon: Icons.add_rounded,
-      );
-    }
-    if (hasCard) {
-      return AppButton.danger(
-        label: 'Pagar \$${debtAmount.toInt()} ahora',
-        onPressed: onPayCard,
-        leadingIcon: Icons.flash_on_rounded,
-      );
-    }
-    return AppButton.secondary(
-      label: 'Pagar online',
-      onPressed: onPayLink,
-      leadingIcon: FontAwesomeIcons.handshake,
-    );
-  }
-}
