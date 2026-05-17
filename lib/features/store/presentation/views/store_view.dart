@@ -1,202 +1,547 @@
 // Archivo: lib/features/store/presentation/views/store_view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
+
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/app_background.dart';
+import 'package:botslode/core/ui/hud/hud_divider.dart';
+import 'package:botslode/core/ui/inputs/app_text_field.dart';
+import 'package:botslode/core/ui/panels/holo_panel.dart';
+import 'package:botslode/core/ui/widgets/app_button.dart';
+import 'package:botslode/core/ui/widgets/empty_state.dart';
+import 'package:botslode/core/ui/widgets/page_title.dart';
+import 'package:botslode/core/ui/widgets/skeleton_base.dart';
 import 'package:botslode/features/store/domain/models/store_product.dart';
 import 'package:botslode/features/store/presentation/widgets/product_card.dart';
 
-class StoreView extends ConsumerWidget {
+class StoreView extends ConsumerStatefulWidget {
   static const String routeName = 'store';
 
   const StoreView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final products = StoreProduct.catalog;
+  ConsumerState<StoreView> createState() => _StoreViewState();
+}
+
+class _StoreViewState extends ConsumerState<StoreView> {
+  String _searchQuery = '';
+  ProductCategory? _selectedCategory;
+  final _searchCtrl = TextEditingController();
+  // Always false for now; branch is ready for async catalog loading.
+  final bool _isLoading = false;
+
+  List<StoreProduct> get _filteredProducts {
+    var list = StoreProduct.catalog;
+    if (_selectedCategory != null) {
+      list = list.where((p) => p.category == _selectedCategory).toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list
+          .where((p) =>
+              p.name.toLowerCase().contains(q) ||
+              p.description.toLowerCase().contains(q))
+          .toList();
+    }
+    return list;
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _clearFilter() {
+    setState(() {
+      _searchQuery = '';
+      _selectedCategory = null;
+    });
+    _searchCtrl.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final catalogEmpty = StoreProduct.catalog.isEmpty;
+    final products = _filteredProducts;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          // Header
-          _buildHeader(),
-          
-          // Grid de productos
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Categorías
-                  _buildCategories(),
-                  const SizedBox(height: 24),
-                  
-                  // Grid de productos
-                  Expanded(
-                    child: GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 20,
-                        mainAxisSpacing: 20,
-                        childAspectRatio: 0.85,
-                      ),
-                      itemCount: products.length,
-                      itemBuilder: (context, index) {
-                        return ProductCard(product: products[index]);
-                      },
-                    ),
-                  ),
-                ],
+      backgroundColor: Colors.transparent,
+      body: AppBackground(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppDimens.space32,
+                AppDimens.space32,
+                AppDimens.space32,
+                0,
+              ),
+              child: PageTitle(
+                title: 'TIENDA',
+                subtitle: 'Potencia tus unidades con módulos premium',
+                style: PageTitleStyle.techBar,
+                accentColor: AppColors.gold,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: AppDimens.space24),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.space32,
+              ),
+              child: _StoreToolbar(
+                searchCtrl: _searchCtrl,
+                selectedCategory: _selectedCategory,
+                onSearchChanged: (v) => setState(() => _searchQuery = v),
+                onCategorySelected: (cat) =>
+                    setState(() => _selectedCategory = cat),
+              ),
+            ),
+            const SizedBox(height: AppDimens.space16),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppDimens.space32),
+              child: ExcludeSemantics(
+                child: HudDivider(nodeColor: AppColors.gold),
+              ),
+            ),
+            const SizedBox(height: AppDimens.space8),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: AppMotion.durBase,
+                switchInCurve: AppMotion.easeStandard,
+                switchOutCurve: AppMotion.easeStandard,
+                child: _isLoading
+                    ? const _StoreSkeletonGrid(key: ValueKey('loading'))
+                    : catalogEmpty
+                        ? _StoreCatalogEmptyState(
+                            key: const ValueKey('catalog-empty'),
+                            onGoToHangar: () => context.go('/dashboard'),
+                          )
+                        : products.isEmpty
+                            ? _StoreFilterEmptyState(
+                                key: const ValueKey('filter-empty'),
+                                onClearFilter: _clearFilter,
+                              )
+                            : _StoreProductGrid(
+                                key: const ValueKey('grid'),
+                                products: products,
+                              ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.primary.withOpacity(0.2),
-            width: 1,
+// ─── Toolbar ──────────────────────────────────────────────────────────────────
+
+class _StoreToolbar extends StatelessWidget {
+  final TextEditingController searchCtrl;
+  final ProductCategory? selectedCategory;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<ProductCategory?> onCategorySelected;
+
+  const _StoreToolbar({
+    required this.searchCtrl,
+    required this.selectedCategory,
+    required this.onSearchChanged,
+    required this.onCategorySelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _CategoryChip(
+          label: 'TODOS',
+          isActive: selectedCategory == null,
+          onTap: () => onCategorySelected(null),
+        ),
+        for (final cat in ProductCategory.values) ...[
+          const SizedBox(width: AppDimens.space8),
+          _CategoryChip(
+            label: cat.displayName,
+            isActive: selectedCategory == cat,
+            accentColor: cat.color,
+            onTap: () => onCategorySelected(cat),
+          ),
+        ],
+        const Spacer(),
+        Semantics(
+          label: 'Buscar módulo',
+          explicitChildNodes: true,
+          child: AppSearchField(
+            controller: searchCtrl,
+            hint: 'Buscar módulo...',
+            width: 280,
+            onChanged: onSearchChanged,
+            onClear: () => onSearchChanged(''),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Category chip ────────────────────────────────────────────────────────────
+
+class _CategoryChip extends StatefulWidget {
+  final String label;
+  final bool isActive;
+  final Color? accentColor;
+  final VoidCallback onTap;
+
+  const _CategoryChip({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+    this.accentColor,
+  });
+
+  @override
+  State<_CategoryChip> createState() => _CategoryChipState();
+}
+
+class _CategoryChipState extends State<_CategoryChip> {
+  bool _hovered = false;
+
+  Color get _tint => widget.accentColor ?? AppColors.gold;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = widget.isActive;
+
+    return Semantics(
+      selected: isActive,
+      button: true,
+      label: widget.label,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: AppMotion.durFast,
+            curve: AppMotion.easeStandard,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.space16,
+              vertical: AppDimens.space8,
+            ),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? _tint.withValues(alpha: 0.12)
+                  : _hovered
+                      ? _tint.withValues(alpha: 0.06)
+                      : Colors.transparent,
+              borderRadius: AppDimens.brPill,
+              border: Border.all(
+                color: isActive
+                    ? _tint.withValues(alpha: 0.5)
+                    : AppColors.borderDefault,
+                width: isActive ? 1.5 : 1.0,
+              ),
+            ),
+            child: Text(
+              widget.label,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: isActive ? _tint : AppColors.textSecondary,
+              ),
+            ),
           ),
         ),
       ),
-      child: Row(
-        children: [
-          // Título con icono
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.primary.withOpacity(0.3),
-                  ),
-                ),
-                child: const FaIcon(
-                  FontAwesomeIcons.store,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'TIENDA',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Oxanium',
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  Text(
-                    'Potencia tus bots con addons premium',
-                    style: TextStyle(
-                      color: AppColors.textSecondary.withOpacity(0.7),
-                      fontSize: 12,
-                      fontFamily: 'Oxanium',
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          
-          const Spacer(),
-          
-          // Buscador (placeholder)
-          Container(
-            width: 250,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.borderGlass),
-            ),
-            child: Row(
+    );
+  }
+}
+
+// ─── Catalog empty state (ceremonial) ─────────────────────────────────────────
+
+class _StoreCatalogEmptyState extends StatefulWidget {
+  final VoidCallback onGoToHangar;
+
+  const _StoreCatalogEmptyState({
+    super.key,
+    required this.onGoToHangar,
+  });
+
+  @override
+  State<_StoreCatalogEmptyState> createState() =>
+      _StoreCatalogEmptyStateState();
+}
+
+class _StoreCatalogEmptyStateState extends State<_StoreCatalogEmptyState>
+    with TickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseAnim;
+  late final AnimationController _entryCtrl;
+  late final Animation<double> _entryAnim;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: AppMotion.durHeartbeat,
+    );
+    _pulseAnim = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: AppMotion.easeStandard),
+    );
+
+    _entryCtrl = AnimationController(
+      vsync: this,
+      duration: AppMotion.durSlow,
+    );
+    _entryAnim = CurvedAnimation(
+      parent: _entryCtrl,
+      curve: AppMotion.easeEntrance,
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final reduced = AppMotion.reduced(context);
+      if (reduced) {
+        _entryCtrl.duration = AppMotion.durCrossfadeReduced;
+      }
+      _entryCtrl.forward();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduced = AppMotion.reduced(context);
+    if (reduced) {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 1.0;
+    } else if (!_pulseCtrl.isAnimating) {
+      _pulseCtrl.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _entryCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = AppMotion.reduced(context);
+
+    return AnimatedBuilder(
+      animation: _entryAnim,
+      builder: (_, child) {
+        final t = _entryAnim.value;
+        final scale = reduced ? 1.0 : (0.96 + 0.04 * t);
+        return Opacity(
+          opacity: t,
+          child: Transform.scale(scale: scale, child: child),
+        );
+      },
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: HoloPanel(
+            padding: const EdgeInsets.all(AppDimens.space40),
+            cornerBrackets: true,
+            scanlines: true,
+            glowAccent: AppColors.gold,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const SizedBox(width: 12),
-                Icon(
-                  Icons.search,
-                  color: AppColors.textSecondary.withOpacity(0.4),
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontFamily: 'Oxanium',
-                      fontSize: 13,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Buscar productos...',
-                      hintStyle: TextStyle(
-                        color: AppColors.textSecondary.withOpacity(0.4),
-                        fontFamily: 'Oxanium',
+                // Pulsating icon ring
+                ExcludeSemantics(
+                  child: AnimatedBuilder(
+                    animation: _pulseAnim,
+                    builder: (_, __) => Opacity(
+                      opacity: reduced ? 1.0 : _pulseAnim.value,
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.surfaceHud,
+                          border: Border.all(
+                            color: AppColors.gold.withValues(alpha: 0.4),
+                            width: 1.5,
+                          ),
+                          boxShadow: AppDimens.glowStatus(AppColors.gold),
+                        ),
+                        child: const Icon(
+                          Icons.inventory_2_outlined,
+                          size: 36,
+                          color: AppColors.gold,
+                        ),
                       ),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                      isDense: true,
                     ),
                   ),
+                ),
+                const SizedBox(height: AppDimens.space24),
+                // Title
+                Semantics(
+                  header: true,
+                  child: Text(
+                    'CATÁLOGO EN PREPARACIÓN',
+                    style: AppTextStyles.titleL.copyWith(
+                      color: AppColors.textPrimary,
+                      letterSpacing: 1.2,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: AppDimens.space8),
+                // Mono status line (decorative)
+                ExcludeSemantics(
+                  child: Text(
+                    '// SYNC_PENDING — MÓDULOS EN ENSAMBLAJE',
+                    style: AppTextStyles.mono.copyWith(
+                      color: AppColors.textTertiary,
+                      letterSpacing: 0.8,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: AppDimens.space16),
+                // Description
+                Text(
+                  'Los módulos premium para tus unidades estarán disponibles próximamente.',
+                  style: AppTextStyles.bodyM.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppDimens.space24),
+                // CTA
+                AppButton.ghost(
+                  label: 'VOLVER AL HANGAR',
+                  onPressed: widget.onGoToHangar,
+                  size: AppButtonSize.md,
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildCategories() {
-    return Row(
-      children: [
-        _categoryChip('TODOS', true),
-        const SizedBox(width: 12),
-        ...ProductCategory.values.map((cat) => Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: _categoryChip(cat.displayName, false, cat.color),
-        )),
-      ],
+// ─── Filter empty state ───────────────────────────────────────────────────────
+
+class _StoreFilterEmptyState extends StatelessWidget {
+  final VoidCallback onClearFilter;
+
+  const _StoreFilterEmptyState({super.key, required this.onClearFilter});
+
+  @override
+  Widget build(BuildContext context) {
+    return EmptyState(
+      icon: Icons.search_off_rounded,
+      title: 'SIN COINCIDENCIAS',
+      description: 'No se encontraron módulos con los filtros actuales.',
+      variant: EmptyStateVariant.noResults,
+      action: AppButton.ghost(
+        label: 'LIMPIAR FILTRO',
+        onPressed: onClearFilter,
+        size: AppButtonSize.sm,
+      ),
     );
   }
+}
 
-  Widget _categoryChip(String label, bool isActive, [Color? color]) {
-    final chipColor = color ?? AppColors.textSecondary;
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isActive ? chipColor.withOpacity(0.1) : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isActive ? chipColor.withOpacity(0.4) : AppColors.borderGlass,
-        ),
+// ─── Skeleton grid ────────────────────────────────────────────────────────────
+
+class _StoreSkeletonGrid extends StatelessWidget {
+  const _StoreSkeletonGrid({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: AppDimens.space32,
+        right: AppDimens.space32,
+        bottom: AppDimens.space32,
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: isActive ? chipColor : AppColors.textSecondary.withOpacity(0.6),
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1,
-          fontFamily: 'Oxanium',
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 320,
+          childAspectRatio: 0.82,
+          crossAxisSpacing: AppDimens.space20,
+          mainAxisSpacing: AppDimens.space20,
         ),
+        itemCount: 6,
+        itemBuilder: (_, __) => const SkeletonBase(radius: AppDimens.radiusL),
+      ),
+    );
+  }
+}
+
+// ─── Product grid ─────────────────────────────────────────────────────────────
+
+class _StoreProductGrid extends StatelessWidget {
+  final List<StoreProduct> products;
+
+  const _StoreProductGrid({super.key, required this.products});
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = AppMotion.reduced(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: AppDimens.space32,
+        right: AppDimens.space32,
+        bottom: AppDimens.space32,
+      ),
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 320,
+          childAspectRatio: 0.82,
+          crossAxisSpacing: AppDimens.space20,
+          mainAxisSpacing: AppDimens.space20,
+        ),
+        itemCount: products.length,
+        itemBuilder: (context, index) {
+          final card = ProductCard(product: products[index]);
+          if (reduced) {
+            return Opacity(opacity: 1, child: card);
+          }
+          final delayMs =
+              AppMotion.staggerDelay(index).inMilliseconds;
+          return TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: AppMotion.durBase + Duration(milliseconds: delayMs),
+            curve: Interval(
+              delayMs /
+                  (AppMotion.durBase.inMilliseconds + delayMs)
+                      .toDouble()
+                      .clamp(0.0, 1.0),
+              1.0,
+              curve: AppMotion.easeEntrance,
+            ),
+            builder: (_, t, child) => Opacity(
+              opacity: t,
+              child: Transform.translate(
+                offset: Offset(0, (1 - t) * 12),
+                child: child,
+              ),
+            ),
+            child: card,
+          );
+        },
       ),
     );
   }
