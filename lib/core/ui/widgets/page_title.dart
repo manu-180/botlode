@@ -12,6 +12,13 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 enum PageTitleStyle { minimal, techBar, elegant }
 
+// Design-specific pixel values not listed in AppDimens — named here to avoid magic numbers.
+const double _kBarWidth = 4.0;
+const double _kDotSize = 8.0;
+const double _kEntranceOffsetY = 8.0;
+// Shimmer highlight: white@40% barrido sobre la barra dorada.
+const Color _kShimmerColor = Color.fromRGBO(255, 255, 255, 0.4);
+
 class PageTitle extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -112,7 +119,7 @@ class _Minimal extends StatelessWidget {
           .animate()
           .fadeIn(duration: AppMotion.durBase, curve: AppMotion.easeEntrance)
           .move(
-            begin: const Offset(0, 8),
+            begin: const Offset(0, _kEntranceOffsetY),
             end: Offset.zero,
             duration: AppMotion.durBase,
             curve: AppMotion.easeEntrance,
@@ -140,7 +147,7 @@ class _Minimal extends StatelessWidget {
 
 // ─── TECH BAR ────────────────────────────────────────────────────────────────
 
-class _TechBar extends StatefulWidget {
+class _TechBar extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Color color;
@@ -154,11 +161,6 @@ class _TechBar extends StatefulWidget {
   });
 
   @override
-  State<_TechBar> createState() => _TechBarState();
-}
-
-class _TechBarState extends State<_TechBar> {
-  @override
   Widget build(BuildContext context) {
     // Vertical gold gradient for the bar (top-to-bottom, not diagonal).
     const barGradient = LinearGradient(
@@ -169,21 +171,21 @@ class _TechBarState extends State<_TechBar> {
     );
 
     Widget bar = Container(
-      width: 4,
+      width: _kBarWidth,
       decoration: BoxDecoration(
         gradient: barGradient,
         borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-        boxShadow: AppDimens.glowStatus(widget.color),
+        boxShadow: AppDimens.glowStatus(color),
       ),
     );
 
-    if (!widget.reduced) {
+    if (!reduced) {
       // Inner: repeating shimmer.
       bar = bar
           .animate(onPlay: (c) => c.repeat())
           .shimmer(
             duration: const Duration(milliseconds: 3200),
-            color: const Color.fromRGBO(255, 255, 255, 0.4),
+            color: _kShimmerColor,
           );
       // Outer: one-shot entrance (scaleY + fade).
       bar = bar
@@ -204,19 +206,19 @@ class _TechBarState extends State<_TechBar> {
     Widget titleText = Semantics(
       header: true,
       child: Text(
-        widget.title,
+        title,
         style: AppTextStyles.displayM.copyWith(color: AppColors.textPrimary),
         overflow: TextOverflow.ellipsis,
         maxLines: 1,
       ),
     );
 
-    if (!widget.reduced) {
+    if (!reduced) {
       titleText = titleText
           .animate()
           .fadeIn(duration: AppMotion.durBase, curve: AppMotion.easeEntrance)
           .move(
-            begin: const Offset(0, 8),
+            begin: const Offset(0, _kEntranceOffsetY),
             end: Offset.zero,
             duration: AppMotion.durBase,
             curve: AppMotion.easeEntrance,
@@ -239,9 +241,9 @@ class _TechBarState extends State<_TechBar> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 titleText,
-                if (widget.subtitle != null) ...[
+                if (subtitle != null) ...[
                   const SizedBox(height: AppDimens.space8),
-                  _buildSubtitle(widget.subtitle!, widget.reduced),
+                  _buildSubtitle(subtitle!, reduced),
                 ],
               ],
             ),
@@ -292,6 +294,19 @@ class _ElegantState extends State<_Elegant>
   }
 
   @override
+  void didUpdateWidget(covariant _Elegant old) {
+    super.didUpdateWidget(old);
+    if (widget.reduced != old.reduced) {
+      if (widget.reduced) {
+        _ctrl.stop();
+        _ctrl.value = 1.0;
+      } else if (!_ctrl.isAnimating) {
+        _ctrl.repeat(reverse: true);
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
@@ -306,8 +321,8 @@ class _ElegantState extends State<_Elegant>
         builder: (context, _) => Opacity(
           opacity: widget.reduced ? 1.0 : _pulse.value,
           child: Container(
-            width: 8,
-            height: 8,
+            width: _kDotSize,
+            height: _kDotSize,
             margin: const EdgeInsets.only(top: AppDimens.space8),
             decoration: BoxDecoration(
               color: widget.color,
@@ -334,7 +349,7 @@ class _ElegantState extends State<_Elegant>
           .animate()
           .fadeIn(duration: AppMotion.durBase, curve: AppMotion.easeEntrance)
           .move(
-            begin: const Offset(0, 8),
+            begin: const Offset(0, _kEntranceOffsetY),
             end: Offset.zero,
             duration: AppMotion.durBase,
             curve: AppMotion.easeEntrance,
@@ -380,7 +395,7 @@ Widget _buildSubtitle(String subtitle, bool reduced) {
       .animate(delay: AppMotion.durStagger)
       .fadeIn(duration: AppMotion.durBase, curve: AppMotion.easeEntrance)
       .move(
-        begin: const Offset(0, 8),
+        begin: const Offset(0, _kEntranceOffsetY),
         end: Offset.zero,
         duration: AppMotion.durBase,
         curve: AppMotion.easeEntrance,
