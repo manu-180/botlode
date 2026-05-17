@@ -66,6 +66,7 @@ class AppTheme {
       hintStyle:  AppTextStyles.bodyM.copyWith(color: AppColors.textTertiary),
     ),
 
+    // Fallback for third-party widgets using ElevatedButton — app code uses AppButton instead.
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.gold,
