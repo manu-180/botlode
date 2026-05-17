@@ -1,29 +1,41 @@
 // Archivo: lib/features/billing/presentation/widgets/digital_card.dart
 //
-// T4·12 — DigitalCard refactored to display PaymentMethod domain model.
+// T4·12 — DigitalCard · Hangar OS design system.
+// Displays the default PaymentMethod with brand icon, masked PAN and expiry.
 //
-// Displays the default PaymentMethod with brand icon (SVG placeholder),
-// masked card number and expiry. Implements 4 visual states:
-//   1. Empty  — no method provided
-//   2. Valid  — card is active (not expired, not expiring soon)
-//   3. Expiring soon — ≤30 days until expiry
-//   4. Expired — expiry date is in the past
+// 4 visual states:
+//   1. empty        — no method provided
+//   2. valid        — active, not expiring within 30 days
+//   3. expiringSoon — ≤30 days until expiry
+//   4. expired      — expiry date is in the past
 //
-// Security: never displays gatewayToken or full PAN.
-// Only last4 (4 digits max) is shown.
+// Security: never displays gatewayToken or full PAN — only last4.
 
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
+import 'package:botslode/core/ui/hud/hud_status_dot.dart';
 import 'package:botslode/features/billing/domain/models/payment_method.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 // ---------------------------------------------------------------------------
-// Public widget
+// Internal card state
 // ---------------------------------------------------------------------------
 
-class DigitalCard extends StatelessWidget {
+enum _CardState { empty, valid, expiringSoon, expired }
+
+// ---------------------------------------------------------------------------
+// DigitalCard
+// ---------------------------------------------------------------------------
+
+class DigitalCard extends StatefulWidget {
   const DigitalCard({super.key, this.method, this.now});
 
   /// The PaymentMethod to display. If null, shows the empty/add-card state.
@@ -33,21 +45,48 @@ class DigitalCard extends StatelessWidget {
   /// Production code always leaves this null and uses [DateTime.now()].
   final DateTime? now;
 
-  // -------------------------------------------------------------------------
-  // Expiry helpers
-  // -------------------------------------------------------------------------
+  @override
+  State<DigitalCard> createState() => _DigitalCardState();
+}
 
-  /// Returns the first moment of the month AFTER expMonth/expYear.
-  /// A card is valid through the last day of expMonth; once that month ends
-  /// the card is expired.
+class _DigitalCardState extends State<DigitalCard>
+    with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+
+  // Gold sheen sweep — plays once every ~3.1 s on the valid state card.
+  late final AnimationController _shimmerCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerCtrl = AnimationController(
+      vsync: this,
+      duration: AppMotion.durShimmer, // 3100 ms
+    );
+    // Delay the first sweep so it doesn't conflict with the entry animation.
+    Future.delayed(const Duration(milliseconds: 1800), () {
+      if (mounted) _shimmerCtrl.repeat();
+    });
+  }
+
+  @override
+  void dispose() {
+    _shimmerCtrl.dispose();
+    super.dispose();
+  }
+
+  // ─── Expiry helpers ────────────────────────────────────────────────────────
+
+  /// First moment of the month AFTER expMonth/expYear — the card is valid
+  /// through the last day of expMonth; after that it is expired.
   DateTime? _expiryDate() {
-    if (method?.expMonth == null || method?.expYear == null) return null;
-    final m = method!.expMonth!;
-    final y = method!.expYear!;
+    final m = widget.method?.expMonth;
+    final y = widget.method?.expYear;
+    if (m == null || y == null) return null;
     return DateTime(y, m + 1, 1);
   }
 
-  DateTime get _now => now ?? DateTime.now();
+  DateTime get _now => widget.now ?? DateTime.now();
 
   bool get _isExpired {
     final exp = _expiryDate();
@@ -60,216 +99,314 @@ class DigitalCard extends StatelessWidget {
     return exp.difference(_now).inDays <= 30;
   }
 
-  // -------------------------------------------------------------------------
-  // Border color based on state
-  // -------------------------------------------------------------------------
-
-  Color get _borderColor {
-    if (_isExpired) return AppColors.error;
-    if (_isExpiringSoon) return AppColors.warning;
-    return AppColors.borderHighlight;
+  _CardState get _state {
+    if (widget.method == null) return _CardState.empty;
+    if (_isExpired) return _CardState.expired;
+    if (_isExpiringSoon) return _CardState.expiringSoon;
+    return _CardState.valid;
   }
 
-  double get _borderWidth {
-    if (_isExpired || _isExpiringSoon) return 2.0;
-    return 1.0;
+  // ─── State-dependent design tokens ────────────────────────────────────────
+
+  Color get _accentColor => switch (_state) {
+        _CardState.empty => AppColors.danger,
+        _CardState.valid => AppColors.gold,
+        _CardState.expiringSoon => AppColors.warning,
+        _CardState.expired => AppColors.danger,
+      };
+
+  Color get _borderColor => switch (_state) {
+        _CardState.empty => AppColors.danger.withValues(alpha: 0.28),
+        _CardState.valid => AppColors.borderGold,
+        _CardState.expiringSoon => AppColors.warning.withValues(alpha: 0.42),
+        _CardState.expired => AppColors.danger.withValues(alpha: 0.42),
+      };
+
+  Color get _bracketColor => switch (_state) {
+        _CardState.empty => AppColors.danger.withValues(alpha: 0.32),
+        _CardState.valid => AppColors.borderGold,
+        _CardState.expiringSoon => AppColors.warning.withValues(alpha: 0.58),
+        _CardState.expired => AppColors.danger.withValues(alpha: 0.58),
+      };
+
+  List<BoxShadow> get _shadows {
+    final hoverMult = _isHovered ? 1.55 : 1.0;
+    return switch (_state) {
+      _CardState.empty => [
+          ...AppDimens.elev1,
+          BoxShadow(
+            color: AppColors.danger.withValues(alpha: 0.11 * hoverMult),
+            blurRadius: 16,
+          ),
+        ],
+      _CardState.valid => [
+          ...AppDimens.elev2,
+          BoxShadow(
+            color: AppColors.goldGlow,
+            blurRadius: 24 * hoverMult,
+            spreadRadius: _isHovered ? 2 : 1,
+          ),
+        ],
+      _CardState.expiringSoon => [
+          ...AppDimens.elev2,
+          BoxShadow(
+            color: AppColors.warningGlow,
+            blurRadius: 20 * hoverMult,
+          ),
+        ],
+      _CardState.expired => [
+          ...AppDimens.elev2,
+          BoxShadow(
+            color: AppColors.dangerGlow,
+            blurRadius: 18 * hoverMult,
+          ),
+        ],
+    };
   }
 
-  // -------------------------------------------------------------------------
-  // Expiry display string  "MM/YY"
-  // -------------------------------------------------------------------------
+  HudDotStatus get _dotStatus => switch (_state) {
+        _CardState.empty => HudDotStatus.offline,
+        _CardState.valid => HudDotStatus.online,
+        _CardState.expiringSoon => HudDotStatus.warning,
+        _CardState.expired => HudDotStatus.offline,
+      };
+
+  // ─── Expiry display string  "MM/YY" ───────────────────────────────────────
 
   String get _expiryLabel {
-    final m = method?.expMonth;
-    final y = method?.expYear;
+    final m = widget.method?.expMonth;
+    final y = widget.method?.expYear;
     if (m == null || y == null) return '--/--';
     final mm = m.toString().padLeft(2, '0');
     final yy = (y % 100).toString().padLeft(2, '0');
     return '$mm/$yy';
   }
 
-  // -------------------------------------------------------------------------
-  // Build
-  // -------------------------------------------------------------------------
+  // ─── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    if (method == null) return _buildEmptyState();
-    return _buildCardState();
-  }
+    final reduced = AppMotion.isReduced(context);
+    final isValidState = _state == _CardState.valid;
 
-  // -------------------------------------------------------------------------
-  // State 1 — Empty
-  // -------------------------------------------------------------------------
-
-  Widget _buildEmptyState() {
-    return AspectRatio(
+    Widget card = AspectRatio(
       aspectRatio: 1.586,
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: const Color(0xFF080808),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: AppColors.error.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.credit_card_off_rounded,
-                color: AppColors.error.withValues(alpha: 0.5),
-                size: 36,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Sin tarjeta agregada',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _AddCardButton(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // States 2 / 3 / 4 — Card with data
-  // -------------------------------------------------------------------------
-
-  Widget _buildCardState() {
-    return AspectRatio(
-      aspectRatio: 1.586,
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: const Color(0xFF050505),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.15),
-              blurRadius: 40,
-              offset: const Offset(0, 10),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedScale(
+          scale: !reduced && _isHovered ? 1.022 : 1.0,
+          duration: AppMotion.durFast,
+          curve: AppMotion.easeHover,
+          child: AnimatedContainer(
+            duration: AppMotion.durFast,
+            curve: AppMotion.easeStandard,
+            decoration: BoxDecoration(
+              borderRadius: AppDimens.brL,
+              border: Border.all(color: _borderColor, width: 1.2),
+              boxShadow: _shadows,
             ),
-          ],
-          border: Border.all(
-            color: _borderColor,
-            width: _borderWidth,
-          ),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            children: [
-              // Fondo hexagonal decorativo
-              Positioned(
-                right: -50,
-                top: -20,
-                child: CustomPaint(
-                  size: const Size(300, 300),
-                  painter: _HexagonPainter(
-                    color: AppColors.primary.withValues(alpha: 0.05),
-                  ),
-                ),
-              ),
-              // Gradiente sutil de arriba-izquierda a abajo-derecha
-              Positioned.fill(
+            child: ClipRRect(
+              borderRadius: AppDimens.brL,
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                 child: Container(
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Colors.white.withValues(alpha: 0.05),
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.8),
+                        AppColors.surfaceRaised,
+                        AppColors.surface,
+                        AppColors.voidBlack,
                       ],
+                      stops: [0.0, 0.55, 1.0],
                     ),
+                  ),
+                  child: Stack(
+                    children: [
+                      // ── Decorative hex background ──────────────────────
+                      Positioned(
+                        right: -48,
+                        top: -20,
+                        child: CustomPaint(
+                          size: const Size(250, 250),
+                          painter: _HexagonPainter(
+                            color: _accentColor.withValues(alpha: 0.045),
+                          ),
+                        ),
+                      ),
+
+                      // ── Scanline texture ───────────────────────────────
+                      if (!reduced)
+                        const Positioned.fill(
+                          child: IgnorePointer(
+                            child: CustomPaint(
+                              painter: _ScanlinePainter(),
+                            ),
+                          ),
+                        ),
+
+                      // ── Gold sheen sweep (valid only) ──────────────────
+                      if (!reduced && isValidState)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: _GoldSheenSweep(
+                              animation: _shimmerCtrl,
+                            ),
+                          ),
+                        ),
+
+                      // ── Main card content ──────────────────────────────
+                      Positioned.fill(
+                        child: _state == _CardState.empty
+                            ? _buildEmptyContent()
+                            : _buildCardContent(),
+                      ),
+
+                      // ── HUD corner brackets overlay ────────────────────
+                      Positioned.fill(
+                        child: HudCornerBrackets(
+                          color: _bracketColor,
+                          armLength: 15,
+                          strokeWidth: 1.4,
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              // Contenido principal
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildHeader(),
-                    _buildCardNumber(),
-                    _buildFooter(),
-                  ],
-                ),
-              ),
-              // Badge de estado (vencida / vence pronto)
-              if (_isExpired || _isExpiringSoon)
-                Positioned(
-                  bottom: 16,
-                  left: 24,
-                  child: _buildStatusBadge(),
-                ),
-            ],
+            ),
           ),
         ),
       ),
     );
+
+    // Entry animation: fade + slide from below
+    if (!reduced) {
+      card = card
+          .animate()
+          .fadeIn(
+            duration: AppMotion.durSlow,
+            curve: AppMotion.easeEntrance,
+          )
+          .moveY(
+            begin: AppMotion.slideOffset,
+            end: 0,
+            duration: AppMotion.durSlow,
+            curve: AppMotion.easeEntrance,
+          );
+    }
+
+    return card;
   }
 
-  // -------------------------------------------------------------------------
-  // Header row: chip left, brand icon right
-  // -------------------------------------------------------------------------
+  // ─── State 1 — Empty ───────────────────────────────────────────────────────
 
+  Widget _buildEmptyContent() {
+    return Padding(
+      padding: const EdgeInsets.all(AppDimens.space24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.danger.withValues(alpha: 0.32),
+                width: 1.5,
+              ),
+              color: AppColors.danger.withValues(alpha: 0.07),
+            ),
+            child: Icon(
+              Icons.credit_card_off_rounded,
+              color: AppColors.danger.withValues(alpha: 0.62),
+              size: 26,
+            ),
+          ),
+          const SizedBox(height: AppDimens.space12),
+          Text(
+            'SIN MÉTODO DE PAGO',
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textSecondary,
+              letterSpacing: 2.0,
+            ),
+          ),
+          const SizedBox(height: AppDimens.space4),
+          Text(
+            'Vinculá una tarjeta para activar pagos automáticos',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.mono.copyWith(
+              color: AppColors.textTertiary,
+              fontSize: 10,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: AppDimens.space16),
+          const _AddCardButton(),
+        ],
+      ),
+    );
+  }
+
+  // ─── States 2 / 3 / 4 — Card with data ────────────────────────────────────
+
+  Widget _buildCardContent() {
+    return Padding(
+      padding: const EdgeInsets.all(AppDimens.space24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildHeader(),
+          _buildPan(),
+          _buildFooter(),
+        ],
+      ),
+    );
+  }
+
+  // Header row: EMV chip left, brand icon right
   Widget _buildHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Chip EMV
+        // EMV chip with gradGold + glow
         Container(
           width: 45,
           height: 35,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            gradient: const LinearGradient(
-              colors: [Color(0xFFE0AA3E), Color(0xFFB88A2D), Color(0xFFF9E496)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
+            borderRadius: BorderRadius.circular(AppDimens.radiusXS),
+            gradient: AppColors.gradGold,
+            boxShadow: const [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 2,
-                offset: const Offset(1, 1),
+                color: AppColors.goldGlow,
+                blurRadius: 10,
+                spreadRadius: 0,
               ),
             ],
           ),
           child: CustomPaint(painter: _ChipPainter()),
         ),
-        // Icono de marca
+        // Brand icon
         Semantics(
-          label: '${method?.brand ?? 'generic'} card icon',
-          child: _BrandIcon(brand: method?.brand),
+          label: '${widget.method?.brand ?? 'generic'} card',
+          child: _BrandIcon(brand: widget.method?.brand),
         ),
       ],
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Card number (masked)
-  // -------------------------------------------------------------------------
+  // Masked PAN: dots + last4 highlighted in gold
+  Widget _buildPan() {
+    final last4 = widget.method?.last4;
+    final isExpired = _state == _CardState.expired;
 
-  Widget _buildCardNumber() {
-    final last4 = method?.last4;
     return Semantics(
       label: last4 != null
           ? 'Tarjeta terminada en $last4'
@@ -280,29 +417,35 @@ class DigitalCard extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 '•••• •••• •••• ',
-                style: TextStyle(
-                  color: Colors.white38,
+                style: AppTextStyles.hudReadout.copyWith(
+                  color: AppColors.textTertiary.withValues(
+                    alpha: isExpired ? 0.35 : 0.62,
+                  ),
                   fontSize: 16,
                   letterSpacing: 2.0,
-                  fontFamily: 'Courier',
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               Text(
                 last4 ?? '••••',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontFamily: 'Oxanium',
+                style: AppTextStyles.hudReadout.copyWith(
+                  color: isExpired
+                      ? AppColors.danger.withValues(alpha: 0.72)
+                      : AppColors.gold,
                   fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 3.0,
-                  shadows: [
-                    Shadow(
-                      color: AppColors.primary.withValues(alpha: 0.5),
-                      blurRadius: 15,
-                    ),
-                  ],
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 3.2,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  shadows: isExpired
+                      ? null
+                      : const [
+                          Shadow(
+                            color: AppColors.goldGlow,
+                            blurRadius: 12,
+                          ),
+                        ],
                 ),
               ),
             ],
@@ -312,33 +455,70 @@ class DigitalCard extends StatelessWidget {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Footer row: expiry date right-aligned
-  // -------------------------------------------------------------------------
-
+  // Footer row: status dot+label left, expiry date right
   Widget _buildFooter() {
+    final state = _state;
+
+    final Color statusColor = switch (state) {
+      _CardState.valid => AppColors.success,
+      _CardState.expiringSoon => AppColors.warning,
+      _CardState.expired => AppColors.danger,
+      _CardState.empty => AppColors.textTertiary,
+    };
+
+    final String statusLabel = switch (state) {
+      _CardState.valid => 'ACTIVA',
+      _CardState.expiringSoon => 'VENCE PRONTO',
+      _CardState.expired => 'VENCIDA',
+      _CardState.empty => '',
+    };
+
+    final Color expiryColor = switch (state) {
+      _CardState.expiringSoon => AppColors.warning,
+      _CardState.expired => AppColors.danger,
+      _ => AppColors.textPrimary,
+    };
+
     return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        // Status dot + label
+        Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'VENCE',
-              style: TextStyle(
-                color: Colors.white24,
+            HudStatusDot(status: _dotStatus, size: 7),
+            const SizedBox(width: AppDimens.space8),
+            Text(
+              statusLabel,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: statusColor,
                 fontSize: 9,
                 letterSpacing: 1.5,
               ),
             ),
-            const SizedBox(height: 4),
+          ],
+        ),
+        // Expiry date block
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'VENCE',
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textTertiary,
+                fontSize: 9,
+              ),
+            ),
+            const SizedBox(height: AppDimens.space2),
             Text(
               _expiryLabel,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+              style: AppTextStyles.hudReadout.copyWith(
+                color: expiryColor,
                 fontSize: 13,
-                letterSpacing: 1.0,
+                fontWeight: FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ],
@@ -346,41 +526,50 @@ class DigitalCard extends StatelessWidget {
       ],
     );
   }
+}
 
-  // -------------------------------------------------------------------------
-  // Status badge (VENCIDA / VENCE PRONTO)
-  // -------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// _GoldSheenSweep — subtle golden diagonal sweep across valid card
+// ---------------------------------------------------------------------------
 
-  Widget _buildStatusBadge() {
-    final isExpired = _isExpired;
-    final bgColor = isExpired ? AppColors.error : AppColors.warning;
-    final textColor = isExpired ? Colors.white : const Color(0xFF1A1200);
-    final label = isExpired ? 'VENCIDA' : 'VENCE PRONTO';
+class _GoldSheenSweep extends StatelessWidget {
+  final Animation<double> animation;
+  const _GoldSheenSweep({required this.animation});
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
-        ),
-      ),
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (_, __) {
+        final t = animation.value;
+        // Sweep center travels from -1.8 to 2.8 (off-screen left → right)
+        final sweep = -1.8 + t * 4.6;
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment(sweep - 0.65, -0.6),
+              end: Alignment(sweep + 0.65, 0.6),
+              colors: const [
+                Colors.transparent,
+                Color.fromRGBO(255, 215, 64, 0.068),
+                Color.fromRGBO(255, 255, 255, 0.04),
+                Colors.transparent,
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// _AddCardButton — no-op CTA for empty state
+// _AddCardButton — no-op CTA for empty state (caller handles navigation)
 // ---------------------------------------------------------------------------
 
 class _AddCardButton extends StatelessWidget {
+  const _AddCardButton();
+
   @override
   Widget build(BuildContext context) {
     return TextButton(
@@ -388,17 +577,20 @@ class _AddCardButton extends StatelessWidget {
         // no-op: caller is responsible for navigation/modal
       },
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.primary,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        side: const BorderSide(color: AppColors.primary, width: 1),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        foregroundColor: AppColors.gold,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimens.space20,
+          vertical: AppDimens.space8,
+        ),
+        side: const BorderSide(color: AppColors.borderGold, width: 1),
+        shape: RoundedRectangleBorder(borderRadius: AppDimens.brM),
+        minimumSize: const Size(AppDimens.hitTargetMin, AppDimens.hitTargetMin),
       ),
-      child: const Text(
-        'Agregar tarjeta',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-          letterSpacing: 0.5,
+      child: Text(
+        'AGREGAR TARJETA',
+        style: AppTextStyles.labelSmall.copyWith(
+          color: AppColors.gold,
+          letterSpacing: 1.4,
         ),
       ),
     );
@@ -406,7 +598,7 @@ class _AddCardButton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// _BrandIcon — renders brand SVG from assets/billing/brands/.
+// _BrandIcon — renders brand SVG from assets/billing/brands/
 // Supported: visa, mastercard, amex. Falls back to generic.svg.
 // ---------------------------------------------------------------------------
 
@@ -424,16 +616,12 @@ class _BrandIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      _assetPath,
-      width: 52,
-      height: 34,
-    );
+    return SvgPicture.asset(_assetPath, width: 52, height: 34);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Preserved painters (must NOT be deleted per task constraints)
+// Preserved painters — must NOT be deleted per task constraints
 // ---------------------------------------------------------------------------
 
 class _HexagonPainter extends CustomPainter {
@@ -445,7 +633,7 @@ class _HexagonPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 30;
+      ..strokeWidth = 28;
     final path = Path();
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
@@ -464,16 +652,17 @@ class _HexagonPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _HexagonPainter old) => old.color != color;
 }
 
 class _ChipPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.2)
+      ..color = Colors.black.withValues(alpha: 0.22)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+      ..strokeWidth = 0.8;
+
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(0, 0, size.width, size.height),
@@ -500,4 +689,24 @@ class _ChipPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// Lightweight scanline painter — avoids importing private API from hud_scanlines.dart
+class _ScanlinePainter extends CustomPainter {
+  const _ScanlinePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.textPrimary.withValues(alpha: 0.032)
+      ..strokeWidth = 1;
+    double y = 0;
+    while (y < size.height) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      y += 3;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
 }

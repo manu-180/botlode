@@ -15,6 +15,12 @@
 import 'dart:ui';
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/features/billing/domain/models/subscription.dart';
+
+// ---------------------------------------------------------------------------
+// Billing interval
+// ---------------------------------------------------------------------------
+
+enum BillingInterval { month, year }
 import 'package:botslode/features/billing/domain/services/payment_error_service.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/billing/presentation/widgets/mercadopago_brick_form.dart';
@@ -56,9 +62,9 @@ class PaymentCheckoutModal extends ConsumerStatefulWidget {
     super.key,
     required this.amount,
     required this.exchangeRate,
-    required this.planName,
-    required this.frequency,
-    required this.idempotencyKey,
+    this.planName = '',
+    this.frequency = BillingInterval.month,
+    this.idempotencyKey = '',
   });
 
   @override

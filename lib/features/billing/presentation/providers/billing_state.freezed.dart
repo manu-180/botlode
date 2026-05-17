@@ -66,7 +66,6 @@ abstract class $BillingV2StateCopyWith<$Res> {
       String? errorMessage,
       ProrationOutput? pendingProration});
 
-  $SubscriptionCopyWith<$Res>? get subscription;
 }
 
 /// @nodoc
@@ -132,17 +131,6 @@ class _$BillingV2StateCopyWithImpl<$Res, $Val extends BillingV2State>
     ) as $Val);
   }
 
-  @override
-  @pragma('vm:prefer-inline')
-  $SubscriptionCopyWith<$Res>? get subscription {
-    if (_value.subscription == null) {
-      return null;
-    }
-
-    return $SubscriptionCopyWith<$Res>(_value.subscription!, (value) {
-      return _then(_value.copyWith(subscription: value) as $Val);
-    });
-  }
 }
 
 /// @nodoc
@@ -164,8 +152,6 @@ abstract class _$$BillingV2StateImplCopyWith<$Res>
       String? errorMessage,
       ProrationOutput? pendingProration});
 
-  @override
-  $SubscriptionCopyWith<$Res>? get subscription;
 }
 
 /// @nodoc
