@@ -16,6 +16,7 @@ import 'package:botslode/features/dashboard/presentation/widgets/unit_command_he
 import 'package:botslode/features/dashboard/presentation/widgets/unit_tab_bar.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/tabs/bot_config_tab.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/tabs/bot_dashboard_tab.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/tabs/bot_knowledge_tab.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/unit_telemetry_console.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -66,7 +67,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
             isActive: isActive,
           ),
       1 => BotConfigTab(key: ValueKey(1), bot: bot),
-      2 => const _PlaceholderTab(key: ValueKey(2), label: 'KNOWLEDGE'),
+      2 => BotKnowledgeTab(key: const ValueKey(2), botId: bot.id),
       3 => const _PlaceholderTab(key: ValueKey(3), label: 'MOOD'),
       4 => const _PlaceholderTab(key: ValueKey(4), label: 'EMBED'),
       _ => const SizedBox.shrink(),
