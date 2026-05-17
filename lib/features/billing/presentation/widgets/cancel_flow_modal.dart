@@ -25,6 +25,7 @@ import 'package:botslode/core/ui/widgets/app_text_field.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/l10n/app_strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -589,51 +590,62 @@ class _HudStepIndicator extends StatelessWidget {
         final isCompleted = i < currentStep;
         final isFuture = i > currentStep;
 
+        final stepState = isActive
+            ? 'activo'
+            : isCompleted
+                ? 'completado'
+                : 'pendiente';
+
         return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(right: i < 2 ? AppDimens.space12 : 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  height: AppDimens.space4,
-                  child: isActive
-                      ? const HudReactorBar(
-                          axis: Axis.horizontal,
-                          thickness: 3,
-                          color: AppColors.warning,
-                          pulsing: true,
-                        )
-                      : isCompleted
-                          ? HudReactorBar(
+          child: Semantics(
+            label: 'Paso ${i + 1} de 3: ${_labels[i]}, $stepState',
+            child: Padding(
+              padding: EdgeInsets.only(right: i < 2 ? AppDimens.space12 : 0),
+              child: ExcludeSemantics(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      height: AppDimens.space4,
+                      child: isActive
+                          ? const HudReactorBar(
                               axis: Axis.horizontal,
                               thickness: 3,
-                              color: AppColors.success.withValues(alpha: 0.5),
-                              pulsing: false,
+                              color: AppColors.warning,
+                              pulsing: true,
                             )
-                          : Container(
-                              height: AppDimens.space4,
-                              decoration: BoxDecoration(
-                                color: AppColors.borderSubtle,
-                                borderRadius: AppDimens.brPill,
-                              ),
-                            ),
+                          : isCompleted
+                              ? HudReactorBar(
+                                  axis: Axis.horizontal,
+                                  thickness: 3,
+                                  color: AppColors.success.withValues(alpha: 0.5),
+                                  pulsing: false,
+                                )
+                              : Container(
+                                  height: AppDimens.space4,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.borderSubtle,
+                                    borderRadius: AppDimens.brPill,
+                                  ),
+                                ),
+                    ),
+                    const SizedBox(height: AppDimens.space4),
+                    Text(
+                      _labels[i],
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: isFuture
+                            ? AppColors.textTertiary
+                            : isActive
+                                ? AppColors.warning
+                                : AppColors.success.withValues(alpha: 0.7),
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: AppDimens.space4),
-                Text(
-                  _labels[i],
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: isFuture
-                        ? AppColors.textTertiary
-                        : isActive
-                            ? AppColors.warning
-                            : AppColors.success.withValues(alpha: 0.7),
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+              ),
             ),
           ),
         );
@@ -721,14 +733,17 @@ class _ReasonRadioTile extends StatefulWidget {
 
 class _ReasonRadioTileState extends State<_ReasonRadioTile> {
   bool _hovered = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
     final Color borderColor = widget.selected
         ? AppColors.borderGold
-        : _hovered
-            ? AppColors.borderStrong
-            : AppColors.borderDefault;
+        : _focused
+            ? AppColors.cyan
+            : _hovered
+                ? AppColors.borderStrong
+                : AppColors.borderDefault;
 
     final Color fillColor = widget.selected
         ? AppColors.goldGlow.withValues(alpha: 0.4)
@@ -738,73 +753,85 @@ class _ReasonRadioTileState extends State<_ReasonRadioTile> {
       label: 'Motivo de cancelación: ${widget.reason.label}',
       selected: widget.selected,
       button: true,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          key: ValueKey('radio_${widget.reason.label}'),
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: AppMotion.durFast,
-            curve: AppMotion.easeStandard,
-            margin: const EdgeInsets.only(bottom: AppDimens.space8),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.space16,
-              vertical: AppDimens.space12,
-            ),
-            decoration: BoxDecoration(
-              color: fillColor,
-              borderRadius: AppDimens.brM,
-              border: Border.all(color: borderColor),
-            ),
-            child: Row(
-              children: [
-                // Radio dot indicator
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: widget.selected
-                          ? AppColors.gold
-                          : AppColors.textSecondary,
-                      width: 2,
-                    ),
-                  ),
-                  child: widget.selected
-                      ? Center(
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.gold,
-                            ),
-                          ),
-                        )
-                      : null,
+      child: Focus(
+        onFocusChange: (f) => setState(() => _focused = f),
+        onKeyEvent: (_, event) {
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.space ||
+                  event.logicalKey == LogicalKeyboardKey.enter)) {
+            widget.onTap();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+            child: GestureDetector(
+              key: ValueKey('radio_${widget.reason.label}'),
+              onTap: widget.onTap,
+              child: AnimatedContainer(
+                duration: AppMotion.durFast,
+                curve: AppMotion.easeStandard,
+                margin: const EdgeInsets.only(bottom: AppDimens.space8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimens.space16,
+                  vertical: AppDimens.space12,
                 ),
-                const SizedBox(width: AppDimens.space12),
-                Expanded(
-                  child: Text(
-                    widget.reason.label,
-                    style: AppTextStyles.bodyM.copyWith(
-                      color: widget.selected
-                          ? AppColors.gold
-                          : AppColors.textPrimary,
-                      fontWeight: widget.selected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
+                decoration: BoxDecoration(
+                  color: fillColor,
+                  borderRadius: AppDimens.brM,
+                  border: Border.all(color: borderColor),
                 ),
-              ],
+                child: Row(
+                  children: [
+                    // Radio dot indicator
+                    Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: widget.selected
+                              ? AppColors.gold
+                              : AppColors.textSecondary,
+                          width: 2,
+                        ),
+                      ),
+                      child: widget.selected
+                          ? Center(
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.gold,
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: AppDimens.space12),
+                    Expanded(
+                      child: Text(
+                        widget.reason.label,
+                        style: AppTextStyles.bodyM.copyWith(
+                          color: widget.selected
+                              ? AppColors.gold
+                              : AppColors.textPrimary,
+                          fontWeight: widget.selected
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
-      ),
     );
   }
 }
@@ -901,7 +928,9 @@ class _HudConfirmSwitch extends StatelessWidget {
           cursor: isEnabled
               ? SystemMouseCursors.click
               : SystemMouseCursors.basic,
-          child: Row(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 32),
+            child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Toggle track
@@ -959,6 +988,7 @@ class _HudConfirmSwitch extends StatelessWidget {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),

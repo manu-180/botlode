@@ -77,7 +77,7 @@ class CustomTitleBar extends StatelessWidget {
                           child: Text(
                             '// ${breadcrumb!.toUpperCase()}',
                             style: AppTextStyles.mono.copyWith(
-                              color: AppColors.textTertiary,
+                              color: AppColors.textSecondary,
                             ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
@@ -148,7 +148,7 @@ class _SystemStatusIndicator extends StatelessWidget {
         Text(
           _label,
           style: AppTextStyles.labelSmall.copyWith(
-            color: AppColors.textTertiary,
+            color: AppColors.textSecondary,
           ),
         ),
       ],

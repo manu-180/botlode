@@ -80,7 +80,7 @@ class NavSidebar extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
+class _NavItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool isSelected;
@@ -94,53 +94,68 @@ class _NavItem extends StatelessWidget {
   });
 
   @override
+  State<_NavItem> createState() => _NavItemState();
+}
+
+class _NavItemState extends State<_NavItem> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
-    // Animación suave al cambiar de estado
-    return AnimatedContainer(
-      duration: AppMotion.durFast,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppDimens.radiusS),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: AppDimens.space12),
-            padding: const EdgeInsets.symmetric(vertical: AppDimens.space12),
-            decoration: BoxDecoration(
+    return Semantics(
+      button: true,
+      selected: widget.isSelected,
+      label: widget.label,
+      child: Focus(
+        onFocusChange: (focused) => setState(() => _focused = focused),
+        child: AnimatedContainer(
+          duration: AppMotion.durFast,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.onTap,
               borderRadius: BorderRadius.circular(AppDimens.radiusS),
-              // Efecto NEÓN si está seleccionado
-              color: isSelected
-                  ? AppColors.gold.withValues(alpha: 0.15)
-                  : Colors.transparent,
-              border: isSelected
-                  ? Border.all(color: AppColors.gold.withValues(alpha: 0.5))
-                  : Border.all(color: Colors.transparent),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: AppColors.gold.withValues(alpha: 0.2),
-                        blurRadius: 12,
-                        spreadRadius: 1,
-                      )
-                    ]
-                  : [],
-            ),
-            child: Column(
-              children: [
-                AppIcons.icon(
-                  icon,
-                  size: AppDimens.iconM,
-                  color: isSelected ? AppColors.gold : AppColors.textSecondary,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: AppDimens.space12),
+                padding: const EdgeInsets.symmetric(vertical: AppDimens.space12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppDimens.radiusS),
+                  color: widget.isSelected
+                      ? AppColors.gold.withValues(alpha: 0.15)
+                      : Colors.transparent,
+                  border: widget.isSelected
+                      ? Border.all(color: AppColors.gold.withValues(alpha: 0.5))
+                      : _focused
+                          ? Border.all(color: AppColors.cyan, width: 2)
+                          : Border.all(color: Colors.transparent),
+                  boxShadow: widget.isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppColors.gold.withValues(alpha: 0.2),
+                            blurRadius: 12,
+                            spreadRadius: 1,
+                          )
+                        ]
+                      : [],
                 ),
-                const SizedBox(height: AppDimens.space4),
-                Text(
-                  label,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: isSelected ? AppColors.gold : AppColors.textSecondary,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  ),
+                child: Column(
+                  children: [
+                    AppIcons.icon(
+                      widget.icon,
+                      size: AppDimens.iconM,
+                      color: widget.isSelected ? AppColors.gold : AppColors.textSecondary,
+                    ),
+                    const SizedBox(height: AppDimens.space4),
+                    Text(
+                      widget.label,
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: widget.isSelected ? AppColors.gold : AppColors.textSecondary,
+                        fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

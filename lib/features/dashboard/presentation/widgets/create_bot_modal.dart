@@ -285,6 +285,7 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
                     ),
                     const Spacer(),
                     IconButton(
+                      tooltip: 'Cerrar',
                       onPressed: () => Navigator.of(context).pop(),
                       icon: AppIcons.icon(AppIcons.close, size: AppDimens.iconM, color: AppColors.textSecondary),
                     ),
@@ -385,47 +386,72 @@ class _CreateBotModalState extends ConsumerState<CreateBotModal> {
                       SizedBox(height: AppDimens.space24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("CALIBRACIÓN DE NÚCLEO", style: _labelStyle),
-                          SizedBox(
-                            width: 140,
-                            height: 40,
-                            child: TextField(
-                              controller: _hexController,
-                              style: AppTextStyles.mono.copyWith(
-                                color: _selectedColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                          Expanded(child: Text("CALIBRACIÓN DE NÚCLEO", style: _labelStyle)),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 140,
+                                height: 40,
+                                child: TextField(
+                                  controller: _hexController,
+                                  style: AppTextStyles.mono.copyWith(
+                                    color: _selectedColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                  textAlignVertical: TextAlignVertical.center,
+                                  maxLength: 6,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r'[0-9a-fA-F]')),
+                                    UpperCaseTextFormatter(),
+                                  ],
+                                  decoration: InputDecoration(
+                                    counterText: "",
+                                    prefixText: "# ",
+                                    prefixStyle: AppTextStyles.bodyM.copyWith(color: AppColors.textSecondary),
+                                    filled: true,
+                                    fillColor: AppColors.surfaceHud,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: AppDimens.space12),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(AppDimens.radiusXS),
+                                      borderSide: BorderSide(
+                                        color: _isHexInputError ? AppColors.danger : AppColors.borderDefault,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(AppDimens.radiusXS),
+                                      borderSide: BorderSide(
+                                        color: _isHexInputError ? AppColors.danger : _selectedColor,
+                                      ),
+                                    ),
+                                  ),
+                                  onSubmitted: _handleHexSubmit,
+                                  onTapOutside: (_) => _handleHexSubmit(_hexController.text),
+                                ),
                               ),
-                              textAlignVertical: TextAlignVertical.center,
-                              maxLength: 6,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'[0-9a-fA-F]')),
-                                UpperCaseTextFormatter(),
-                              ],
-                              decoration: InputDecoration(
-                                counterText: "",
-                                prefixText: "# ",
-                                prefixStyle: AppTextStyles.bodyM.copyWith(color: AppColors.textSecondary),
-                                filled: true,
-                                fillColor: AppColors.surfaceHud,
-                                contentPadding: EdgeInsets.symmetric(horizontal: AppDimens.space12),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(AppDimens.radiusXS),
-                                  borderSide: BorderSide(
-                                    color: _isHexInputError ? AppColors.danger : AppColors.borderDefault,
+                              if (_isHexInputError)
+                                Semantics(
+                                  liveRegion: true,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: AppDimens.space4),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.error_outline, size: 12, color: AppColors.danger),
+                                        const SizedBox(width: AppDimens.space4),
+                                        Text(
+                                          'Código hex inválido',
+                                          style: AppTextStyles.bodyS.copyWith(color: AppColors.danger),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(AppDimens.radiusXS),
-                                  borderSide: BorderSide(
-                                    color: _isHexInputError ? AppColors.danger : _selectedColor,
-                                  ),
-                                ),
-                              ),
-                              onSubmitted: _handleHexSubmit,
-                              onTapOutside: (_) => _handleHexSubmit(_hexController.text),
-                            ),
+                            ],
                           ),
                         ],
                       ),
@@ -562,6 +588,7 @@ class _CredentialField extends StatelessWidget {
                 ),
               ),
               IconButton(
+                tooltip: 'Copiar $label',
                 icon: AppIcons.icon(AppIcons.copy, size: AppDimens.iconS, color: AppColors.gold.withValues(alpha: 0.7)),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: value));
