@@ -14,6 +14,7 @@ import 'package:botslode/features/dashboard/presentation/widgets/credit_limit_re
 import 'package:botslode/features/dashboard/presentation/widgets/unit_avatar_panel.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/unit_command_header.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/unit_tab_bar.dart';
+import 'package:botslode/features/dashboard/presentation/widgets/tabs/bot_config_tab.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/tabs/bot_dashboard_tab.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/unit_telemetry_console.dart';
 import 'package:flutter/material.dart';
@@ -64,7 +65,7 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
             bot: bot,
             isActive: isActive,
           ),
-      1 => const _PlaceholderTab(key: ValueKey(1), label: 'CONFIG'),
+      1 => BotConfigTab(key: ValueKey(1), bot: bot),
       2 => const _PlaceholderTab(key: ValueKey(2), label: 'KNOWLEDGE'),
       3 => const _PlaceholderTab(key: ValueKey(3), label: 'MOOD'),
       4 => const _PlaceholderTab(key: ValueKey(4), label: 'EMBED'),
