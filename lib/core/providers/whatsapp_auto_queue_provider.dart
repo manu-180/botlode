@@ -1,8 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:botslode/core/providers/shared_whatsapp_limit_provider.dart';
 import 'package:botslode/core/services/whatsapp_api_service.dart';
@@ -101,7 +100,7 @@ class WhatsAppAutoQueueNotifier extends StateNotifier<WhatsAppQueueState> {
 
   final Ref _ref;
 
-  /// 'empresas' | 'assistify'
+  /// 'empresas'
   final String _feature;
 
   List<QueueContact> _queue = [];
@@ -116,6 +115,11 @@ class WhatsAppAutoQueueNotifier extends StateNotifier<WhatsAppQueueState> {
     return _cooldownPattern[idx];
   }
 
+  bool _hasUsablePhone(String phone) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    return digits.length >= 10 && digits.length <= 15;
+  }
+
   /// Callback que la vista inyecta para marcar un contacto como enviado.
   void Function(String id)? onMarkContacted;
 
@@ -126,6 +130,7 @@ class WhatsAppAutoQueueNotifier extends StateNotifier<WhatsAppQueueState> {
     _stopTimers();
     onMarkContacted = markContacted;
     _queue = List.from(contacts);
+    _persistQueueRunning(true);
     state = WhatsAppQueueState(
       isRunning: true,
       total: contacts.length,
@@ -137,6 +142,7 @@ class WhatsAppAutoQueueNotifier extends StateNotifier<WhatsAppQueueState> {
 
   void pause() {
     _stopTimers();
+    _persistQueueRunning(false);
     state = state.copyWith(
       isRunning: false,
       statusMessage: 'Pausado',
@@ -168,6 +174,7 @@ class WhatsAppAutoQueueNotifier extends StateNotifier<WhatsAppQueueState> {
     if (!state.isRunning) return;
     if (state.currentIndex >= _queue.length) {
       _stopTimers();
+      _persistQueueRunning(false);
       state = state.copyWith(
         isRunning: false,
         statusMessage: 'Cola completada. ${state.sent} enviados, ${state.failed} fallidos.',
@@ -195,6 +202,20 @@ class WhatsAppAutoQueueNotifier extends StateNotifier<WhatsAppQueueState> {
     }
 
     final contact = _queue[state.currentIndex];
+    if (!_hasUsablePhone(contact.telefono)) {
+      limitNotifier.recordFailed(_feature);
+      final secs = _nextCooldownSeconds();
+      state = state.copyWith(
+        failed: state.failed + 1,
+        currentIndex: state.currentIndex + 1,
+        statusMessage: 'Número inválido para ${contact.nombre}. Marcado como fallido.',
+        clearProcessingName: true,
+        waitingSeconds: secs,
+      );
+      _startCountdown(secs, onDone: _processNext);
+      return;
+    }
+
     state = state.copyWith(
       processingName: contact.nombre,
       statusMessage: 'Enviando...',
@@ -228,54 +249,43 @@ class WhatsAppAutoQueueNotifier extends StateNotifier<WhatsAppQueueState> {
       _startCountdown(secs, onDone: _processNext);
     } else if (result == WhatsAppSendResult.disabled) {
       _stopTimers();
+      _persistQueueRunning(false);
       state = state.copyWith(
         isRunning: false,
         statusMessage: 'Envío deshabilitado (kill switch activo).',
         clearProcessingName: true,
       );
+    } else if (result == WhatsAppSendResult.noSid) {
+      // Sin template aprobado: marcar fallido y continuar (sin abrir WhatsApp Web).
+      limitNotifier.recordFailed(_feature);
+      final secs = _nextCooldownSeconds();
+      state = state.copyWith(
+        failed: state.failed + 1,
+        currentIndex: state.currentIndex + 1,
+        statusMessage: 'Template no aprobado para ${contact.nombre}. Contado como fallido.',
+        clearProcessingName: true,
+        waitingSeconds: secs,
+      );
+      _startCountdown(secs, onDone: _processNext);
     } else {
-      // noSid o error: usar fallback con launchUrl y continuar con el siguiente.
-      debugPrint('[AutoQueue] Fallback launchUrl para ${contact.nombre}');
-      final uri = Uri.tryParse(contact.whatsappFallbackUrl);
-      if (uri != null) {
-        try {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-          limitNotifier.recordOpen(feature: _feature);
-          limitNotifier.advanceMessageIndex();
-          onMarkContacted?.call(contact.id);
-          final secs = _nextCooldownSeconds();
-          state = state.copyWith(
-            sent: state.sent + 1,
-            currentIndex: state.currentIndex + 1,
-            statusMessage: 'Fallback WhatsApp Web: ${contact.nombre}. Próximo en ${secs ~/ 60} min...',
-            clearProcessingName: true,
-            waitingSeconds: secs,
-          );
-          _startCountdown(secs, onDone: _processNext);
-        } catch (_) {
-          limitNotifier.recordFailed(_feature);
-          final secs = _nextCooldownSeconds();
-          state = state.copyWith(
-            failed: state.failed + 1,
-            currentIndex: state.currentIndex + 1,
-            statusMessage: 'Error enviando a ${contact.nombre}. Próximo en ${secs ~/ 60} min...',
-            clearProcessingName: true,
-            waitingSeconds: secs,
-          );
-          _startCountdown(secs, onDone: _processNext);
-        }
-      } else {
-        limitNotifier.recordFailed(_feature);
-        state = state.copyWith(
-          failed: state.failed + 1,
-          currentIndex: state.currentIndex + 1,
-          statusMessage: 'Sin teléfono válido para ${contact.nombre}. Siguiente...',
-          clearProcessingName: true,
-          waitingSeconds: 0,
-        );
-        _processTimer = Timer(const Duration(seconds: 2), _processNext);
-      }
+      // Error real de Twilio/red: no abrir WhatsApp Web automáticamente.
+      limitNotifier.recordFailed(_feature);
+      final secs = _nextCooldownSeconds();
+      state = state.copyWith(
+        failed: state.failed + 1,
+        currentIndex: state.currentIndex + 1,
+        statusMessage: 'Fallo API Twilio para ${contact.nombre}. Contado como fallido.',
+        clearProcessingName: true,
+        waitingSeconds: secs,
+      );
+      _startCountdown(secs, onDone: _processNext);
     }
+  }
+
+  void _persistQueueRunning(bool running) {
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setBool('wpp_queue_running_$_feature', running);
+    });
   }
 
   void _startCountdown(int seconds, {required Future<void> Function() onDone}) {
@@ -296,15 +306,10 @@ class WhatsAppAutoQueueNotifier extends StateNotifier<WhatsAppQueueState> {
 }
 
 // ---------------------------------------------------------------------------
-// Providers (uno por feature, así la cola de Empresas y Assistify son independientes)
+// Provider (cola automática para Empresas)
 // ---------------------------------------------------------------------------
 
 final empresasAutoQueueProvider =
     StateNotifierProvider<WhatsAppAutoQueueNotifier, WhatsAppQueueState>(
   (ref) => WhatsAppAutoQueueNotifier(ref, 'empresas'),
-);
-
-final assistifyAutoQueueProvider =
-    StateNotifierProvider<WhatsAppAutoQueueNotifier, WhatsAppQueueState>(
-  (ref) => WhatsAppAutoQueueNotifier(ref, 'assistify'),
 );

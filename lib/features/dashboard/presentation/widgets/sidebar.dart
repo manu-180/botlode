@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 // lib/features/dashboard/presentation/widgets/sidebar.dart
 // Sidebar «Hangar OS»: iconos con estado activo dorado, glow, reactor, HUD.
 import 'package:botslode/core/config/restricted_bots_config.dart';
@@ -7,30 +8,35 @@ import 'package:botslode/core/config/theme/app_motion.dart';
 import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:botslode/core/providers/supabase_provider.dart';
 import 'package:botslode/core/ui/hud/hud_reactor_bar.dart';
+=======
+// Archivo: lib/features/dashboard/presentation/widgets/sidebar.dart
+import 'package:botslode/core/config/theme/app_colors.dart';
+>>>>>>> Stashed changes
 import 'package:botslode/features/billing/presentation/views/billing_view.dart';
 import 'package:botslode/features/bots_library/presentation/views/bots_library_view.dart';
 import 'package:botslode/features/dashboard/presentation/views/dashboard_view.dart';
-import 'package:botslode/features/hunter_bot/presentation/views/hunter_view.dart';
-import 'package:botslode/features/empresas_sin_dominio/presentation/views/empresas_sin_dominio_view.dart';
-import 'package:botslode/features/assistify_leads/presentation/views/assistify_leads_view.dart';
-import 'package:botslode/features/seeder_bot/presentation/views/seeder_view.dart';
 import 'package:botslode/features/settings/presentation/views/settings_view.dart';
 import 'package:botslode/features/store/presentation/views/store_view.dart';
-import 'package:botslode/features/wpp_inbox/presentation/providers/wpp_inbox_provider.dart';
-import 'package:botslode/features/wpp_inbox/presentation/views/wpp_inbox_view.dart';
 import 'package:flutter/material.dart';
+<<<<<<< Updated upstream
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+=======
+import 'package:flutter_animate/flutter_animate.dart';
+>>>>>>> Stashed changes
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 
-class Sidebar extends ConsumerWidget {
+class Sidebar extends StatelessWidget {
   const Sidebar({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final String location = GoRouterState.of(context).uri.path;
+<<<<<<< Updated upstream
     final userId = ref.watch(currentUserIdProvider);
     final canSeeRestricted = RestrictedBotsConfig.canUserSeeRestrictedBots(userId);
+=======
+>>>>>>> Stashed changes
 
     return Container(
       width: AppDimens.sidebarWidth,
@@ -90,6 +96,7 @@ class Sidebar extends ConsumerWidget {
                     isActive: location == '/store',
                     onTap: () => context.goNamed(StoreView.routeName),
                   ),
+<<<<<<< Updated upstream
 
                   if (canSeeRestricted) ...[
                     _SidebarSection(label: 'PROS.'),
@@ -121,6 +128,8 @@ class Sidebar extends ConsumerWidget {
                     _SidebarSection(label: 'MSG'),
                     _SidebarInboxItem(location: location),
                   ],
+=======
+>>>>>>> Stashed changes
                 ],
               ),
             ),
@@ -266,6 +275,7 @@ class _SidebarItemState extends State<_SidebarItem> {
   }
 }
 
+<<<<<<< Updated upstream
 // ─── SEPARADOR DE SECCIÓN ─────────────────────────────────────────────────────
 
 class _SidebarSection extends StatelessWidget {
@@ -329,6 +339,56 @@ class _SidebarInboxItem extends ConsumerWidget {
       isActive: location == '/inbox',
       badge: totalUnread > 0 ? totalUnread : null,
       onTap: () => context.goNamed(WppInboxView.routeName),
+=======
+// Widget compartido para los labels con efecto WOW
+Widget _buildLabel(String label, bool isActive) {
+  if (isActive) {
+    return ShaderMask(
+      shaderCallback: (bounds) => LinearGradient(
+        colors: [
+          AppColors.primary,
+          AppColors.primary.withOpacity(0.7),
+          AppColors.primary,
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(bounds),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.5,
+          fontFamily: 'Oxanium',
+          shadows: [
+            Shadow(
+              color: AppColors.primary,
+              blurRadius: 8,
+            ),
+            Shadow(
+              color: AppColors.primary,
+              blurRadius: 12,
+            ),
+          ],
+        ),
+      ),
+    ).animate(onPlay: (c) => c.repeat())
+      .shimmer(
+        duration: 2500.ms,
+        color: Colors.white.withOpacity(0.6),
+        angle: 0,
+      );
+  } else {
+    return Text(
+      label,
+      style: TextStyle(
+        color: AppColors.textSecondary.withOpacity(0.6),
+        fontSize: 9,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.2,
+        fontFamily: 'Oxanium',
+      ),
+>>>>>>> Stashed changes
     );
   }
 }

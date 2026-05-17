@@ -4,7 +4,6 @@ import 'package:botslode/core/config/app_config.dart';
 import 'package:botslode/features/billing/domain/models/card_info.dart';
 import 'package:botslode/features/billing/domain/models/transaction.dart';
 import 'package:botslode/features/billing/domain/repositories/billing_repository.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -182,8 +181,6 @@ class BillingRepositoryImpl implements BillingRepository {
       if (mpResponse.statusCode == 201 || mpResponse.statusCode == 200) {
         token = jsonDecode(mpResponse.body)['id'];
       } else {
-        final errorData = jsonDecode(mpResponse.body);
-        // debugPrint("🔴 MP Tokenization Error: $errorData");
         throw Exception('Los datos de tu tarjeta no son válidos. Verifica el número, CVV y fecha de vencimiento.');
       }
     } catch (e) {

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:botslode/core/logging/app_logger.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -21,6 +21,8 @@ enum WhatsAppSendResult {
 class WhatsAppApiService {
   WhatsAppApiService(this._supabase, this._httpClient);
 
+  final _log = AppLogger('WhatsAppApiService');
+
   final SupabaseClient _supabase;
   final http.Client _httpClient;
 
@@ -29,8 +31,7 @@ class WhatsAppApiService {
   /// Poner en true para deshabilitar todos los envíos sin tocar credenciales.
   static const bool _envioDeshabilitado = false;
 
-  /// Número sender ya registrado en Twilio/WhatsApp Business.
-  static const String _fromNumber = 'whatsapp:+5491125303794';
+  static const int _requestTimeoutSeconds = 15;
 
   Future<void> _ensureEnvLoaded() async {
     if (_envLoaded) return;
@@ -40,7 +41,7 @@ class WhatsAppApiService {
 
   /// Devuelve el Content SID del template según el feature y el índice de rotación.
   ///
-  /// [feature]: 'empresas' | 'assistify'
+  /// [feature]: 'empresas'
   /// [index]: 0-4 (se cicla con % 5)
   ///
   /// Devuelve null si el SID no está configurado aún (templates pendientes de aprobación).
@@ -67,7 +68,7 @@ class WhatsAppApiService {
   /// [telefono]: número del destinatario (se normaliza internamente)
   /// [nombre]: nombre de la empresa/persona para la variable {{1}}
   /// [contentSid]: SID del template aprobado (HX...)
-  /// [feature]: 'empresas' | 'assistify' (solo para el log de auditoría)
+  /// [feature]: 'empresas' (solo para el log de auditoría)
   ///
   /// Retorna [WhatsAppSendResult.noSid] si [contentSid] está vacío → el caller debe usar fallback.
   /// Retorna [WhatsAppSendResult.error] en caso de fallo de red/API → el caller debe usar fallback.
@@ -87,9 +88,10 @@ class WhatsAppApiService {
       final apiKeySid = dotenv.env['API_KEY_SID'] ?? '';
       final apiKeySecret = dotenv.env['API_KEY_SECRET'] ?? '';
       final accountSid = dotenv.env['ACCOUNT_SID']?.trim() ?? '';
+      final fromNumber = dotenv.env['TWILIO_WHATSAPP_FROM']?.trim() ?? '';
 
-      if (apiKeySid.isEmpty || apiKeySecret.isEmpty || accountSid.isEmpty) {
-        debugPrint('[WPP API] Faltan credenciales Twilio en .env');
+      if (apiKeySid.isEmpty || apiKeySecret.isEmpty || accountSid.isEmpty || fromNumber.isEmpty) {
+        _log.warn('[WPP API] Faltan credenciales Twilio en .env');
         return WhatsAppSendResult.error;
       }
 
@@ -119,7 +121,7 @@ class WhatsAppApiService {
       final contentVariables = jsonEncode({'1': nombre.trim().isNotEmpty ? nombre.trim() : 'su empresa'});
 
       final bodyFields = <String, String>{
-        'From': _fromNumber,
+        'From': fromNumber,
         'To': toFormatted,
         'ContentSid': contentSid,
         'ContentVariables': contentVariables,
@@ -138,12 +140,12 @@ class WhatsAppApiService {
                 },
                 body: bodyFields,
               )
-              .timeout(const Duration(seconds: 15));
+              .timeout(const Duration(seconds: _requestTimeoutSeconds));
 
           if (response.statusCode == 201) {
             final decoded = jsonDecode(response.body) as Map<String, dynamic>;
             final twilioSid = decoded['sid'] as String?;
-            debugPrint('[WPP API] Enviado a $toFormatted. SID: $twilioSid');
+            _log.info('[WPP API] Enviado a $toFormatted. SID: $twilioSid');
             if (logId != null) {
               try {
                 await _supabase.from('wpp_control').update({
@@ -158,7 +160,7 @@ class WhatsAppApiService {
             await Future.delayed(Duration(seconds: attempt * 2));
             continue;
           } else {
-            debugPrint('[WPP API] Error Twilio ${response.statusCode}: ${response.body}');
+            _log.error('[WPP API] Error Twilio ${response.statusCode}: ${response.body}');
             if (logId != null) {
               try {
                 await _supabase.from('wpp_control').update({
@@ -172,13 +174,13 @@ class WhatsAppApiService {
           }
         } on SocketException catch (e) {
           if (attempt >= maxRetries) {
-            debugPrint('[WPP API] Sin conexión: ${e.message}');
+            _log.warn('[WPP API] Sin conexión: ${e.message}');
             return WhatsAppSendResult.error;
           }
           await Future.delayed(Duration(seconds: attempt * 2));
         } on TimeoutException catch (_) {
           if (attempt >= maxRetries) {
-            debugPrint('[WPP API] Timeout persistente');
+            _log.warn('[WPP API] Timeout persistente');
             return WhatsAppSendResult.error;
           }
           await Future.delayed(Duration(seconds: attempt * 2));
@@ -186,7 +188,7 @@ class WhatsAppApiService {
       }
       return WhatsAppSendResult.error;
     } catch (e) {
-      debugPrint('[WPP API] Excepción inesperada: $e');
+      _log.error('[WPP API] Excepción inesperada', error: e);
       return WhatsAppSendResult.error;
     }
   }

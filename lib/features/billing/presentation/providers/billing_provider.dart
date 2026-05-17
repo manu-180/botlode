@@ -610,6 +610,16 @@ class BillingV2 extends _$BillingV2 {
   // Utilidades
   // ---------------------------------------------------------------------------
 
+  /// Reintenta el cobro de la suscripción en estado past_due.
+  ///
+  /// TODO(T5): implementar via Edge Function billing-retry-payment.
+  Future<void> retryPayment() async {
+    throw const BillingException(
+      code: 'not_implemented',
+      message: 'Edge function billing-retry-payment not yet deployed (T5)',
+    );
+  }
+
   /// Fuerza la recarga de facturas invalidando el provider.
   Future<void> refreshInvoices() async {
     ref.invalidateSelf();

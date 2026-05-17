@@ -1,27 +1,20 @@
-/// Configuración de bots restringidos a usuarios específicos.
-///
-/// Los bots listados en [restrictedBotIds] solo se muestran en el sidebar
-/// a los usuarios cuyo ID está en [allowedUserIds].
-///
-/// Permite diseñar bots nuevos en privado y exponerlos gradualmente.
+// Restricciones de bots por usuario.
+//
+// ESTADO ACTUAL (post T0): todas las restricciones están desactivadas.
+// La lista hardcodeada de `allowedUserIds` se eliminó por filtración de
+// identidad personal.
+//
+// TODO T18 (auth-real-multitenant): mover a tabla `feature_flags` con
+// RLS por tenant. Cada bot restringido se gobierna por una flag activable
+// desde el dashboard del tenant.
+
 class RestrictedBotsConfig {
-  RestrictedBotsConfig._();
+  /// Lista de IDs de bots restringidos. Vacía hasta T18.
+  static const List<String> restrictedBotIds = <String>[];
 
-  /// IDs de usuarios que pueden ver los bots restringidos.
-  static const Set<String> allowedUserIds = {
-    '38152119-7da4-442e-9826-20901c65f42e',
-  };
-
-  /// Identificadores de bots restringidos (route names).
-  /// Solo visibles para usuarios en [allowedUserIds].
-  static const Set<String> restrictedBotIds = {
-    'hunter',
-    'seeder',
-  };
-
-  /// Comprueba si un usuario puede ver los bots restringidos.
-  static bool canUserSeeRestrictedBots(String? userId) {
-    if (userId == null) return false;
-    return allowedUserIds.contains(userId);
+  /// Devuelve true si el usuario puede acceder a un bot dado.
+  /// Hasta T18: siempre true (no hay restricciones aplicadas).
+  static bool canAccess({required String userId, required String botId}) {
+    return true;
   }
 }

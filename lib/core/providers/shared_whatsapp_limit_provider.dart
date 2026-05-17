@@ -1,10 +1,10 @@
-import 'package:flutter/foundation.dart';
+import 'package:botslode/core/logging/app_logger.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:botslode/core/providers/supabase_provider.dart';
 
-/// Estado compartido de límites WhatsApp para Empresas sin dominio y Assistify.
-/// Cooldown 60s por toque, máx 20 aperturas/hora. Una sola “cuenta” entre ambas pantallas.
+/// Estado compartido de límites WhatsApp para Empresas sin dominio.
+/// Cooldown 60s por toque, máx 20 aperturas/hora.
 class WhatsAppLimitState {
   final int count;
   final DateTime? windowEnd;
@@ -15,8 +15,6 @@ class WhatsAppLimitState {
   final DateTime? dailyOpensDate;
   final int empresasTotalSent;
   final int empresasTotalFailed;
-  final int assistifyTotalSent;
-  final int assistifyTotalFailed;
 
   const WhatsAppLimitState({
     this.count = 0,
@@ -28,8 +26,6 @@ class WhatsAppLimitState {
     this.dailyOpensDate,
     this.empresasTotalSent = 0,
     this.empresasTotalFailed = 0,
-    this.assistifyTotalSent = 0,
-    this.assistifyTotalFailed = 0,
   });
 
   static const int windowMinutes = 60;
@@ -63,7 +59,7 @@ class WhatsAppLimitState {
     return dailyOpens >= maxDailyOpens;
   }
 
-  /// Devuelve true si la hora actual está dentro del horario laboral (8:00–19:00).
+  /// Devuelve true si la hora actual estÃ¡ dentro del horario laboral (8:00â€“19:00).
   static bool isWithinBusinessHours(DateTime now) {
     return now.hour >= 8 && now.hour < 19;
   }
@@ -81,8 +77,6 @@ class WhatsAppLimitState {
     DateTime? dailyOpensDate,
     int? empresasTotalSent,
     int? empresasTotalFailed,
-    int? assistifyTotalSent,
-    int? assistifyTotalFailed,
   }) {
     return WhatsAppLimitState(
       count: count ?? this.count,
@@ -94,8 +88,6 @@ class WhatsAppLimitState {
       dailyOpensDate: dailyOpensDate ?? this.dailyOpensDate,
       empresasTotalSent: empresasTotalSent ?? this.empresasTotalSent,
       empresasTotalFailed: empresasTotalFailed ?? this.empresasTotalFailed,
-      assistifyTotalSent: assistifyTotalSent ?? this.assistifyTotalSent,
-      assistifyTotalFailed: assistifyTotalFailed ?? this.assistifyTotalFailed,
     );
   }
 
@@ -112,8 +104,6 @@ class WhatsAppLimitState {
           : null,
       'empresas_total_sent': empresasTotalSent,
       'empresas_total_failed': empresasTotalFailed,
-      'assistify_total_sent': assistifyTotalSent,
-      'assistify_total_failed': assistifyTotalFailed,
     };
   }
 
@@ -145,13 +135,13 @@ class WhatsAppLimitState {
       dailyOpensDate: parseDate(map['daily_opens_date'] as String?),
       empresasTotalSent: (map['empresas_total_sent'] as int?) ?? 0,
       empresasTotalFailed: (map['empresas_total_failed'] as int?) ?? 0,
-      assistifyTotalSent: (map['assistify_total_sent'] as int?) ?? 0,
-      assistifyTotalFailed: (map['assistify_total_failed'] as int?) ?? 0,
     );
   }
 }
 
 class SharedWhatsAppLimitNotifier extends StateNotifier<WhatsAppLimitState> {
+  final _log = AppLogger('WhatsAppLimitNotifier');
+
   SharedWhatsAppLimitNotifier(this._supabase, this._userId) : super(const WhatsAppLimitState()) {
     _load();
   }
@@ -173,7 +163,7 @@ class SharedWhatsAppLimitNotifier extends StateNotifier<WhatsAppLimitState> {
         await _save();
       }
     } catch (e) {
-      debugPrint('⚠️ [Límites WhatsApp] Error al cargar: $e');
+      _log.warn('⚠️ [Límites WhatsApp] Error al cargar', error: e);
     }
   }
 
@@ -189,7 +179,7 @@ class SharedWhatsAppLimitNotifier extends StateNotifier<WhatsAppLimitState> {
       );
       return true;
     } catch (e) {
-      debugPrint('⚠️ [Límites WhatsApp] Error al guardar: $e');
+      _log.warn('⚠️ [Límites WhatsApp] Error al guardar', error: e);
       return false;
     }
   }
@@ -230,7 +220,7 @@ class SharedWhatsAppLimitNotifier extends StateNotifier<WhatsAppLimitState> {
     _save();
   }
 
-  /// [feature] opcional: 'empresas' | 'assistify' para incrementar el total enviado de ese feature.
+  /// [feature] opcional: 'empresas' para incrementar el total enviado.
   void recordOpen({String? feature}) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -256,8 +246,6 @@ class SharedWhatsAppLimitNotifier extends StateNotifier<WhatsAppLimitState> {
     );
     if (feature == 'empresas') {
       next = next.copyWith(empresasTotalSent: next.empresasTotalSent + 1);
-    } else if (feature == 'assistify') {
-      next = next.copyWith(assistifyTotalSent: next.assistifyTotalSent + 1);
     }
     state = next;
     _save();
@@ -266,23 +254,18 @@ class SharedWhatsAppLimitNotifier extends StateNotifier<WhatsAppLimitState> {
   void recordFailed(String feature) {
     if (feature == 'empresas') {
       state = state.copyWith(empresasTotalFailed: state.empresasTotalFailed + 1);
-    } else if (feature == 'assistify') {
-      state = state.copyWith(assistifyTotalFailed: state.assistifyTotalFailed + 1);
     }
     _save();
   }
 
   String? cannotOpenReason(DateTime now) {
     if (!WhatsAppLimitState.isWithinBusinessHours(now)) {
-      return 'Fuera de horario laboral. Envíos habilitados de 8:00 a 19:00 hs.';
+      return 'Fuera de horario laboral. EnvÃ­os habilitados de 8:00 a 19:00 hs.';
     }
     final cooldown = state.cooldownRemainingSeconds(now);
-    if (cooldown > 0) return 'Esperá ${cooldown ~/ 60} min antes de abrir otro.';
+    if (cooldown > 0) return 'EsperÃ¡ ${cooldown ~/ 60} min antes de abrir otro.';
     if (state.opensInLastHour(now) >= WhatsAppLimitState.maxOpensPerHour) {
-      return 'Límite de aperturas por hora (${WhatsAppLimitState.maxOpensPerHour}). Esperá.';
-    }
-    if (state.isDailyLimitReached(now)) {
-      return 'Límite diario (${WhatsAppLimitState.maxDailyOpens}). Mañana se reinicia.';
+      return 'LÃ­mite de aperturas por hora (${WhatsAppLimitState.maxOpensPerHour}). EsperÃ¡.';
     }
     return null;
   }
@@ -290,7 +273,7 @@ class SharedWhatsAppLimitNotifier extends StateNotifier<WhatsAppLimitState> {
   bool canOpen(DateTime now) => cannotOpenReason(now) == null;
 }
 
-/// Provider compartido: Empresas sin dominio y Assistify usan el mismo límite (misma tabla).
+/// Provider compartido de lÃ­mites WhatsApp para Empresas sin dominio.
 final sharedWhatsAppLimitProvider =
     StateNotifierProvider<SharedWhatsAppLimitNotifier, WhatsAppLimitState>((ref) {
   final supabase = ref.watch(supabaseClientProvider);

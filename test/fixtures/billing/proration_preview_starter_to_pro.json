@@ -1,0 +1,17 @@
+{
+  "net_amount_cents": 1400,
+  "lines": [
+    {
+      "description": "Crédito plan Starter (días restantes)",
+      "amount_cents": -1500,
+      "period_start": "2026-05-01T00:00:00Z",
+      "period_end": "2026-05-31T00:00:00Z"
+    },
+    {
+      "description": "Cargo plan Pro (días restantes)",
+      "amount_cents": 2900,
+      "period_start": "2026-05-01T00:00:00Z",
+      "period_end": "2026-05-31T00:00:00Z"
+    }
+  ]
+}

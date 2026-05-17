@@ -3,17 +3,18 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/domain/repositories/bots_repository.dart';
-import 'package:flutter/foundation.dart';
+import 'package:botslode/core/logging/app_logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class BotsRepositoryImpl implements BotsRepository {
+  final _log = AppLogger('BotsRepository');
   final SupabaseClient _supabase;
 
   BotsRepositoryImpl(this._supabase);
 
   /// Maneja errores de Supabase diferenciando entre conexión, auth y errores de DB.
   Never _handleSupabaseError(Object e, String fallbackMessage) {
-    debugPrint('[BotsRepository] Error: $e');
+    _log.error('[BotsRepository] Error', error: e);
     if (e is PostgrestException) {
       final code = e.code ?? '';
       if (code.contains('PGRST301') || e.message.toLowerCase().contains('jwt') || e.message.toLowerCase().contains('unauthorized')) {

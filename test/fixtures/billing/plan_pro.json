@@ -1,0 +1,13 @@
+{
+  "id": "plan-pro-001",
+  "code": "pro",
+  "name": "Pro",
+  "price_cents": 2900,
+  "interval": "month",
+  "max_bots": 10,
+  "max_conversations": 500,
+  "features": {},
+  "public": true,
+  "currency": "usd",
+  "archived_at": null
+}

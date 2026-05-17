@@ -197,34 +197,52 @@ class _CardFormBody extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Campo unificado de Stripe
-          CardField(
-            onCardChanged: onCardChanged,
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontFamily: 'Oxanium',
-              fontSize: 15,
+          // Visible label for the card field (required for sighted users and a11y)
+          Text(
+            'Datos de tu tarjeta',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
             ),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: colorScheme.surface.withValues(alpha: 0.6),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: colorScheme.outline.withValues(alpha: 0.3),
-                ),
+          ),
+          const SizedBox(height: 8),
+
+          // NOTE: Full a11y inside CardField is limited by Stripe's WebView —
+          // the internal inputs are managed by Stripe Elements (WebView/native).
+          // The Semantics wrapper below exposes the field group to Flutter's
+          // accessibility tree; individual sub-field focus is handled by Stripe.
+          Semantics(
+            label: 'Formulario de tarjeta de crédito - campos gestionados por Stripe',
+            hint: 'Ingrese número de tarjeta, fecha de vencimiento y CVV',
+            child: CardField(
+              onCardChanged: onCardChanged,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontFamily: 'Oxanium',
+                fontSize: 15,
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: colorScheme.outline.withValues(alpha: 0.3),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: colorScheme.surface.withValues(alpha: 0.6),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: colorScheme.outline.withValues(alpha: 0.3),
+                  ),
                 ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: colorScheme.primary,
-                  width: 1.5,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: colorScheme.outline.withValues(alpha: 0.3),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: colorScheme.primary,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),

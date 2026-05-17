@@ -54,6 +54,13 @@ class CardValidatorService {
     return CardBrand.unknown;
   }
 
+  /// Returns the expected CVV length for a given card brand.
+  /// Amex uses 4 digits (CID); all other brands use 3 (CVV/CVC).
+  /// Intended for UX hints only — real validation is performed by the gateway SDK.
+  static int cvvLengthForBrand(CardBrand brand) {
+    return brand == CardBrand.amex ? 4 : 3;
+  }
+
   /// Validación de fecha de expiración (MM/AA)
   /// 
   /// Retorna null si la fecha es válida, o un mensaje de error

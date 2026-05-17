@@ -9,7 +9,25 @@
 //   3. expiringSoon — ≤30 days until expiry
 //   4. expired      — expiry date is in the past
 //
+<<<<<<< Updated upstream
 // Security: never displays gatewayToken or full PAN — only last4.
+=======
+// Security: never displays gatewayToken or full PAN.
+// Only last4 (4 digits max) is shown.
+//
+// CONTRAST ANALYSIS (T4·27 a11y audit):
+//   - White text (Colors.white, #FFFFFF) on dark gradient bottom (#050505 → black 80%).
+//     Approximate background at text positions: ~#0A0A0A (near-black).
+//     Contrast ratio: ~19.9:1 — passes WCAG AA and AAA for both normal and large text.
+//   - Primary color text (AppColors.primary, gold ~#D4AF37 approx) on #050505:
+//     Approximate contrast: ~9.5:1 — passes WCAG AA and AAA.
+//   - "VENCE" label (Colors.white24, ~rgba(255,255,255,0.24)) on dark background:
+//     Approximate contrast: ~1.8:1 — FAILS WCAG AA. This is intentional decorative
+//     micro-label; the expiry value itself (Colors.white) passes at ~19.9:1.
+//   - Colors.white38 masked digits on #050505: ~3.2:1 — passes WCAG AA for large text
+//     (font-size 16, bold) per 3:1 threshold. Borderline for normal text (4.5:1 needed).
+//     Recommendation: increase opacity to 0.6+ for strict AA compliance on body text.
+>>>>>>> Stashed changes
 
 import 'dart:math' as math;
 import 'dart:ui';
@@ -29,6 +47,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 // Internal card state
 // ---------------------------------------------------------------------------
 
+<<<<<<< Updated upstream
 enum _CardState { empty, valid, expiringSoon, expired }
 
 // ---------------------------------------------------------------------------
@@ -37,6 +56,10 @@ enum _CardState { empty, valid, expiringSoon, expired }
 
 class DigitalCard extends StatefulWidget {
   const DigitalCard({super.key, this.method, this.now});
+=======
+class DigitalCard extends StatelessWidget {
+  const DigitalCard({super.key, this.method, this.now, this.onAddCard});
+>>>>>>> Stashed changes
 
   /// The PaymentMethod to display. If null, shows the empty/add-card state.
   final PaymentMethod? method;
@@ -45,9 +68,19 @@ class DigitalCard extends StatefulWidget {
   /// Production code always leaves this null and uses [DateTime.now()].
   final DateTime? now;
 
+<<<<<<< Updated upstream
   @override
   State<DigitalCard> createState() => _DigitalCardState();
 }
+=======
+  /// Optional callback fired when the user taps "Agregar tarjeta" in the
+  /// empty state. If null the button is rendered but does nothing.
+  final VoidCallback? onAddCard;
+
+  // -------------------------------------------------------------------------
+  // Expiry helpers
+  // -------------------------------------------------------------------------
+>>>>>>> Stashed changes
 
 class _DigitalCardState extends State<DigitalCard>
     with SingleTickerProviderStateMixin {
@@ -90,7 +123,7 @@ class _DigitalCardState extends State<DigitalCard>
 
   bool get _isExpired {
     final exp = _expiryDate();
-    return exp != null && _now.isAfter(exp);
+    return exp != null && !_now.isBefore(exp);
   }
 
   bool get _isExpiringSoon {
@@ -191,6 +224,7 @@ class _DigitalCardState extends State<DigitalCard>
 
     Widget card = AspectRatio(
       aspectRatio: 1.586,
+<<<<<<< Updated upstream
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
@@ -220,6 +254,128 @@ class _DigitalCardState extends State<DigitalCard>
                         AppColors.surfaceRaised,
                         AppColors.surface,
                         AppColors.voidBlack,
+=======
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: const Color(0xFF080808),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppColors.error.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.credit_card_off_rounded,
+                color: AppColors.error.withValues(alpha: 0.5),
+                size: 36,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Sin tarjeta agregada',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _AddCardButton(onPressed: onAddCard),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // States 2 / 3 / 4 — Card with data
+  // -------------------------------------------------------------------------
+
+  Widget _buildCardState() {
+    final last4 = method?.last4 ?? '••••';
+    final brand = (method?.brand?.isNotEmpty == true) ? method!.brand! : 'genérica';
+    final expiry = _expiryLabel;
+    final statusSuffix = _isExpired
+        ? ', vencida'
+        : _isExpiringSoon
+            ? ', vence pronto'
+            : '';
+
+    return Semantics(
+      label: 'Tarjeta terminada en $last4, $brand, vence $expiry$statusSuffix',
+      child: AspectRatio(
+        aspectRatio: 1.586,
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: const Color(0xFF050505),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.15),
+                blurRadius: 40,
+                offset: const Offset(0, 10),
+              ),
+            ],
+            border: Border.all(
+              color: _borderColor,
+              width: _borderWidth,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              children: [
+                // Fondo hexagonal decorativo (puramente decorativo)
+                ExcludeSemantics(
+                  child: Positioned(
+                    right: -50,
+                    top: -20,
+                    child: CustomPaint(
+                      size: const Size(300, 300),
+                      painter: _HexagonPainter(
+                        color: AppColors.primary.withValues(alpha: 0.05),
+                      ),
+                    ),
+                  ),
+                ),
+                // Gradiente sutil decorativo
+                ExcludeSemantics(
+                  child: Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.05),
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.8),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Contenido principal — inner semantics excluded to avoid
+                // duplication with the top-level Semantics label on this widget.
+                ExcludeSemantics(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildHeader(),
+                        _buildCardNumber(),
+                        _buildFooter(),
+>>>>>>> Stashed changes
                       ],
                       stops: [0.0, 0.55, 1.0],
                     ),
@@ -277,7 +433,20 @@ class _DigitalCardState extends State<DigitalCard>
                     ],
                   ),
                 ),
+<<<<<<< Updated upstream
               ),
+=======
+                // Badge de estado (vencida / vence pronto) — already in top Semantics label
+                if (_isExpired || _isExpiringSoon)
+                  ExcludeSemantics(
+                    child: Positioned(
+                      bottom: 16,
+                      left: 24,
+                      child: _buildStatusBadge(),
+                    ),
+                  ),
+              ],
+>>>>>>> Stashed changes
             ),
           ),
         ),
@@ -395,8 +564,13 @@ class _DigitalCardState extends State<DigitalCard>
         ),
         // Brand icon
         Semantics(
+<<<<<<< Updated upstream
           label: '${widget.method?.brand ?? 'generic'} card',
           child: _BrandIcon(brand: widget.method?.brand),
+=======
+          label: 'Icono tarjeta ${method?.brand?.isNotEmpty == true ? method!.brand! : 'genérica'}',
+          child: _BrandIcon(brand: method?.brand),
+>>>>>>> Stashed changes
         ),
       ],
     );
@@ -564,18 +738,25 @@ class _GoldSheenSweep extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+<<<<<<< Updated upstream
 // _AddCardButton — no-op CTA for empty state (caller handles navigation)
 // ---------------------------------------------------------------------------
 
 class _AddCardButton extends StatelessWidget {
   const _AddCardButton();
+=======
+// _AddCardButton — CTA for empty state; forwards optional onPressed callback
+// ---------------------------------------------------------------------------
+
+class _AddCardButton extends StatelessWidget {
+  const _AddCardButton({this.onPressed});
+  final VoidCallback? onPressed;
+>>>>>>> Stashed changes
 
   @override
   Widget build(BuildContext context) {
     return TextButton(
-      onPressed: () {
-        // no-op: caller is responsible for navigation/modal
-      },
+      onPressed: onPressed,
       style: TextButton.styleFrom(
         foregroundColor: AppColors.gold,
         padding: const EdgeInsets.symmetric(
@@ -598,25 +779,49 @@ class _AddCardButton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+<<<<<<< Updated upstream
 // _BrandIcon — renders brand SVG from assets/billing/brands/
 // Supported: visa, mastercard, amex. Falls back to generic.svg.
+=======
+// _BrandIcon — renders brand SVG from assets/billing/brands/.
+// Normalises gateway strings (Stripe, Mercado Pago, etc.) via alias map.
+// Falls back to generic.svg for unknown brands.
+>>>>>>> Stashed changes
 // ---------------------------------------------------------------------------
 
 class _BrandIcon extends StatelessWidget {
   const _BrandIcon({this.brand});
   final String? brand;
 
-  static const _kSupported = {'visa', 'mastercard', 'amex'};
+  static const _kAliases = <String, String>{
+    'visa': 'visa',
+    'mastercard': 'mastercard',
+    'master': 'mastercard',
+    'mc': 'mastercard',
+    'amex': 'amex',
+    'americanexpress': 'amex',
+    'american_express': 'amex', // Stripe returns this
+  };
 
   String get _assetPath {
-    final b = brand?.toLowerCase() ?? '';
-    final name = _kSupported.contains(b) ? b : 'generic';
+    final raw = (brand ?? '').toLowerCase().replaceAll(RegExp(r'[\s\-_]'), '');
+    final name = _kAliases[raw] ?? 'generic';
     return 'assets/billing/brands/$name.svg';
   }
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< Updated upstream
     return SvgPicture.asset(_assetPath, width: 52, height: 34);
+=======
+    return SvgPicture.asset(
+      _assetPath,
+      width: 52,
+      height: 34,
+      placeholderBuilder: (_) => const SizedBox(width: 52, height: 34),
+      semanticsLabel: '', // outer Semantics widget already provides the label
+    );
+>>>>>>> Stashed changes
   }
 }
 

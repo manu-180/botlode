@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MP Brick</title>
+  <script src="https://sdk.mercadopago.com/js/v2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #09090B;
+      color: #FFFFFF;
+      font-family: sans-serif;
+      padding: 16px;
+    }
+    #cardPaymentBrick_container { width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="cardPaymentBrick_container"></div>
+  <script>
+    async function init(publicKey, amountCents) {
+      try {
+        const mp = new MercadoPago(publicKey, { locale: 'es-AR' });
+        const bricksBuilder = mp.bricks();
+
+        window.cardPaymentBrickController = await bricksBuilder.create('cardPayment', 'cardPaymentBrick_container', {
+          initialization: {
+            amount: amountCents / 100,
+          },
+          callbacks: {
+            onReady: function () {
+              window.MP_BRICK.postMessage(JSON.stringify({ type: 'ready' }));
+            },
+            onSubmit: function (cardFormData) {
+              return new Promise(function (resolve) {
+                window.MP_BRICK.postMessage(
+                  JSON.stringify({ type: 'token', token: cardFormData.token })
+                );
+                resolve();
+              });
+            },
+            onError: function (error) {
+              var code = (error.cause && error.cause[0] && error.cause[0].code)
+                ? error.cause[0].code
+                : 'unknown';
+              var message = error.message ? error.message : 'Error desconocido';
+              window.MP_BRICK.postMessage(
+                JSON.stringify({ type: 'error', code: code, message: message })
+              );
+            },
+          },
+          customization: {
+            visual: {
+              style: {
+                theme: 'dark',
+              },
+            },
+            fields: {
+              cardNumber: {
+                placeholder: 'XXXX XXXX XXXX XXXX',
+              },
+            },
+          },
+        });
+      } catch (e) {
+        window.MP_BRICK.postMessage(
+          JSON.stringify({ type: 'error', code: 'init_failed', message: e.message || 'Error al inicializar el Brick' })
+        );
+      }
+    }
+  </script>
+</body>
+</html>

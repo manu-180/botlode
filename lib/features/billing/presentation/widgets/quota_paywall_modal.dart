@@ -11,6 +11,7 @@
 
 import 'package:botslode/features/billing/domain/models/plan.dart';
 import 'package:botslode/features/billing/domain/quota/quota_result.dart';
+import 'package:botslode/l10n/app_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -158,27 +159,32 @@ class _QuotaPaywallModal extends StatelessWidget {
   Widget _buildHeader(BuildContext context, ColorScheme colorScheme) {
     return Row(
       children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: colorScheme.errorContainer.withValues(alpha: 0.3),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.lock_outline_rounded,
-            color: colorScheme.error,
-            size: 22,
+        ExcludeSemantics(
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: colorScheme.errorContainer.withValues(alpha: 0.3),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.lock_outline_rounded,
+              color: colorScheme.error,
+              size: 22,
+            ),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            'Límite alcanzado',
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Oxanium',
+          child: Semantics(
+            header: true,
+            child: Text(
+              'Límite alcanzado',
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Oxanium',
+              ),
             ),
           ),
         ),
@@ -187,12 +193,18 @@ class _QuotaPaywallModal extends StatelessWidget {
   }
 
   Widget _buildBodyCopy(ThemeData theme) {
-    return Text(
-      _bodyCopy(),
-      style: TextStyle(
-        color: theme.colorScheme.onSurfaceVariant,
-        fontSize: 14,
-        height: 1.5,
+    final resourceLabel = resource == 'bots' ? 'bots' : 'conversaciones';
+    final quotaMessage =
+        'Has alcanzado el límite de $resourceLabel. Actualiza tu plan para continuar.';
+    return Semantics(
+      label: quotaMessage,
+      child: Text(
+        _bodyCopy(),
+        style: TextStyle(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontSize: 14,
+          height: 1.5,
+        ),
       ),
     );
   }
@@ -378,32 +390,40 @@ class _QuotaPaywallModal extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FilledButton(
-          key: const Key('ver_planes_btn'),
-          onPressed: () {
-            final router = GoRouter.of(context);
-            Navigator.of(context).pop();
-            router.go('/billing');
-          },
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+        Semantics(
+          label: 'Actualizar plan para desbloquear esta función',
+          button: true,
+          child: FilledButton(
+            key: const Key('ver_planes_btn'),
+            onPressed: () {
+              final router = GoRouter.of(context);
+              Navigator.of(context).pop();
+              router.go('/billing');
+            },
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-          ),
-          child: const Text(
-            'Ver planes',
-            style: TextStyle(fontWeight: FontWeight.bold),
+            child: const Text(
+              AppStrings.billingPaywallViewPlans,
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ),
         const SizedBox(height: 10),
-        TextButton(
-          key: const Key('mas_tarde_btn'),
-          onPressed: () => Navigator.of(context).pop(),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+        Semantics(
+          label: 'Cerrar aviso de límite de uso',
+          button: true,
+          child: TextButton(
+            key: const Key('mas_tarde_btn'),
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            child: const Text(AppStrings.billingPaywallLater),
           ),
-          child: const Text('Más tarde'),
         ),
       ],
     );

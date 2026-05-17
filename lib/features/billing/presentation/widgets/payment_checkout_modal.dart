@@ -25,6 +25,7 @@ import 'package:botslode/features/billing/domain/services/payment_error_service.
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/billing/presentation/widgets/mercadopago_brick_form.dart';
 import 'package:botslode/features/billing/presentation/widgets/stripe_elements_card_form.dart';
+import 'package:botslode/l10n/app_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -270,48 +271,56 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Header ──────────────────────────────────────────────────────────
-          const Icon(Icons.hub_rounded, color: AppColors.primary, size: 40),
+          const ExcludeSemantics(child: Icon(Icons.hub_rounded, color: AppColors.primary, size: 40)),
           const SizedBox(height: 16),
-          const Text(
-            'CHECKOUT',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 3.0,
-              fontSize: 10,
-              fontFamily: 'Courier',
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${widget.planName}  ·  \$${widget.amount.toStringAsFixed(2)} USD  ·  $_frequencyLabel',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontFamily: 'Oxanium',
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.2)),
-            ),
-            child: Text(
-              '≈ \$ ${_formatARS(approxARS)} ARS',
+          Semantics(
+            header: true,
+            child: const Text(
+              'CHECKOUT',
               style: TextStyle(
-                color: AppColors.textSecondary.withValues(alpha: 0.9),
-                fontSize: 14,
-                fontFamily: 'Courier',
+                color: AppColors.textSecondary,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 1.0,
+                letterSpacing: 3.0,
+                fontSize: 10,
+                fontFamily: 'Courier',
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Semantics(
+            label: 'Total a pagar: \$${widget.amount.toStringAsFixed(2)} USD - Plan ${widget.planName} $_frequencyLabel',
+            child: Text(
+              '${widget.planName}  ·  \$${widget.amount.toStringAsFixed(2)} USD  ·  $_frequencyLabel',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontFamily: 'Oxanium',
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ExcludeSemantics(
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.2)),
+              ),
+              child: Text(
+                '≈ \$ ${_formatARS(approxARS)} ARS',
+                style: TextStyle(
+                  color: AppColors.textSecondary.withValues(alpha: 0.9),
+                  fontSize: 14,
+                  fontFamily: 'Courier',
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                ),
               ),
             ),
           ),
@@ -394,7 +403,7 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'PASARELA NO CONFIGURADA',
+            AppStrings.billingAddCardGatewayNotConfiguredTitle,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppColors.error,
@@ -406,7 +415,7 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Pasarela de pago no configurada. Contactá al soporte para resolver este problema.',
+            AppStrings.billingAddCardGatewayNotConfiguredMsg,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.7),
@@ -442,7 +451,7 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
                 borderRadius: BorderRadius.circular(12)),
           ),
           child: Text(
-            'CANCELAR',
+            AppStrings.billingAddCardCancel,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.9),
               fontSize: 11,
@@ -468,36 +477,42 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
 
         // PAGAR
         Expanded(
-          child: ElevatedButton(
-            onPressed: payEnabled ? _onConfirmPay : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              disabledBackgroundColor:
-                  AppColors.primary.withValues(alpha: 0.2),
-              foregroundColor: Colors.black,
-              disabledForegroundColor:
-                  Colors.black.withValues(alpha: 0.3),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+          child: Semantics(
+            label: _isMutating
+                ? 'Procesando pago, por favor espere'
+                : 'Confirmar pago de \$${widget.amount.toStringAsFixed(2)} - Plan ${widget.planName}',
+            liveRegion: _isMutating,
+            child: ElevatedButton(
+              onPressed: payEnabled ? _onConfirmPay : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                disabledBackgroundColor:
+                    AppColors.primary.withValues(alpha: 0.2),
+                foregroundColor: Colors.black,
+                disabledForegroundColor:
+                    Colors.black.withValues(alpha: 0.3),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _isMutating
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.black,
+                      ),
+                    )
+                  : const Text(
+                      'PAGAR',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Oxanium',
+                        letterSpacing: 1.5,
+                      ),
+                    ),
             ),
-            child: _isMutating
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.black,
-                    ),
-                  )
-                : const Text(
-                    'PAGAR',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Oxanium',
-                      letterSpacing: 1.5,
-                    ),
-                  ),
           ),
         ),
       ],
@@ -585,7 +600,7 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('CERRAR'),
+                child: const Text(AppStrings.billingCheckoutClose),
               ),
             ),
             const SizedBox(width: 16),
@@ -654,7 +669,7 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
         const SizedBox(height: 24),
 
         const Text(
-          'MÉTODO DE PAGO AGREGADO',
+          AppStrings.billingAddCardSuccessTitle,
           style: TextStyle(
             color: AppColors.success,
             fontFamily: 'Oxanium',
@@ -667,7 +682,7 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
         const SizedBox(height: 12),
 
         Text(
-          'El método de pago se ha vinculado exitosamente.\nListo para el próximo ciclo.',
+          AppStrings.billingAddCardSuccessMsg,
           textAlign: TextAlign.center,
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.8),
@@ -679,7 +694,7 @@ class _PaymentCheckoutModalState extends ConsumerState<PaymentCheckoutModal> {
         const SizedBox(height: 32),
 
         Text(
-          'CERRANDO...',
+          AppStrings.billingAddCardClosing,
           style: TextStyle(
             color: AppColors.success.withValues(alpha: 0.5),
             fontSize: 10,

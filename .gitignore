@@ -43,3 +43,17 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+
+.env
+
+# Security baseline (T0)
+.env.local
+.env.*.local
+**/key.properties
+**/keystore/*.jks
+**/keystore/*.keystore
+**/google-services.json
+**/GoogleService-Info.plist
+build/
+.flutter-plugins

@@ -136,33 +136,43 @@ void main() {
     // 5. Only last4 is shown — never full PAN or gatewayToken
     // -----------------------------------------------------------------------
     testWidgets('does not display more than 4 consecutive digits', (tester) async {
-      // The gatewayToken is "tok_test_NEVER_DISPLAY_SECRET" — must not appear.
-      // last4 = "4242" (4 digits) — allowed.
       await _pump(
         tester,
         DigitalCard(
-          method: _makeMethod(last4: '4242'),
+          method: _makeMethod(
+            last4: '4242',
+            // gatewayToken contains 'tok_test_NEVER_DISPLAY_SECRET' (no long digit sequence)
+          ),
           now: DateTime(2026, 1, 1),
         ),
       );
 
-      // Widget tree must not contain any text with >4 consecutive digit chars
       final allTexts = tester
           .widgetList<Text>(find.byType(Text))
-          .map((t) => t.data ?? '')
+          .map((t) => t.data ?? (t.textSpan?.toPlainText() ?? ''))
           .toList();
 
+      // Check each widget individually — a widget with ≥5 consecutive digits could be PAN leak
       final panPattern = RegExp(r'\d{5,}');
       for (final text in allTexts) {
         expect(
           panPattern.hasMatch(text),
           isFalse,
-          reason: 'Text "$text" contains 5+ consecutive digits — possible PAN leak',
+          reason: 'Widget text "$text" contains 5+ consecutive digits — possible PAN leak',
         );
       }
 
+      // Also join all texts to catch split-across-widget leakage
+      final joined = allTexts.join('');
+      expect(
+        panPattern.hasMatch(joined),
+        isFalse,
+        reason: 'Joined text "$joined" contains 5+ consecutive digits — possible PAN leak',
+      );
+
       // gatewayToken must not appear verbatim
-      expect(find.textContaining('tok_test_NEVER_DISPLAY_SECRET'), findsNothing);
+      expect(find.textContaining('NEVER_DISPLAY_SECRET'), findsNothing);
+      expect(find.textContaining('tok_test'), findsNothing);
     });
 
     // -----------------------------------------------------------------------
@@ -221,6 +231,45 @@ void main() {
 
       // Should not throw and card should still be rendered
       expect(find.byType(DigitalCard), findsOneWidget);
+    });
+
+    // -----------------------------------------------------------------------
+    // Expiry boundary tests
+    // -----------------------------------------------------------------------
+    testWidgets('card is expired at the exact flip moment (first of next month)', (tester) async {
+      await _pump(
+        tester,
+        DigitalCard(
+          method: _makeMethod(expMonth: 12, expYear: 2099),
+          now: DateTime(2100, 1, 1), // exactly when card expires
+        ),
+      );
+      expect(find.text('VENCIDA'), findsOneWidget);
+      expect(find.text('VENCE PRONTO'), findsNothing);
+    });
+
+    testWidgets('card is expiring-soon exactly 30 days before flip', (tester) async {
+      await _pump(
+        tester,
+        DigitalCard(
+          method: _makeMethod(expMonth: 12, expYear: 2099),
+          now: DateTime(2099, 12, 2), // 30 days to Jan 1 2100
+        ),
+      );
+      expect(find.text('VENCE PRONTO'), findsOneWidget);
+      expect(find.text('VENCIDA'), findsNothing);
+    });
+
+    testWidgets('card is NOT expiring-soon when 31 days before flip', (tester) async {
+      await _pump(
+        tester,
+        DigitalCard(
+          method: _makeMethod(expMonth: 12, expYear: 2099),
+          now: DateTime(2099, 12, 1), // 31 days to Jan 1 2100
+        ),
+      );
+      expect(find.text('VENCE PRONTO'), findsNothing);
+      expect(find.text('VENCIDA'), findsNothing);
     });
   });
 }

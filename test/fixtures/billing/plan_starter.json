@@ -1,0 +1,13 @@
+{
+  "id": "plan-starter-001",
+  "code": "starter",
+  "name": "Starter",
+  "price_cents": 900,
+  "interval": "month",
+  "max_bots": 3,
+  "max_conversations": 50,
+  "features": {},
+  "public": true,
+  "currency": "usd",
+  "archived_at": null
+}
