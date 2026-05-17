@@ -27,6 +27,9 @@ class AppTextField extends StatefulWidget {
     this.enabled = true,
     this.keyboardType,
     this.maxLines = 1,
+    this.focusNode,
+    this.textInputAction,
+    this.onSubmitted,
   });
 
   final TextEditingController controller;
@@ -40,13 +43,17 @@ class AppTextField extends StatefulWidget {
   final bool enabled;
   final TextInputType? keyboardType;
   final int maxLines;
+  final FocusNode? focusNode;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
 
   @override
-  State<AppTextField> createState() => _AppTextFieldState();
+  State<AppTextField> createState() => AppTextFieldState();
 }
 
-class _AppTextFieldState extends State<AppTextField> {
-  late final FocusNode _focusNode;
+class AppTextFieldState extends State<AppTextField> {
+  late FocusNode _focusNode;
+  bool _ownsFocusNode = false;
   bool _isFocused = false;
   bool _isHovered = false;
   bool _hadFocus = false;
@@ -59,9 +66,19 @@ class _AppTextFieldState extends State<AppTextField> {
   @override
   void initState() {
     super.initState();
-    _focusNode = FocusNode();
-    _focusNode.addListener(_onFocusChange);
+    _initFocusNode();
     widget.controller.addListener(_onControllerChange);
+  }
+
+  void _initFocusNode() {
+    if (widget.focusNode != null) {
+      _focusNode = widget.focusNode!;
+      _ownsFocusNode = false;
+    } else {
+      _focusNode = FocusNode();
+      _ownsFocusNode = true;
+    }
+    _focusNode.addListener(_onFocusChange);
   }
 
   @override
@@ -71,14 +88,32 @@ class _AppTextFieldState extends State<AppTextField> {
       old.controller.removeListener(_onControllerChange);
       widget.controller.addListener(_onControllerChange);
     }
+    if (old.focusNode != widget.focusNode) {
+      _focusNode.removeListener(_onFocusChange);
+      if (_ownsFocusNode) _focusNode.dispose();
+      _initFocusNode();
+    }
   }
 
   @override
   void dispose() {
     _focusNode.removeListener(_onFocusChange);
     widget.controller.removeListener(_onControllerChange);
-    _focusNode.dispose();
+    if (_ownsFocusNode) _focusNode.dispose();
     super.dispose();
+  }
+
+  /// Forces validation and shows the result inline.
+  /// Returns true if the field is valid.
+  bool validate() {
+    final error = widget.validator?.call(widget.controller.text);
+    if (mounted) {
+      setState(() {
+        _errorText = error;
+        _hadFocus = true;
+      });
+    }
+    return error == null;
   }
 
   void _onFocusChange() {
@@ -265,6 +300,8 @@ class _AppTextFieldState extends State<AppTextField> {
               maxLines: widget.variant == AppTextFieldVariant.password
                   ? 1
                   : widget.maxLines,
+              textInputAction: widget.textInputAction,
+              onSubmitted: widget.onSubmitted,
               cursorColor: AppColors.cyan,
               style: AppTextStyles.bodyM.copyWith(
                 color: widget.enabled
