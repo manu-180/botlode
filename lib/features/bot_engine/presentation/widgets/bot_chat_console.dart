@@ -168,9 +168,13 @@ class _BotChatConsoleState extends ConsumerState<BotChatConsole> {
                         itemBuilder: (context, index) {
                           // Burbuja de "escribiendo"
                           if (index == messages.length && isTyping) {
-                            return Semantics(
-                              label: 'La unidad está escribiendo',
-                              child: _TypingBubble(
+                            return Padding(
+                              key: const ValueKey('typing'),
+                              padding: const EdgeInsets.only(
+                                bottom: AppDimens.space12,
+                              ),
+                              child: ChatMessageBubble(
+                                variant: ChatBubbleVariant.typing,
                                 botColor: widget.botColor,
                                 reduce: reduce,
                               ),
@@ -182,8 +186,9 @@ class _BotChatConsoleState extends ConsumerState<BotChatConsole> {
                           final isSystem = msg['isSystem'] as bool? ?? false;
 
                           if (isSystem) {
-                            return _SystemMessageBubble(
+                            return ChatMessageBubble(
                               key: ValueKey('sys_$index'),
+                              variant: ChatBubbleVariant.system,
                               text: msg['text'] as String,
                               reduce: reduce,
                             );
@@ -191,14 +196,17 @@ class _BotChatConsoleState extends ConsumerState<BotChatConsole> {
 
                           return Padding(
                             key: ValueKey('msg_$index'),
-                            padding: const EdgeInsets.only(bottom: AppDimens.space12),
-                            child: _animatedEntry(
+                            padding: const EdgeInsets.only(
+                              bottom: AppDimens.space12,
+                            ),
+                            child: ChatMessageBubble(
+                              variant: isUser
+                                  ? ChatBubbleVariant.user
+                                  : ChatBubbleVariant.bot,
+                              text: msg['text'] as String,
+                              botColor: widget.botColor,
+                              botName: widget.botName,
                               reduce: reduce,
-                              child: ChatMessageBubble(
-                                text: msg['text'] as String,
-                                isUser: isUser,
-                                botColor: widget.botColor,
-                              ),
                             ),
                           );
                         },
@@ -238,18 +246,6 @@ class _BotChatConsoleState extends ConsumerState<BotChatConsole> {
     );
   }
 
-  Widget _animatedEntry({required bool reduce, required Widget child}) {
-    if (reduce) return child;
-    return child
-        .animate()
-        .fadeIn(duration: AppMotion.durBase, curve: AppMotion.easeEntrance)
-        .slideY(
-          begin: 0.2,
-          end: 0,
-          duration: AppMotion.durBase,
-          curve: AppMotion.easeEntrance,
-        );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -425,150 +421,6 @@ class _SuggestionChipState extends State<_SuggestionChip> {
         ),
       ),
     );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _SystemMessageBubble
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SystemMessageBubble extends StatelessWidget {
-  const _SystemMessageBubble({
-    super.key,
-    required this.text,
-    required this.reduce,
-  });
-
-  final String text;
-  final bool reduce;
-
-  @override
-  Widget build(BuildContext context) {
-    final isError = text.contains('⚠️') || text.contains('❌');
-    final color = isError ? AppColors.danger : AppColors.cyan;
-
-    final bubble = Semantics(
-      liveRegion: isError,
-      child: Center(
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: AppDimens.space12),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.space12,
-            vertical: AppDimens.space8,
-          ),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
-            borderRadius: AppDimens.brS,
-            border: Border.all(color: color.withValues(alpha: 0.28)),
-          ),
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.mono.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
-    );
-
-    if (reduce) return bubble;
-    return bubble
-        .animate()
-        .fadeIn(duration: AppMotion.durBase, curve: AppMotion.easeEntrance);
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _TypingBubble
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _TypingBubble extends StatelessWidget {
-  const _TypingBubble({required this.botColor, required this.reduce});
-
-  final Color botColor;
-  final bool reduce;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppDimens.space12),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.space12,
-            vertical: AppDimens.space12,
-          ),
-          decoration: BoxDecoration(
-            color: botColor.withValues(alpha: 0.08),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(AppDimens.radiusM),
-              topRight: Radius.circular(AppDimens.radiusM),
-              bottomRight: Radius.circular(AppDimens.radiusM),
-            ),
-            border: Border.all(color: botColor.withValues(alpha: 0.25)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _AnimatedDot(
-                color: botColor,
-                delay: Duration.zero,
-                reduce: reduce,
-              ),
-              const SizedBox(width: AppDimens.space4),
-              _AnimatedDot(
-                color: botColor,
-                delay: const Duration(milliseconds: 200),
-                reduce: reduce,
-              ),
-              const SizedBox(width: AppDimens.space4),
-              _AnimatedDot(
-                color: botColor,
-                delay: const Duration(milliseconds: 400),
-                reduce: reduce,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AnimatedDot extends StatelessWidget {
-  const _AnimatedDot({
-    required this.color,
-    required this.delay,
-    required this.reduce,
-  });
-
-  final Color color;
-  final Duration delay;
-  final bool reduce;
-
-  @override
-  Widget build(BuildContext context) {
-    final dot = Container(
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: reduce ? 0.50 : 0.80),
-        shape: BoxShape.circle,
-      ),
-    );
-
-    if (reduce) return dot;
-
-    return dot
-        .animate(onPlay: (c) => c.repeat(reverse: true))
-        .fadeOut(
-          delay: delay,
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeInOut,
-        );
   }
 }
 
