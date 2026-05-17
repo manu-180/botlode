@@ -1,119 +1,182 @@
 // Archivo: lib/features/bot_engine/presentation/widgets/status_indicator.dart
-// Diseño replicado del StatusIndicator de botlode_player (chat_panel_view).
+// Indicador de estado HUD — Hangar OS · Prompt 40.
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_icons.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/hud/hud_chamfer.dart';
+import 'package:botslode/core/ui/hud/hud_reactor_bar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
-class StatusIndicator extends StatelessWidget {
-  final bool isLoading;
-  final bool isOnline;
-  final int moodIndex;
-  final bool isDarkMode;
+// ─── Internal state enum ──────────────────────────────────────────────────────
+enum _BotState { online, processing, offline, moodAngry, moodHappy, moodVendor, moodConfused, moodTech }
 
+extension _BotStateX on _BotState {
+  String get label => switch (this) {
+    _BotState.online       => 'EN LÍNEA',
+    _BotState.processing   => 'PROCESANDO...',
+    _BotState.offline      => 'SIN CONEXIÓN',
+    _BotState.moodAngry    => 'ENOJADO',
+    _BotState.moodHappy    => 'FELIZ',
+    _BotState.moodVendor   => 'VENDEDOR',
+    _BotState.moodConfused => 'CONFUNDIDO',
+    _BotState.moodTech     => 'TÉCNICO',
+  };
+
+  Color get color => switch (this) {
+    _BotState.online       => AppColors.success,
+    _BotState.processing   => AppColors.cyan,
+    _BotState.offline      => AppColors.danger,
+    _BotState.moodAngry    => AppColors.danger,
+    _BotState.moodHappy    => AppColors.accentMagenta,
+    _BotState.moodVendor   => AppColors.gold,
+    _BotState.moodConfused => AppColors.accentViolet,
+    _BotState.moodTech     => AppColors.cyan,
+  };
+
+  IconData get icon => switch (this) {
+    _BotState.online       => AppIcons.moodOnline,
+    _BotState.processing   => AppIcons.loading,
+    _BotState.offline      => AppIcons.disconnected,
+    _BotState.moodAngry    => AppIcons.moodAngry,
+    _BotState.moodHappy    => AppIcons.moodHappy,
+    _BotState.moodVendor   => AppIcons.moodVendor,
+    _BotState.moodConfused => AppIcons.moodConfused,
+    _BotState.moodTech     => AppIcons.moodTech,
+  };
+
+  bool get pulsing => this != _BotState.offline;
+
+  Duration get beatDuration =>
+      this == _BotState.processing ? AppMotion.durTicker : AppMotion.durHeartbeat;
+}
+
+// ─── Widget ───────────────────────────────────────────────────────────────────
+
+const double _kChamfer = 8.0;
+
+class StatusIndicator extends StatefulWidget {
   const StatusIndicator({
     super.key,
     required this.isLoading,
     required this.isOnline,
     required this.moodIndex,
-    this.isDarkMode = true,
   });
+
+  final bool isLoading;
+  final bool isOnline;
+  final int moodIndex;
+
+  @override
+  State<StatusIndicator> createState() => _StatusIndicatorState();
+}
+
+class _StatusIndicatorState extends State<StatusIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _mountCtrl;
+  late final Animation<double> _mountOpacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _mountCtrl = AnimationController(vsync: this, duration: AppMotion.durFast);
+    _mountOpacity = CurvedAnimation(parent: _mountCtrl, curve: AppMotion.easeStandard);
+    _mountCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _mountCtrl.dispose();
+    super.dispose();
+  }
+
+  _BotState get _status {
+    if (!widget.isOnline) return _BotState.offline;
+    if (widget.isLoading) return _BotState.processing;
+    return switch (widget.moodIndex) {
+      1 => _BotState.moodAngry,
+      2 => _BotState.moodHappy,
+      3 => _BotState.moodVendor,
+      4 => _BotState.moodConfused,
+      5 => _BotState.moodTech,
+      _ => _BotState.online,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
-    String text;
-    Color color;
+    final reduced = AppMotion.isReduced(context);
+    final status = _status;
+    final color = status.color;
+    final colorDuration =
+        reduced ? AppMotion.durCrossfadeReduced : AppMotion.durBase;
+    final textDuration =
+        reduced ? AppMotion.durCrossfadeReduced : AppMotion.durFast;
 
-    if (!isOnline) {
-      text = "SIN CONEXIÓN";
-      color = AppColors.error;
-    } else if (isLoading) {
-      text = "ESCRIBIENDO...";
-      color = AppColors.secondary;
-    } else {
-      switch (moodIndex) {
-        case 1: text = "ENOJADO"; color = const Color(0xFFFF2A00); break;
-        case 2: text = "FELIZ"; color = const Color(0xFFFF00D6); break;
-        case 3: text = "VENDEDOR"; color = const Color(0xFFFFC000); break;
-        case 4: text = "CONFUNDIDO"; color = const Color(0xFF7B00FF); break;
-        case 5: text = "TÉCNICO"; color = const Color(0xFF00F0FF); break;
-        case 0:
-        default: text = "EN LÍNEA"; color = const Color(0xFF00FF94); break;
-      }
-    }
-
-    // --- DISEÑO IDÉNTICO AL PLAYER (Industrial Light/Dark) ---
-    final Color bgColor = isDarkMode
-        ? const Color(0xFF0A0A0A).withOpacity(0.95)
-        : const Color(0xFFFFFFFF).withOpacity(0.95);
-
-    final Color textColor = isDarkMode
-        ? Colors.white.withOpacity(0.9)
-        : const Color(0xFF2D2D2D);
-
-    final Color borderColor = isDarkMode
-        ? Colors.white.withOpacity(0.1)
-        : Colors.black.withOpacity(0.1);
-
-    // WIDGET DEL REACTOR (barra de luz, mismo estilo que en el player)
-    final Widget reactorBar = Container(
-      width: 4,
-      height: 14,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(2),
-        boxShadow: isDarkMode
-            ? [
-                BoxShadow(color: color, blurRadius: 4, spreadRadius: 1),
-                BoxShadow(color: color.withOpacity(0.6), blurRadius: 12, spreadRadius: 3),
-              ]
-            : [
-                BoxShadow(color: color.withOpacity(0.6), blurRadius: 2, spreadRadius: 0),
-              ],
+    final capsule = Container(
+      padding: const EdgeInsets.only(
+        left: AppDimens.space8,
+        right: AppDimens.space12,
+        top: AppDimens.space8,
+        bottom: AppDimens.space8,
       ),
-    );
-
-    return Container(
-      padding: const EdgeInsets.only(left: 6, right: 12, top: 6, bottom: 6),
-      decoration: ShapeDecoration(
-        color: bgColor,
-        shape: BeveledRectangleBorder(
-          side: BorderSide(color: borderColor, width: 1),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(0),
-            bottomRight: Radius.circular(10),
-            topRight: Radius.circular(4),
-            bottomLeft: Radius.circular(4),
-          ),
+      decoration: const ShapeDecoration(
+        color: AppColors.surfaceHud,
+        shape: ChamferBorder(
+          chamfer: _kChamfer,
+          side: BorderSide(color: AppColors.borderDefault, width: 1),
         ),
-        shadows: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDarkMode ? 0.6 : 0.1),
-            blurRadius: 10,
-            offset: const Offset(2, 4),
-          ),
-        ],
+        shadows: AppDimens.elev1,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          reactorBar
-              .animate(onPlay: (c) => c.repeat())
-              .fadeIn(duration: 200.ms, curve: Curves.easeOut)
-              .then(delay: isOnline ? 1300.ms : 200.ms)
-              .fadeOut(duration: 800.ms, curve: Curves.easeIn)
-              .then(delay: 150.ms),
-          const SizedBox(width: 10),
-          Text(
-            text,
-            style: TextStyle(
-              color: textColor,
-              fontFamily: 'Courier',
-              fontWeight: FontWeight.w800,
-              fontSize: 10,
-              letterSpacing: 1.2,
+          TweenAnimationBuilder<Color?>(
+            tween: ColorTween(end: color),
+            duration: colorDuration,
+            curve: AppMotion.easeStandard,
+            builder: (_, animColor, __) => HudReactorBar(
+              axis: Axis.vertical,
+              thickness: 4,
+              length: 14,
+              color: animColor ?? color,
+              pulsing: status.pulsing,
+              duration: status.beatDuration,
+            ),
+          ),
+          const SizedBox(width: AppDimens.space8),
+          TweenAnimationBuilder<Color?>(
+            tween: ColorTween(end: color),
+            duration: colorDuration,
+            curve: AppMotion.easeStandard,
+            builder: (_, animColor, __) => AppIcons.icon(
+              status.icon,
+              size: 12,
+              color: animColor ?? color,
+            ),
+          ),
+          const SizedBox(width: AppDimens.space4),
+          AnimatedSwitcher(
+            duration: textDuration,
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
+            child: Text(
+              status.label,
+              key: ValueKey(status),
+              style: AppTextStyles.hudReadout,
             ),
           ),
         ],
+      ),
+    );
+
+    return FadeTransition(
+      opacity: _mountOpacity,
+      child: Semantics(
+        label: 'Estado de la unidad: ${status.label}',
+        liveRegion: true,
+        child: ExcludeSemantics(child: capsule),
       ),
     );
   }
