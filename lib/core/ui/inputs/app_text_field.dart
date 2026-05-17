@@ -25,6 +25,7 @@ class AppTextField extends StatefulWidget {
   final Widget? suffix;
   final int? maxLines;
   final int? maxLength;
+  final bool obscureText;
 
   const AppTextField({
     super.key,
@@ -45,6 +46,7 @@ class AppTextField extends StatefulWidget {
     this.suffix,
     this.maxLines = 1,
     this.maxLength,
+    this.obscureText = false,
   });
 
   @override
@@ -115,10 +117,11 @@ class _AppTextFieldState extends State<AppTextField> {
             autofocus: widget.autofocus,
             keyboardType: widget.keyboardType,
             textInputAction: widget.textInputAction,
+            obscureText: widget.obscureText,
             onChanged: widget.onChanged,
             onSubmitted: widget.onSubmitted,
             onTap: widget.onTap,
-            maxLines: widget.maxLines,
+            maxLines: widget.obscureText ? 1 : widget.maxLines,
             maxLength: widget.maxLength,
             style: AppTextStyles.bodyM.copyWith(color: AppColors.textPrimary),
             decoration: InputDecoration(
@@ -177,6 +180,7 @@ class AppPasswordField extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final FocusNode? focusNode;
+  final TextInputAction? textInputAction;
 
   const AppPasswordField({
     super.key,
@@ -188,6 +192,7 @@ class AppPasswordField extends StatefulWidget {
     this.onChanged,
     this.onSubmitted,
     this.focusNode,
+    this.textInputAction,
   });
 
   @override
@@ -206,6 +211,8 @@ class _AppPasswordFieldState extends State<AppPasswordField> {
       errorText: widget.errorText,
       enabled: widget.enabled,
       keyboardType: TextInputType.visiblePassword,
+      obscureText: _obscure,
+      textInputAction: widget.textInputAction,
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
       focusNode: widget.focusNode,
