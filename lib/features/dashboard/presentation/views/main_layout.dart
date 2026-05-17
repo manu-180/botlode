@@ -1,7 +1,6 @@
 // lib/features/dashboard/presentation/views/main_layout.dart
 // Shell principal «Hangar OS»: sidebar + title bar + AppBackground + toasts de conectividad.
 import 'package:botslode/core/config/theme/app_colors.dart';
-import 'package:botslode/core/config/theme/app_dimens.dart';
 import 'package:botslode/core/config/theme/app_motion.dart';
 import 'package:botslode/core/providers/connectivity_provider.dart';
 import 'package:botslode/core/ui/app_background.dart';
@@ -76,7 +75,6 @@ class _MainLayoutState extends ConsumerState<MainLayout>
     return Scaffold(
       backgroundColor: AppColors.background,
       body: AppBackground(
-        variant: _variantForPath(GoRouterState.of(context).uri.path),
         child: Row(
           children: [
             // ─── SIDEBAR ────────────────────────────────────────────
@@ -108,9 +106,4 @@ class _MainLayoutState extends ConsumerState<MainLayout>
     );
   }
 
-  AppBackgroundVariant _variantForPath(String path) {
-    if (path == '/billing') return AppBackgroundVariant.billing;
-    if (path.contains('/dashboard')) return AppBackgroundVariant.dashboard;
-    return AppBackgroundVariant.standard;
-  }
 }
