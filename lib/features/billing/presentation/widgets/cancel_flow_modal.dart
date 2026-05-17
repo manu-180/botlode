@@ -1,15 +1,27 @@
 // Archivo: lib/features/billing/presentation/widgets/cancel_flow_modal.dart
 //
-// T4·16 — CancelFlowModal
+// T4·12 — CancelFlowModal (Hangar OS HUD redesign)
 //
-// Two-step cancellation modal:
-//   Step 1 — Reason selection (radio + optional comment).
-//   Step 2 — Confirmation with consequences and CTAs.
+// Three-step HUD cancellation flow:
+//   Step 0 — Consecuencias + confirmación inicial.
+//   Step 1 — Motivo de cancelación.
+//   Step 2 — Ofertas de retención + confirmación destructiva.
 //
-// Opens as a Dialog on desktop (width ≥ 600) or as a ModalBottomSheet on
-// mobile/narrow windows.
+// Always shown as a Dialog (desktop-only app).
+
+import 'dart:ui';
 
 import 'package:botslode/core/config/theme/app_colors.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/hud/hud_chamfer.dart';
+import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
+import 'package:botslode/core/ui/hud/hud_divider.dart';
+import 'package:botslode/core/ui/hud/hud_reactor_bar.dart';
+import 'package:botslode/core/ui/widgets/app_button.dart';
+import 'package:botslode/core/ui/widgets/app_icon_button.dart';
+import 'package:botslode/core/ui/widgets/app_text_field.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/l10n/app_strings.dart';
 import 'package:flutter/material.dart';
@@ -20,13 +32,11 @@ import 'package:intl/intl.dart';
 // Public entry point
 // ---------------------------------------------------------------------------
 
-/// Shows the two-step cancel-flow modal.
+/// Shows the 3-step Hangar OS HUD cancel flow modal.
 ///
 /// Reads [billingV2Provider] to obtain [Subscription.currentPeriodEnd] so the
 /// confirmation screen can display "activa hasta {fecha}".
 Future<void> showCancelFlowModal(BuildContext context, WidgetRef ref) async {
-  final isDesktop = MediaQuery.of(context).size.width >= 600;
-
   // Capture the container before opening the overlay so providers are shared.
   final container = ProviderScope.containerOf(context);
 
@@ -35,21 +45,11 @@ Future<void> showCancelFlowModal(BuildContext context, WidgetRef ref) async {
     child: const _CancelFlowModal(),
   );
 
-  if (isDesktop) {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => modal,
-    );
-  } else {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      isDismissible: false,
-      builder: (_) => modal,
-    );
-  }
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => modal,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -78,14 +78,20 @@ class _CancelFlowModal extends ConsumerStatefulWidget {
 }
 
 class _CancelFlowModalState extends ConsumerState<_CancelFlowModal> {
-  // Step management (0 = reason, 1 = confirmation)
+  // Step management (0 = consecuencias, 1 = motivo, 2 = ofertas+confirm)
   int _step = 0;
+
+  // Direction: 1 = forward (slide from right), -1 = backward (slide from left)
+  int _direction = 1;
 
   // Step 1 state
   _CancelReason? _selectedReason;
   final _commentController = TextEditingController();
 
-  // Step 2 mutation state
+  // Step 2 state
+  bool _doubleConfirmed = false;
+
+  // Mutation state (step 2)
   bool _cancelling = false;
   String? _mutationError;
 
@@ -108,23 +114,30 @@ class _CancelFlowModalState extends ConsumerState<_CancelFlowModal> {
   }
 
   // ---------------------------------------------------------------------------
-  // Actions
+  // Navigation actions
   // ---------------------------------------------------------------------------
 
-  void _goToStep2() {
-    if (_selectedReason == null) return;
+  void _advanceStep() {
+    if (_step >= 2) return;
     setState(() {
-      _step = 1;
+      _direction = 1;
+      _step++;
       _mutationError = null;
     });
   }
 
-  void _goBackToStep1() {
+  void _backStep() {
+    if (_step <= 0) return;
     setState(() {
-      _step = 0;
+      _direction = -1;
+      _step--;
       _mutationError = null;
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // Cancellation action
+  // ---------------------------------------------------------------------------
 
   Future<void> _confirmCancel(String fecha) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -174,48 +187,159 @@ class _CancelFlowModalState extends ConsumerState<_CancelFlowModal> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch billingV2Provider in build() so the auto-dispose provider stays
-    // alive for the modal's lifetime and the date is available for step 2.
+    // Watch billingV2Provider so the auto-dispose provider stays alive for the
+    // modal's lifetime and the date is available for step 2.
     final billingAsync = ref.watch(billingV2Provider);
-    final periodEnd = billingAsync.valueOrNull?.subscription?.currentPeriodEnd;
-    final fechaStr =
-        periodEnd != null ? DateFormat('dd/MM/yyyy').format(periodEnd) : '—';
+    final periodEnd =
+        billingAsync.valueOrNull?.subscription?.currentPeriodEnd;
+    final fechaStr = periodEnd != null
+        ? DateFormat('dd/MM/yyyy').format(periodEnd)
+        : '—';
 
-    final isDesktop = MediaQuery.of(context).size.width >= 600;
-    final stepLabel = _step == 0
-        ? 'Paso 1 de 2 del proceso de cancelación'
-        : 'Paso 2 de 2 del proceso de cancelación';
-    final content = Semantics(
-      label: stepLabel,
-      child: _step == 0 ? _buildStep1() : _buildStep2(fechaStr),
-    );
+    final reduced = AppMotion.reduced(context);
 
-    if (isDesktop) {
-      return Dialog(
-        backgroundColor: Colors.transparent,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: _ModalContainer(child: content),
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 540),
+        child: _GlassModalContainer(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // HUD Step Indicator
+              _HudStepIndicator(currentStep: _step),
+              const SizedBox(height: AppDimens.space24),
+
+              // Animated step content
+              AnimatedSwitcher(
+                duration: reduced
+                    ? AppMotion.durCrossfadeReduced
+                    : AppMotion.durBase,
+                switchInCurve:
+                    reduced ? Curves.linear : AppMotion.easeEntrance,
+                switchOutCurve:
+                    reduced ? Curves.linear : AppMotion.easeExit,
+                transitionBuilder: (child, animation) {
+                  if (reduced) {
+                    return FadeTransition(opacity: animation, child: child);
+                  }
+                  // Slide direction: forward = enter from right (+24 px), backward = enter from left (-24 px)
+                  final slideBegin =
+                      Offset(_direction * 24.0 / 300.0, 0.0);
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: slideBegin,
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                },
+                child: KeyedSubtree(
+                  key: ValueKey<int>(_step),
+                  child: Semantics(
+                    label: 'Paso ${_step + 1} de 3 del proceso de cancelación',
+                    child: _buildCurrentStep(fechaStr),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (_, scrollController) => _ModalContainer(
-        child: SingleChildScrollView(
-          controller: scrollController,
-          child: content,
+  Widget _buildCurrentStep(String fechaStr) {
+    switch (_step) {
+      case 0:
+        return _buildStep0(fechaStr);
+      case 1:
+        return _buildStep1();
+      case 2:
+        return _buildStep2(fechaStr);
+      default:
+        return _buildStep0(fechaStr);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Step 0 — Consecuencias + confirmación inicial
+  // ---------------------------------------------------------------------------
+
+  Widget _buildStep0(String fechaStr) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildStep0Header(),
+        const SizedBox(height: AppDimens.space16),
+        _ConsequencesBullets(fecha: fechaStr),
+        const SizedBox(height: AppDimens.space24),
+        // Primary action: keep subscription (top, safe action)
+        AppButton.primary(
+          label: 'MANTENER SUSCRIPCIÓN',
+          onPressed: () => Navigator.of(context).pop(),
+          expand: true,
+        ),
+        const SizedBox(height: AppDimens.space12),
+        // Secondary action: continue with cancellation (bottom, destructive path)
+        AppButton.ghost(
+          label: 'CONTINUAR CON LA CANCELACIÓN',
+          onPressed: _advanceStep,
+          expand: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep0Header() {
+    return ClipPath(
+      clipper: const ChamferClipper(chamfer: AppDimens.chamferM),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimens.space16,
+          vertical: AppDimens.space12,
+        ),
+        decoration: ShapeDecoration(
+          color: AppColors.warning.withValues(alpha: 0.08),
+          shape: ChamferBorder(
+            chamfer: AppDimens.chamferM,
+            side: BorderSide(
+              color: AppColors.warning.withValues(alpha: 0.3),
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            const ExcludeSemantics(
+              child: Icon(
+                Icons.link_off,
+                color: AppColors.warning,
+                size: AppDimens.iconM,
+              ),
+            ),
+            const SizedBox(width: AppDimens.space12),
+            Expanded(
+              child: Semantics(
+                header: true,
+                child: Text(
+                  '¿SEGURO QUE QUERÉS CANCELAR?',
+                  style: AppTextStyles.titleL,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   // ---------------------------------------------------------------------------
-  // Step 1 — Reason
+  // Step 1 — Motivo
   // ---------------------------------------------------------------------------
 
   Widget _buildStep1() {
@@ -223,116 +347,45 @@ class _CancelFlowModalState extends ConsumerState<_CancelFlowModal> {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildStep1Header(),
-        const SizedBox(height: 24),
-        ..._CancelReason.values.map((reason) => _ReasonRadioTile(
-              reason: reason,
-              selected: _selectedReason == reason,
-              onTap: () => setState(() => _selectedReason = reason),
-            )),
-        const SizedBox(height: 16),
-        _buildCommentField(),
-        const SizedBox(height: 28),
-        _buildStep1Actions(canContinue),
-      ],
-    );
-  }
-
-  Widget _buildStep1Header() {
-    return Row(
-      children: [
-        ExcludeSemantics(
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.error.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.cancel_outlined,
-              color: AppColors.error,
-              size: 22,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Semantics(
-            header: true,
-            child: Text(
-              AppStrings.billingCancelWhyTitle,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Oxanium',
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCommentField() {
-    return TextField(
-      controller: _commentController,
-      maxLines: 3,
-      minLines: 1,
-      style: const TextStyle(color: Colors.white, fontSize: 13),
-      decoration: InputDecoration(
-        labelText: AppStrings.billingCancelFeedbackLabel,
-        labelStyle: const TextStyle(color: AppColors.textSecondary),
-        enabledBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.borderGlass),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(
-              color: AppColors.primary.withValues(alpha: 0.6)),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.03),
-      ),
-    );
-  }
-
-  Widget _buildStep1Actions(bool canContinue) {
-    return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FilledButton(
-          key: const Key('continuar_btn'),
-          onPressed: canContinue ? _goToStep2 : null,
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.black,
-            disabledBackgroundColor:
-                AppColors.primary.withValues(alpha: 0.3),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          child: const Text(
-            AppStrings.billingCancelContinue,
-            style: TextStyle(fontWeight: FontWeight.bold),
+        _buildBackHeader('¿POR QUÉ TE VAS?'),
+        const SizedBox(height: AppDimens.space20),
+        ..._CancelReason.values.map(
+          (reason) => _ReasonRadioTile(
+            reason: reason,
+            selected: _selectedReason == reason,
+            onTap: () => setState(() => _selectedReason = reason),
           ),
         ),
-        const SizedBox(height: 10),
-        Semantics(
-          label: 'Mantener mi suscripción activa',
-          button: true,
+        const SizedBox(height: AppDimens.space16),
+        AppTextField(
+          controller: _commentController,
+          label: 'Contanos más (opcional)',
+          maxLines: 3,
+        ),
+        const SizedBox(height: AppDimens.space24),
+        AppButton.ghost(
+          label: 'CONTINUAR',
+          onPressed: canContinue ? _advanceStep : null,
+          expand: true,
+        ),
+        const SizedBox(height: AppDimens.space8),
+        Center(
           child: TextButton(
             onPressed: () => Navigator.of(context).pop(),
             style: TextButton.styleFrom(
               foregroundColor: AppColors.textSecondary,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.space16,
+                vertical: AppDimens.space8,
+              ),
             ),
-            child: const Text(AppStrings.billingCancelKeepSubscription),
+            child: Text(
+              'Mantener suscripción',
+              style: AppTextStyles.bodyS
+                  .copyWith(color: AppColors.textSecondary),
+            ),
           ),
         ),
       ],
@@ -340,66 +393,104 @@ class _CancelFlowModalState extends ConsumerState<_CancelFlowModal> {
   }
 
   // ---------------------------------------------------------------------------
-  // Step 2 — Confirmation
+  // Step 2 — Ofertas + confirmación destructiva
   // ---------------------------------------------------------------------------
 
   Widget _buildStep2(String fecha) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildStep2Header(),
-        const SizedBox(height: 24),
-        _ConsequencesBullets(fecha: fecha),
+        _buildBackHeader('UNA ÚLTIMA COSA'),
+        const SizedBox(height: AppDimens.space20),
+
+        // Offer cards (decorative placeholders)
+        const Row(
+          children: [
+            Expanded(
+              child: ExcludeSemantics(
+                child: _OfferCard(
+                  icon: Icons.pause_circle_outline,
+                  title: 'PAUSAR SUSCRIPCIÓN',
+                  subtitle: 'Pausá por 30 días sin perder tus bots.',
+                ),
+              ),
+            ),
+            SizedBox(width: AppDimens.space12),
+            Expanded(
+              child: ExcludeSemantics(
+                child: _OfferCard(
+                  icon: Icons.local_offer_outlined,
+                  title: 'DESCUENTO DEL 20%',
+                  subtitle: 'Seguí con un 20% off el próximo mes.',
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppDimens.space20),
+
+        const HudDivider(label: 'CONFIRMACIÓN FINAL'),
+        const SizedBox(height: AppDimens.space20),
+
+        // Double-confirmation switch
+        _HudConfirmSwitch(
+          value: _doubleConfirmed,
+          onChanged: _cancelling
+              ? null
+              : (v) => setState(() => _doubleConfirmed = v),
+        ),
+        const SizedBox(height: AppDimens.space16),
+
+        // Mutation error
         if (_mutationError != null) ...[
-          const SizedBox(height: 12),
           _buildMutationError(_mutationError!),
+          const SizedBox(height: AppDimens.space12),
         ],
-        const SizedBox(height: 28),
-        _buildStep2Actions(fecha),
+
+        // Destructive CTA
+        Semantics(
+          label:
+              'Cancelar suscripción definitivamente — esta acción no puede deshacerse',
+          button: true,
+          excludeSemantics: true,
+          child: AppButton.danger(
+            label: 'CANCELAR DEFINITIVAMENTE',
+            onPressed: (_doubleConfirmed && !_cancelling)
+                ? () => _confirmCancel(fecha)
+                : null,
+            loading: _cancelling,
+            expand: true,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildStep2Header() {
+  // ---------------------------------------------------------------------------
+  // Shared sub-builders
+  // ---------------------------------------------------------------------------
+
+  /// Header row with a back button and a title for steps 1 and 2.
+  Widget _buildBackHeader(String title) {
     return Row(
       children: [
-        // Back button
         Semantics(
           label: 'Volver al paso anterior',
           button: true,
-          child: GestureDetector(
-            onTap: _cancelling ? null : _goBackToStep1,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.borderGlass),
-              ),
-              child: const ExcludeSemantics(
-                child: Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: AppColors.textSecondary,
-                  size: 14,
-                ),
-              ),
-            ),
+          child: AppIconButton(
+            icon: Icons.arrow_back_ios_new_rounded,
+            tooltip: 'Volver',
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.sm,
+            onPressed: _cancelling ? null : _backStep,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppDimens.space12),
         Expanded(
           child: Semantics(
             header: true,
-            child: Text(
-              'Confirmá la cancelación',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Oxanium',
-              ),
-            ),
+            child: Text(title, style: AppTextStyles.titleL),
           ),
         ),
       ],
@@ -411,27 +502,30 @@ class _CancelFlowModalState extends ConsumerState<_CancelFlowModal> {
       liveRegion: true,
       label: 'Error: $message',
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppDimens.space12),
         decoration: BoxDecoration(
-          color: AppColors.error.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+          color: AppColors.danger.withValues(alpha: 0.08),
+          borderRadius: AppDimens.brM,
+          border: Border.all(
+            color: AppColors.danger.withValues(alpha: 0.3),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ExcludeSemantics(
+            const ExcludeSemantics(
               child: Icon(
                 Icons.warning_amber_rounded,
-                color: AppColors.error,
-                size: 16,
+                color: AppColors.danger,
+                size: AppDimens.iconS,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppDimens.space8),
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(color: AppColors.error, fontSize: 12),
+                style:
+                    AppTextStyles.bodyS.copyWith(color: AppColors.danger),
               ),
             ),
           ],
@@ -439,72 +533,117 @@ class _CancelFlowModalState extends ConsumerState<_CancelFlowModal> {
       ),
     );
   }
+}
 
-  Widget _buildStep2Actions(String fecha) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Primary CTA — keep subscription (tab order: first)
-        Semantics(
-          label: 'Mantener mi suscripción activa',
-          button: true,
-          child: FilledButton(
-            key: const Key('mantener_btn'),
-            onPressed: _cancelling ? null : () => Navigator.of(context).pop(),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
-              disabledBackgroundColor:
-                  AppColors.primary.withValues(alpha: 0.3),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+// ---------------------------------------------------------------------------
+// Glass modal container
+// ---------------------------------------------------------------------------
+
+/// Custom glass container for modals — uses [AppColors.glassSurfaceStrong] +
+/// [BackdropFilter] blur 18, [AppDimens.brXL] radius, [HudCornerBrackets].
+class _GlassModalContainer extends StatelessWidget {
+  const _GlassModalContainer({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return HudCornerBrackets(
+      color: AppColors.borderGold,
+      armLength: 18,
+      child: ClipRRect(
+        borderRadius: AppDimens.brXL,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.glassSurfaceStrong,
+              borderRadius: AppDimens.brXL,
+              border: Border.all(color: AppColors.glassBorder),
             ),
-            child: const Text(
-              'Mantener mi suscripción',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+            padding: const EdgeInsets.all(AppDimens.space24),
+            child: child,
           ),
         ),
-        const SizedBox(height: 10),
-        // Secondary CTA — confirm cancellation (destructive, tab order: last)
-        Semantics(
-          label: 'Cancelar suscripción definitivamente - esta acción no puede deshacerse',
-          button: true,
-          child: OutlinedButton(
-            key: const Key('confirmar_cancel_btn'),
-            onPressed: _cancelling ? null : () => _confirmCancel(fecha),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.error,
-              side: BorderSide(color: AppColors.error.withValues(alpha: 0.7)),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: _cancelling
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.error,
-                    ),
-                  )
-                : const Text(
-                    'Confirmar cancelación',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Consequence bullets
+// HUD Step Indicator
+// ---------------------------------------------------------------------------
+
+class _HudStepIndicator extends StatelessWidget {
+  const _HudStepIndicator({required this.currentStep});
+
+  final int currentStep;
+
+  static const _labels = ['CONSECUENCIAS', 'MOTIVO', 'OFERTA'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: List.generate(3, (i) {
+        final isActive = i == currentStep;
+        final isCompleted = i < currentStep;
+        final isFuture = i > currentStep;
+
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: i < 2 ? AppDimens.space12 : 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: 3,
+                  child: isActive
+                      ? const HudReactorBar(
+                          axis: Axis.horizontal,
+                          thickness: 3,
+                          color: AppColors.warning,
+                          pulsing: true,
+                        )
+                      : isCompleted
+                          ? HudReactorBar(
+                              axis: Axis.horizontal,
+                              thickness: 3,
+                              color: AppColors.success.withValues(alpha: 0.5),
+                              pulsing: false,
+                            )
+                          : Container(
+                              height: 3,
+                              decoration: BoxDecoration(
+                                color: AppColors.borderSubtle,
+                                borderRadius: AppDimens.brPill,
+                              ),
+                            ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _labels[i],
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: isFuture
+                        ? AppColors.textTertiary
+                        : isActive
+                            ? AppColors.warning
+                            : AppColors.success.withValues(alpha: 0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Consequences bullets
 // ---------------------------------------------------------------------------
 
 class _ConsequencesBullets extends StatelessWidget {
@@ -521,11 +660,11 @@ class _ConsequencesBullets extends StatelessWidget {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppDimens.space16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderGlass),
+        color: AppColors.surfaceHud,
+        borderRadius: AppDimens.brM,
+        border: Border.all(color: AppColors.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -537,22 +676,18 @@ class _ConsequencesBullets extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Padding(
-                      padding: EdgeInsets.only(top: 3),
+                      padding: EdgeInsets.only(top: 2),
                       child: Icon(
                         Icons.check_circle_outline_rounded,
                         color: AppColors.textSecondary,
                         size: 15,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: AppDimens.space8),
                     Expanded(
                       child: Text(
                         text,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          height: 1.4,
-                        ),
+                        style: AppTextStyles.bodyM,
                       ),
                     ),
                   ],
@@ -569,7 +704,7 @@ class _ConsequencesBullets extends StatelessWidget {
 // Reason radio tile
 // ---------------------------------------------------------------------------
 
-class _ReasonRadioTile extends StatelessWidget {
+class _ReasonRadioTile extends StatefulWidget {
   const _ReasonRadioTile({
     required this.reason,
     required this.selected,
@@ -581,91 +716,252 @@ class _ReasonRadioTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_ReasonRadioTile> createState() => _ReasonRadioTileState();
+}
+
+class _ReasonRadioTileState extends State<_ReasonRadioTile> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
+    final Color borderColor = widget.selected
+        ? AppColors.borderGold
+        : _hovered
+            ? AppColors.borderStrong
+            : AppColors.borderDefault;
+
+    final Color fillColor = widget.selected
+        ? AppColors.goldGlow.withValues(alpha: 0.4)
+        : Colors.transparent;
+
     return Semantics(
-      label: 'Motivo de cancelación: ${reason.label}',
-      selected: selected,
+      label: 'Motivo de cancelación: ${widget.reason.label}',
+      selected: widget.selected,
       button: true,
-      child: GestureDetector(
-      key: ValueKey('radio_${reason.label}'),
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary.withValues(alpha: 0.08)
-              : Colors.white.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected
-                ? AppColors.primary.withValues(alpha: 0.5)
-                : AppColors.borderGlass,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          key: ValueKey('radio_${widget.reason.label}'),
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: AppMotion.durFast,
+            curve: AppMotion.easeStandard,
+            margin: const EdgeInsets.only(bottom: AppDimens.space8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.space16,
+              vertical: AppDimens.space12,
+            ),
+            decoration: BoxDecoration(
+              color: fillColor,
+              borderRadius: AppDimens.brM,
+              border: Border.all(color: borderColor),
+            ),
+            child: Row(
+              children: [
+                // Radio dot indicator
+                Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: widget.selected
+                          ? AppColors.gold
+                          : AppColors.textSecondary,
+                      width: 2,
+                    ),
+                  ),
+                  child: widget.selected
+                      ? Center(
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.gold,
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: AppDimens.space12),
+                Expanded(
+                  child: Text(
+                    widget.reason.label,
+                    style: AppTextStyles.bodyM.copyWith(
+                      color: widget.selected
+                          ? AppColors.gold
+                          : AppColors.textPrimary,
+                      fontWeight: widget.selected
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color:
-                      selected ? AppColors.primary : AppColors.textSecondary,
-                  width: 2,
-                ),
-              ),
-              child: selected
-                  ? Center(
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              reason.label,
-              style: TextStyle(
-                color: selected ? AppColors.primary : Colors.white,
-                fontSize: 13,
-                fontWeight:
-                    selected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
       ),
-    ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Modal container decoration (shared with proration_preview_modal pattern)
+// Offer card
 // ---------------------------------------------------------------------------
 
-class _ModalContainer extends StatelessWidget {
-  const _ModalContainer({required this.child});
+class _OfferCard extends StatelessWidget {
+  const _OfferCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 
-  final Widget child;
+  final IconData icon;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(AppDimens.space16),
       decoration: BoxDecoration(
-        color: const Color(0xFF09090B),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.borderGlass),
+        color: AppColors.glassSurface,
+        borderRadius: AppDimens.brM,
+        border: Border.all(color: AppColors.borderGold),
       ),
-      child: child,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppColors.gold, size: AppDimens.iconM),
+          const SizedBox(height: AppDimens.space8),
+          Text(
+            title,
+            style: AppTextStyles.label.copyWith(color: AppColors.gold),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: AppDimens.space4),
+          Text(
+            subtitle,
+            style: AppTextStyles.bodyS,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: AppDimens.space12),
+          const AppButton.secondary(
+            label: 'APLICAR',
+            // Disabled placeholder — not yet wired
+            onPressed: null,
+            expand: true,
+            size: AppButtonSize.sm,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HUD double-confirmation switch
+// ---------------------------------------------------------------------------
+
+class _HudConfirmSwitch extends StatelessWidget {
+  const _HudConfirmSwitch({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  static const double _trackW = 44;
+  static const double _trackH = 24;
+  static const double _knobSize = 18;
+  static const double _knobPad = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = AppMotion.reduced(context);
+    final dur =
+        reduced ? AppMotion.durCrossfadeReduced : AppMotion.durFast;
+    final isEnabled = onChanged != null;
+
+    return Semantics(
+      toggled: value,
+      label:
+          'Entiendo que perderé el acceso a mis bots. Doble confirmación: ${value ? 'activada' : 'desactivada'}',
+      button: true,
+      child: GestureDetector(
+        onTap: isEnabled ? () => onChanged!(!value) : null,
+        child: MouseRegion(
+          cursor: isEnabled
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Toggle track
+              AnimatedContainer(
+                duration: dur,
+                curve: AppMotion.easeStandard,
+                width: _trackW,
+                height: _trackH,
+                decoration: BoxDecoration(
+                  borderRadius: AppDimens.brPill,
+                  color: value
+                      ? AppColors.danger.withValues(alpha: 0.5)
+                      : AppColors.surfaceHud,
+                  border: Border.all(
+                    color: value
+                        ? AppColors.danger
+                        : AppColors.borderDefault,
+                  ),
+                  boxShadow: value
+                      ? AppDimens.glowStatus(AppColors.danger)
+                      : null,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(_knobPad),
+                  child: AnimatedAlign(
+                    duration: dur,
+                    curve: AppMotion.easeStandard,
+                    alignment: value
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
+                    child: AnimatedContainer(
+                      duration: dur,
+                      curve: AppMotion.easeStandard,
+                      width: _knobSize,
+                      height: _knobSize,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: value
+                            ? AppColors.danger
+                            : AppColors.textTertiary,
+                        boxShadow: value
+                            ? AppDimens.glowStatus(AppColors.danger)
+                            : null,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppDimens.space12),
+              Expanded(
+                child: Text(
+                  'Entiendo que perderé el acceso a mis bots',
+                  style: AppTextStyles.bodyS
+                      .copyWith(color: AppColors.textSecondary),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
