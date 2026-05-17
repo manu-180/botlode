@@ -1,8 +1,17 @@
-// Archivo: lib/features/dashboard/presentation/views/dashboard_view.dart
+// lib/features/dashboard/presentation/views/dashboard_view.dart
+// Dashboard «Bahía de Carga» — Hangar OS. Grilla de unidades + HUD de crédito.
 import 'package:botslode/core/config/theme/app_colors.dart';
-import 'package:botslode/core/ui/widgets/animated_ticker.dart';
+import 'package:botslode/core/config/theme/app_dimens.dart';
+import 'package:botslode/core/config/theme/app_motion.dart';
+import 'package:botslode/core/config/theme/app_text_styles.dart';
+import 'package:botslode/core/ui/buttons/app_button.dart';
+import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
+import 'package:botslode/core/ui/hud/hud_reactor_bar.dart';
+import 'package:botslode/core/ui/hud/hud_ticker.dart';
+import 'package:botslode/core/ui/loading/skeleton_shimmer.dart';
+import 'package:botslode/core/ui/states/empty_state.dart';
+import 'package:botslode/core/ui/states/error_state.dart';
 import 'package:botslode/core/ui/widgets/page_title.dart';
-import 'package:botslode/core/ui/widgets/skeleton_base.dart'; // IMPORTAR SKELETON
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
 import 'package:botslode/features/billing/presentation/widgets/payment_checkout_modal.dart';
 import 'package:botslode/features/dashboard/presentation/providers/dashboard_controller.dart';
@@ -30,189 +39,105 @@ class DashboardView extends ConsumerWidget {
     final billingAsync = ref.watch(billingProvider);
 
     final billingState = billingAsync.valueOrNull;
-    final totalDebt = billingState?.totalDebt ?? 0.0;
-    final limit = billingState?.creditLimit ?? 0.0;
-    final dollarRate = billingState?.dollarRate ?? 1200.0;
-    
-    final statusColor = billingState?.statusColor ?? AppColors.primary;
-    final usagePercent = billingState?.usagePercentage ?? 0.0;
-    
-    final isCritical = billingState?.health == FinanceHealth.critical;
-    final hasCard = billingState?.primaryCard != null;
+    final totalDebt   = billingState?.totalDebt ?? 0.0;
+    final limit       = billingState?.creditLimit ?? 0.0;
+    final dollarRate  = billingState?.dollarRate ?? 1200.0;
+    final statusColor = billingState?.statusColor ?? AppColors.gold;
+    final usagePercent= billingState?.usagePercentage ?? 0.0;
+    final isCritical  = billingState?.health == FinanceHealth.critical;
+    final hasCard     = billingState?.primaryCard != null;
 
     return Scaffold(
-      body: Stack(
-        children: [
-          // FONDO
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(-0.8, -0.8), 
-                  radius: 1.5,
-                  colors: [
-                    AppColors.surface.withValues(alpha: 0.8),
-                    AppColors.background,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
+      backgroundColor: Colors.transparent,
+      body: Padding(
+        padding: const EdgeInsets.all(AppDimens.paddingScreen),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ─── HEADER ────────────────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // HEADER HUD
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const PageTitle(
-                      title: "BAHÍA DE CARGA",
-                      subtitle: "Gestión operativa de unidades autónomas",
-                      style: PageTitleStyle.techBar, // Barra lateral amarilla
-                    ),
-                    
-                    // --- PANEL DE CRÉDITO SCI-FI ---
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5), 
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: statusColor.withValues(alpha: 0.5)), 
-                        boxShadow: [
-                          BoxShadow(
-                            color: statusColor.withValues(alpha: 0.1), 
-                            blurRadius: 20, 
-                            spreadRadius: 2
-                          )
-                        ]
-                      ),
-                      child: Row(
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                isCritical 
-                                    ? "!!! CRÉDITO AGOTADO !!!" 
-                                    : "USO DE CRÉDITO",
-                                style: TextStyle(
-                                  color: statusColor, 
-                                  fontSize: 10, 
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.2
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
-                                children: [
-                                  AnimatedTicker(
-                                    value: totalDebt,
-                                    prefix: "\$ ",
-                                    style: TextStyle(
-                                      color: statusColor, 
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Oxanium',
-                                    ),
-                                  ),
-                                  Text(
-                                    " / \$${limit.toInt()}",
-                                    style: TextStyle(
-                                      color: AppColors.textSecondary.withValues(alpha: 0.5),
-                                      fontSize: 14,
-                                      fontFamily: 'Oxanium',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              SizedBox(
-                                width: 150,
-                                height: 4,
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(2),
-                                  child: LinearProgressIndicator(
-                                    value: usagePercent,
-                                    backgroundColor: Colors.white.withValues(alpha: 0.1),
-                                    color: statusColor,
-                                  ),
-                                ),
-                              )
-                            ],
-                          ),
-                          const SizedBox(width: 24),
-                          
-                          // BOTÓN MUTANTE INTELIGENTE
-                          _SmartActionButton(
-                            isCritical: isCritical,
-                            hasCard: hasCard,
-                            debtAmount: totalDebt,
-                            onAssemble: () => showDialog(
-                              context: context,
-                              builder: (context) => const CreateBotModal(),
-                            ),
-                            onPayCard: () => _confirmPayment(context, ref, totalDebt),
-                            onPayLink: () => showDialog(
-                              context: context,
-                              builder: (context) => PaymentCheckoutModal(
-                                amount: totalDebt,
-                                exchangeRate: dollarRate, 
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                const PageTitle(
+                  title: 'BAHÍA DE CARGA',
+                  subtitle: 'Gestión operativa de unidades autónomas',
+                  style: PageTitleStyle.techBar,
                 ),
-
-                const SizedBox(height: 24),
-                const DashboardToolbar(),
-                const SizedBox(height: 24),
-
-                // GRID CON SKELETON
-                Expanded(
-                  child: botsAsync.when(
-                    // CAMBIO: Usamos el Skeleton propio del Dashboard
-                    loading: () => const _DashboardSkeleton(),
-                    error: (err, stack) => Center(
-                      child: Text(
-                        "ERROR DE ENLACE: $err",
-                        style: const TextStyle(color: AppColors.error, fontFamily: 'Courier'),
-                      ),
+                _CreditHudPanel(
+                  totalDebt: totalDebt,
+                  limit: limit,
+                  dollarRate: dollarRate,
+                  statusColor: statusColor,
+                  usagePercent: usagePercent,
+                  isCritical: isCritical,
+                  hasCard: hasCard,
+                  onAssemble: () => showDialog(
+                    context: context,
+                    builder: (_) => const CreateBotModal(),
+                  ),
+                  onPayCard: () => _confirmPayment(context, ref, totalDebt),
+                  onPayLink: () => showDialog(
+                    context: context,
+                    builder: (_) => PaymentCheckoutModal(
+                      amount: totalDebt,
+                      exchangeRate: dollarRate,
                     ),
-                    data: (bots) => bots.isEmpty 
-                      ? _buildEmptyState()
-                      : GridView.builder(
-                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 400, 
-                            childAspectRatio: 1.4,   
-                            crossAxisSpacing: 20,
-                            mainAxisSpacing: 20,
-                          ),
-                          itemCount: bots.length,
-                          itemBuilder: (context, index) {
-                            final bot = bots[index];
-                            return BotCard(
-                              bot: bot,
-                              onTap: () => context.goNamed(
-                                'bot_detail', 
-                                pathParameters: {'botId': bot.id},
-                              ),
-                            );
-                          },
-                        ),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+
+            const SizedBox(height: AppDimens.space24),
+            const DashboardToolbar(),
+            const SizedBox(height: AppDimens.space24),
+
+            // ─── GRID ───────────────────────────────────────────────
+            Expanded(
+              child: botsAsync.when(
+                loading: () => const _DashboardSkeleton(),
+                error: (err, _) => ErrorScreen(
+                  title: 'Error de enlace',
+                  message: err.toString(),
+                  retryLabel: 'Reintentar',
+                  onRetry: () => ref.invalidate(filteredBotsProvider),
+                ),
+                data: (bots) => bots.isEmpty
+                    ? EmptyState(
+                        icon: Icons.search_off_rounded,
+                        title: 'No se encontraron unidades',
+                        message: 'Ensambla tu primer bot para comenzar.',
+                        actionLabel: 'Ensamblar unidad',
+                        onAction: () => showDialog(
+                          context: context,
+                          builder: (_) => const CreateBotModal(),
+                        ),
+                      )
+                    : GridView.builder(
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 400,
+                          childAspectRatio: 1.4,
+                          crossAxisSpacing: AppDimens.gapCard,
+                          mainAxisSpacing: AppDimens.gapCard,
+                        ),
+                        itemCount: bots.length,
+                        itemBuilder: (context, index) {
+                          final bot = bots[index];
+                          return BotCard(
+                            bot: bot,
+                            staggerIndex: index,
+                            onTap: () => context.goNamed(
+                              'bot_detail',
+                              pathParameters: {'botId': bot.id},
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -221,64 +146,176 @@ class DashboardView extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (c) => Shortcuts(
-        shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
+        shortcuts: const {
+          SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent()
+        },
         child: Actions(
           actions: {
-            _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) {
-              Navigator.pop(c);
-              ref.read(billingProvider.notifier).processPayment(amount);
-              return null;
-            }),
+            _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(
+              onInvoke: (_) {
+                Navigator.pop(c);
+                ref.read(billingProvider.notifier).processPayment(amount);
+                return null;
+              },
+            ),
           },
           child: AlertDialog(
-        backgroundColor: const Color(0xFF09090B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: AppColors.success)),
-        title: const Text("CONFIRMAR PAGO RÁPIDO", style: TextStyle(color: Colors.white, fontFamily: 'Oxanium', fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Se debitará el total adeudado de su tarjeta principal para restablecer el servicio.", style: TextStyle(color: Colors.white70)),
-            const SizedBox(height: 20),
-            Text(
-              "\$ ${amount.toStringAsFixed(2)} USD",
-              style: const TextStyle(color: AppColors.success, fontSize: 32, fontWeight: FontWeight.bold, fontFamily: 'Oxanium'),
-            )
-          ],
+            backgroundColor: AppColors.surfaceRaised,
+            shape: RoundedRectangleBorder(
+              borderRadius: AppDimens.brXL,
+              side: const BorderSide(color: AppColors.success),
+            ),
+            title: Text(
+              'CONFIRMAR PAGO RÁPIDO',
+              style: AppTextStyles.titleL,
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Se debitará el total adeudado de su tarjeta principal.',
+                  style: AppTextStyles.bodyM.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppDimens.space20),
+                HudTicker(
+                  value: amount,
+                  prefix: '\$ ',
+                  suffix: ' USD',
+                  decimals: 2,
+                  style: AppTextStyles.numericTicker.copyWith(
+                    color: AppColors.success,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              AppButton.ghost(
+                label: 'Cancelar',
+                onPressed: () => Navigator.pop(c),
+              ),
+              AppButton.primary(
+                label: 'Pagar ahora',
+                onPressed: () {
+                  Navigator.pop(c);
+                  ref.read(billingProvider.notifier).processPayment(amount);
+                },
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text("CANCELAR", style: TextStyle(color: Colors.white54))),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(c);
-              ref.read(billingProvider.notifier).processPayment(amount);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.black),
-            child: const Text("PAGAR AHORA", style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.search_off_rounded, size: 64, color: AppColors.textSecondary.withValues(alpha: 0.3)),
-          const SizedBox(height: 16),
-          Text(
-            "NO SE ENCONTRARON UNIDADES",
-            style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.5), letterSpacing: 2.0),
-          ),
-        ],
       ),
     );
   }
 }
+
+// ─── CREDIT HUD PANEL ─────────────────────────────────────────────────────────
+
+class _CreditHudPanel extends StatelessWidget {
+  final double totalDebt;
+  final double limit;
+  final double dollarRate;
+  final Color statusColor;
+  final double usagePercent;
+  final bool isCritical;
+  final bool hasCard;
+  final VoidCallback onAssemble;
+  final VoidCallback onPayCard;
+  final VoidCallback onPayLink;
+
+  const _CreditHudPanel({
+    required this.totalDebt,
+    required this.limit,
+    required this.dollarRate,
+    required this.statusColor,
+    required this.usagePercent,
+    required this.isCritical,
+    required this.hasCard,
+    required this.onAssemble,
+    required this.onPayCard,
+    required this.onPayLink,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return HudCornerBrackets(
+      color: statusColor.withValues(alpha: 0.5),
+      child: AnimatedContainer(
+        duration: AppMotion.durBase,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimens.space20,
+          vertical: AppDimens.space16,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.glassSurface,
+          borderRadius: AppDimens.brL,
+          border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+          boxShadow: AppDimens.glowStatus(statusColor),
+        ),
+        child: Row(
+          children: [
+            // ── Lectura de crédito ──
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  isCritical ? '!!! CRÉDITO AGOTADO !!!' : 'USO DE CRÉDITO',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: statusColor,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                const SizedBox(height: AppDimens.space4),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    HudTicker(
+                      value: totalDebt,
+                      prefix: '\$ ',
+                      decimals: 2,
+                      style: AppTextStyles.numericTicker.copyWith(
+                        color: statusColor,
+                        fontSize: 24,
+                      ),
+                    ),
+                    Text(
+                      ' / \$${limit.toInt()}',
+                      style: AppTextStyles.bodyM.copyWith(
+                        color: AppColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppDimens.space8),
+                HudReactorBar(
+                  active: !isCritical,
+                  activeColor: statusColor,
+                  width: 150,
+                  height: 4,
+                ),
+              ],
+            ),
+            const SizedBox(width: AppDimens.space24),
+            // ── CTA mutante ──
+            _SmartActionButton(
+              isCritical: isCritical,
+              hasCard: hasCard,
+              debtAmount: totalDebt,
+              onAssemble: onAssemble,
+              onPayCard: onPayCard,
+              onPayLink: onPayLink,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── SMART ACTION BUTTON ──────────────────────────────────────────────────────
 
 class _SmartActionButton extends StatelessWidget {
   final bool isCritical;
@@ -300,97 +337,44 @@ class _SmartActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!isCritical) {
-      return ElevatedButton.icon(
+      return AppButton.primary(
+        label: 'Ensamblar unidad',
         onPressed: onAssemble,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.black,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        ),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text("ENSAMBLAR UNIDAD"),
+        leadingIcon: Icons.add_rounded,
       );
     }
-
     if (hasCard) {
-      return ElevatedButton.icon(
+      return AppButton.danger(
+        label: 'Pagar \$${debtAmount.toInt()} ahora',
         onPressed: onPayCard,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.error, 
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          elevation: 10,
-          shadowColor: AppColors.error.withValues(alpha: 0.5),
-        ),
-        icon: const Icon(Icons.flash_on_rounded),
-        label: Text("PAGAR \$${debtAmount.toInt()} AHORA"),
+        leadingIcon: Icons.flash_on_rounded,
       );
     }
-
-    return ElevatedButton.icon(
+    return AppButton.secondary(
+      label: 'Pagar online',
       onPressed: onPayLink,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF009EE3), 
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      ),
-      icon: const FaIcon(FontAwesomeIcons.handshake, size: 18), 
-      label: const Text("PAGAR ONLINE"),
+      leadingIcon: FontAwesomeIcons.handshake,
     );
   }
 }
 
-// --- SKELETON ESPECÍFICO DE DASHBOARD ---
+// ─── DASHBOARD SKELETON ───────────────────────────────────────────────────────
+
 class _DashboardSkeleton extends StatelessWidget {
   const _DashboardSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    // Simula la Grilla de Bots
     return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(), // Estático mientras carga
+      physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 400, 
-        childAspectRatio: 1.4,   
-        crossAxisSpacing: 20,
-        mainAxisSpacing: 20,
+        maxCrossAxisExtent: 400,
+        childAspectRatio: 1.4,
+        crossAxisSpacing: AppDimens.gapCard,
+        mainAxisSpacing: AppDimens.gapCard,
       ),
-      itemCount: 6, // Mostramos 6 tarjetas falsas
-      itemBuilder: (context, index) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.05)),
-          ),
-          padding: const EdgeInsets.all(20),
-          child: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Cabeza del Bot (Círculo)
-                  SkeletonBase(width: 54, height: 54, shape: BoxShape.circle),
-                  // Badge de Estado
-                  SkeletonBase(width: 80, height: 24, borderRadius: 20),
-                ],
-              ),
-              Spacer(),
-              // Nombre
-              SkeletonBase(width: 150, height: 24, borderRadius: 4),
-              SizedBox(height: 8),
-              // Descripción (2 líneas)
-              SkeletonBase(width: double.infinity, height: 12, borderRadius: 4),
-              SizedBox(height: 4),
-              SkeletonBase(width: 200, height: 12, borderRadius: 4),
-              SizedBox(height: 12),
-              // ID
-              SkeletonBase(width: 100, height: 10, borderRadius: 4),
-            ],
-          ),
-        );
-      },
+      itemCount: 6,
+      itemBuilder: (_, __) => const BotCardSkeleton(),
     );
   }
 }
