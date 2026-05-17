@@ -28,126 +28,78 @@ class _DialogSubmitIntent extends Intent {
   const _DialogSubmitIntent();
 }
 
-class DashboardView extends ConsumerWidget {
+// ─── DASHBOARD VIEW ───────────────────────────────────────────────────────────
+
+class DashboardView extends ConsumerStatefulWidget {
   static const String routeName = 'dashboard';
 
   const DashboardView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final botsAsync = ref.watch(filteredBotsProvider);
-    final billingAsync = ref.watch(billingProvider);
+  ConsumerState<DashboardView> createState() => _DashboardViewState();
+}
 
-    final billingState = billingAsync.valueOrNull;
-    final totalDebt   = billingState?.totalDebt ?? 0.0;
-    final limit       = billingState?.creditLimit ?? 0.0;
-    final dollarRate  = billingState?.dollarRate ?? 1200.0;
-    final statusColor = billingState?.statusColor ?? AppColors.gold;
-    final usagePercent= billingState?.usagePercentage ?? 0.0;
-    final isCritical  = billingState?.health == FinanceHealth.critical;
-    final hasCard     = billingState?.primaryCard != null;
+class _DashboardViewState extends ConsumerState<DashboardView>
+    with TickerProviderStateMixin {
+  late final AnimationController _headerCtrl;
+  late final AnimationController _toolbarCtrl;
+  late final AnimationController _gridCtrl;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Padding(
-        padding: const EdgeInsets.all(AppDimens.paddingScreen),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ─── HEADER ────────────────────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const PageTitle(
-                  title: 'BAHÍA DE CARGA',
-                  subtitle: 'Gestión operativa de unidades autónomas',
-                  style: PageTitleStyle.techBar,
-                ),
-                _CreditHudPanel(
-                  totalDebt: totalDebt,
-                  limit: limit,
-                  dollarRate: dollarRate,
-                  statusColor: statusColor,
-                  usagePercent: usagePercent,
-                  isCritical: isCritical,
-                  hasCard: hasCard,
-                  onAssemble: () => showDialog(
-                    context: context,
-                    builder: (_) => const CreateBotModal(),
-                  ),
-                  onPayCard: () => _confirmPayment(context, ref, totalDebt),
-                  onPayLink: () => showDialog(
-                    context: context,
-                    builder: (_) => PaymentCheckoutModal(
-                      amount: totalDebt,
-                      exchangeRate: dollarRate,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+  late final Animation<double> _headerAnim;
+  late final Animation<double> _toolbarAnim;
+  late final Animation<double> _gridAnim;
 
-            const SizedBox(height: AppDimens.space24),
-            const DashboardToolbar(),
-            const SizedBox(height: AppDimens.space24),
+  @override
+  void initState() {
+    super.initState();
+    _headerCtrl  = AnimationController(vsync: this, duration: AppMotion.durBase);
+    _toolbarCtrl = AnimationController(vsync: this, duration: AppMotion.durBase);
+    _gridCtrl    = AnimationController(vsync: this, duration: AppMotion.durBase);
 
-            // ─── GRID ───────────────────────────────────────────────
-            Expanded(
-              child: botsAsync.when(
-                loading: () => const _DashboardSkeleton(),
-                error: (err, _) => ErrorScreen(
-                  title: 'Error de enlace',
-                  message: err.toString(),
-                  retryLabel: 'Reintentar',
-                  onRetry: () => ref.invalidate(filteredBotsProvider),
-                ),
-                data: (bots) => bots.isEmpty
-                    ? EmptyState(
-                        icon: Icons.search_off_rounded,
-                        title: 'No se encontraron unidades',
-                        message: 'Ensambla tu primer bot para comenzar.',
-                        actionLabel: 'Ensamblar unidad',
-                        onAction: () => showDialog(
-                          context: context,
-                          builder: (_) => const CreateBotModal(),
-                        ),
-                      )
-                    : GridView.builder(
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 400,
-                          childAspectRatio: 1.4,
-                          crossAxisSpacing: AppDimens.gapCard,
-                          mainAxisSpacing: AppDimens.gapCard,
-                        ),
-                        itemCount: bots.length,
-                        itemBuilder: (context, index) {
-                          final bot = bots[index];
-                          return BotCard(
-                            bot: bot,
-                            staggerIndex: index,
-                            onTap: () => context.goNamed(
-                              'bot_detail',
-                              pathParameters: {'botId': bot.id},
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    _headerAnim  = CurvedAnimation(parent: _headerCtrl,  curve: AppMotion.easeEntrance);
+    _toolbarAnim = CurvedAnimation(parent: _toolbarCtrl, curve: AppMotion.easeEntrance);
+    _gridAnim    = CurvedAnimation(parent: _gridCtrl,    curve: AppMotion.easeEntrance);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final reduce = AppMotion.reduced(context);
+      if (reduce) {
+        for (final c in [_headerCtrl, _toolbarCtrl, _gridCtrl]) {
+          c.animateTo(
+            1.0,
+            duration: AppMotion.durCrossfadeReduced,
+            curve: Curves.linear,
+          );
+        }
+      } else {
+        _headerCtrl.forward();
+        Future.delayed(const Duration(milliseconds: 80), () {
+          if (mounted) _toolbarCtrl.forward();
+        });
+        Future.delayed(const Duration(milliseconds: 160), () {
+          if (mounted) _gridCtrl.forward();
+        });
+      }
+    });
   }
 
-  void _confirmPayment(BuildContext context, WidgetRef ref, double amount) {
+  @override
+  void dispose() {
+    (_headerAnim as CurvedAnimation).dispose();
+    (_toolbarAnim as CurvedAnimation).dispose();
+    (_gridAnim as CurvedAnimation).dispose();
+    _headerCtrl.dispose();
+    _toolbarCtrl.dispose();
+    _gridCtrl.dispose();
+    super.dispose();
+  }
+
+  void _confirmPayment(BuildContext context, double amount) {
     showDialog(
       context: context,
       builder: (c) => Shortcuts(
         shortcuts: const {
-          SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent()
+          SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent(),
         },
         child: Actions(
           actions: {
@@ -209,6 +161,315 @@ class DashboardView extends ConsumerWidget {
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final botsAsync    = ref.watch(filteredBotsProvider);
+    final billingAsync = ref.watch(billingProvider);
+
+    final billingState  = billingAsync.valueOrNull;
+    final totalDebt     = billingState?.totalDebt ?? 0.0;
+    final limit         = billingState?.creditLimit ?? 0.0;
+    final dollarRate    = billingState?.dollarRate ?? 1200.0;
+    final statusColor   = billingState?.statusColor ?? AppColors.gold;
+    final usagePercent  = billingState?.usagePercentage ?? 0.0;
+    final isCritical    = billingState?.health == FinanceHealth.critical;
+    final hasCard       = billingState?.primaryCard != null;
+
+    // ── Sliver [3]: grid / skeleton / empty / error ──────────────────────────
+    final Widget gridSliver = SliverPadding(
+      padding: const EdgeInsets.only(top: AppDimens.space24),
+      sliver: botsAsync.when(
+        loading: () => SliverGrid(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 400,
+            childAspectRatio: 1.4,
+            crossAxisSpacing: AppDimens.gapCard,
+            mainAxisSpacing: AppDimens.gapCard,
+          ),
+          delegate: SliverChildBuilderDelegate(
+            (_, __) => const BotCardSkeleton(),
+            childCount: 6,
+          ),
+        ),
+        error: (err, _) => SliverFillRemaining(
+          child: ErrorScreen(
+            title: 'Error de enlace',
+            message: err.toString(),
+            retryLabel: 'Reintentar',
+            onRetry: () => ref.invalidate(filteredBotsProvider),
+          ),
+        ),
+        data: (bots) => bots.isEmpty
+            ? SliverFillRemaining(
+                child: EmptyState(
+                  icon: Icons.search_off_rounded,
+                  title: 'No se encontraron unidades',
+                  message: 'Ensambla tu primer bot para comenzar.',
+                  actionLabel: 'Ensamblar unidad',
+                  onAction: () => showDialog(
+                    context: context,
+                    builder: (_) => const CreateBotModal(),
+                  ),
+                ),
+              )
+            : SliverGrid(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 400,
+                  childAspectRatio: 1.4,
+                  crossAxisSpacing: AppDimens.gapCard,
+                  mainAxisSpacing: AppDimens.gapCard,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) => BotCard(
+                    bot: bots[i],
+                    staggerIndex: i,
+                    onTap: () => ctx.goNamed(
+                      'bot_detail',
+                      pathParameters: {'botId': bots[i].id},
+                    ),
+                  ),
+                  childCount: bots.length,
+                ),
+              ),
+      ),
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimens.space32,
+          vertical: AppDimens.space32,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1600),
+            child: CustomScrollView(
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              slivers: [
+                // ── [0] Header band ──────────────────────────────────────
+                SliverToBoxAdapter(
+                  child: AnimatedBuilder(
+                    animation: _headerAnim,
+                    builder: (_, __) {
+                      final t = _headerAnim.value;
+                      return Opacity(
+                        opacity: t,
+                        child: Transform.translate(
+                          offset: Offset(0, (1 - t) * 12),
+                          child: _HeaderBand(
+                            totalDebt: totalDebt,
+                            limit: limit,
+                            dollarRate: dollarRate,
+                            statusColor: statusColor,
+                            usagePercent: usagePercent,
+                            isCritical: isCritical,
+                            hasCard: hasCard,
+                            onAssemble: () => showDialog(
+                              context: context,
+                              builder: (_) => const CreateBotModal(),
+                            ),
+                            onPayCard: () =>
+                                _confirmPayment(context, totalDebt),
+                            onPayLink: () => showDialog(
+                              context: context,
+                              builder: (_) => PaymentCheckoutModal(
+                                amount: totalDebt,
+                                exchangeRate: dollarRate,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                // ── [1] Spacer ────────────────────────────────────────────
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: AppDimens.space24),
+                ),
+
+                // ── [2] Sticky toolbar ────────────────────────────────────
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _ToolbarDelegate(animation: _toolbarAnim),
+                ),
+
+                // ── [3] Grid (animated with SliverOpacity) ────────────────
+                AnimatedBuilder(
+                  animation: _gridAnim,
+                  builder: (_, __) => SliverOpacity(
+                    opacity: _gridAnim.value,
+                    sliver: gridSliver,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── HEADER BAND ──────────────────────────────────────────────────────────────
+
+class _HeaderBand extends StatelessWidget {
+  final double totalDebt;
+  final double limit;
+  final double dollarRate;
+  final Color statusColor;
+  final double usagePercent;
+  final bool isCritical;
+  final bool hasCard;
+  final VoidCallback onAssemble;
+  final VoidCallback onPayCard;
+  final VoidCallback onPayLink;
+
+  const _HeaderBand({
+    required this.totalDebt,
+    required this.limit,
+    required this.dollarRate,
+    required this.statusColor,
+    required this.usagePercent,
+    required this.isCritical,
+    required this.hasCard,
+    required this.onAssemble,
+    required this.onPayCard,
+    required this.onPayLink,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final reduce = AppMotion.reduced(context);
+
+    const pageTitle = PageTitle(
+      title: 'BAHÍA DE CARGA',
+      subtitle: 'Gestión operativa de unidades autónomas',
+      style: PageTitleStyle.techBar,
+    );
+
+    final hudPanel = _CreditHudPanel(
+      totalDebt: totalDebt,
+      limit: limit,
+      dollarRate: dollarRate,
+      statusColor: statusColor,
+      usagePercent: usagePercent,
+      isCritical: isCritical,
+      hasCard: hasCard,
+      onAssemble: onAssemble,
+      onPayCard: onPayCard,
+      onPayLink: onPayLink,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 1180;
+
+        final Widget content = isWide
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  pageTitle,
+                  SizedBox(
+                    width: 420,
+                    child: hudPanel,
+                  ),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  pageTitle,
+                  const SizedBox(height: AppDimens.space20),
+                  hudPanel,
+                ],
+              );
+
+        if (reduce) {
+          return content;
+        }
+
+        return AnimatedSize(
+          duration: AppMotion.durBase,
+          curve: AppMotion.easeStandard,
+          child: AnimatedSwitcher(
+            duration: AppMotion.durBase,
+            child: KeyedSubtree(
+              key: ValueKey(isWide),
+              child: content,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─── TOOLBAR DELEGATE ─────────────────────────────────────────────────────────
+
+class _ToolbarDelegate extends SliverPersistentHeaderDelegate {
+  final Animation<double> animation;
+
+  const _ToolbarDelegate({required this.animation});
+
+  @override
+  double get minExtent => AppDimens.space64;
+
+  @override
+  double get maxExtent => AppDimens.space64;
+
+  @override
+  bool shouldRebuild(covariant _ToolbarDelegate oldDelegate) => true;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (_, __) {
+        final t = animation.value;
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(0, (1 - t) * 12),
+            child: Stack(
+              children: [
+                const DashboardToolbar(),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: AnimatedOpacity(
+                    opacity: shrinkOffset > 0 ? 1.0 : 0.0,
+                    duration: AppMotion.durFast,
+                    child: Container(
+                      height: 1,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.gold.withValues(alpha: 0.15),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 // ─── CREDIT HUD PANEL ─────────────────────────────────────────────────────────
@@ -256,7 +517,6 @@ class _CreditHudPanel extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // ── Lectura de crédito ──
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -300,7 +560,6 @@ class _CreditHudPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(width: AppDimens.space24),
-            // ── CTA mutante ──
             _SmartActionButton(
               isCritical: isCritical,
               hasCard: hasCard,
@@ -355,27 +614,6 @@ class _SmartActionButton extends StatelessWidget {
       label: 'Pagar online',
       onPressed: onPayLink,
       leadingIcon: FontAwesomeIcons.handshake,
-    );
-  }
-}
-
-// ─── DASHBOARD SKELETON ───────────────────────────────────────────────────────
-
-class _DashboardSkeleton extends StatelessWidget {
-  const _DashboardSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 400,
-        childAspectRatio: 1.4,
-        crossAxisSpacing: AppDimens.gapCard,
-        mainAxisSpacing: AppDimens.gapCard,
-      ),
-      itemCount: 6,
-      itemBuilder: (_, __) => const BotCardSkeleton(),
     );
   }
 }
