@@ -19,47 +19,30 @@ class MainLayout extends ConsumerStatefulWidget {
   ConsumerState<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends ConsumerState<MainLayout>
-    with SingleTickerProviderStateMixin {
+class _MainLayoutState extends ConsumerState<MainLayout> {
   bool _wasOffline = false;
-  late final AnimationController _pageCtrl;
-  late final Animation<double> _pageFade;
-  late final Animation<Offset> _pageSlide;
 
-  @override
-  void initState() {
-    super.initState();
-    _pageCtrl = AnimationController(
-      vsync: this,
-      duration: AppMotion.durBase,
-    );
-    _pageFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _pageCtrl, curve: AppMotion.easeEntrance),
-    );
-    _pageSlide = Tween<Offset>(
-      begin: const Offset(0, 0.02),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _pageCtrl, curve: AppMotion.easeEntrance));
-    _pageCtrl.forward();
-  }
-
-  @override
-  void dispose() {
-    _pageCtrl.dispose();
-    super.dispose();
-  }
-
-  String? _breadcrumbFor(String location) {
+  String _breadcrumbFor(String location) {
+    if (location.contains('/dashboard/detail/')) {
+      final botId =
+          location.split('/dashboard/detail/').last.split('/').first;
+      final shortId = botId.length > 8
+          ? botId.substring(0, 8).toUpperCase()
+          : botId.toUpperCase();
+      return 'HANGAR / UNIT-$shortId';
+    }
     if (location.startsWith('/dashboard') || location == '/') return 'HANGAR';
-    if (location.startsWith('/bots')) return 'BIBLIOTECA';
+    if (location.startsWith('/bots')) return 'PLANOS';
     if (location.startsWith('/billing')) return 'FACTURACIÓN';
-    if (location.startsWith('/settings')) return 'AJUSTES';
+    if (location.startsWith('/settings')) return 'PROTOCOLO';
     if (location.startsWith('/store')) return 'TIENDA';
-    return null;
+    return 'HANGAR';
   }
 
   @override
   Widget build(BuildContext context) {
+    final connectivityAsync = ref.watch(connectivityProvider);
+
     ref.listen(connectivityProvider, (prev, next) {
       next.whenData((isOnline) {
         if (!isOnline && !_wasOffline) {
@@ -81,41 +64,100 @@ class _MainLayoutState extends ConsumerState<MainLayout>
       });
     });
 
+    final isOnline = connectivityAsync.valueOrNull ?? true;
+    final systemStatus =
+        isOnline ? SystemStatus.operational : SystemStatus.offline;
+    final location = GoRouterState.of(context).uri.toString();
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: AppBackground(
-        child: Row(
-          children: [
-            // ─── SIDEBAR ────────────────────────────────────────────
-            const Sidebar(),
+      body: Row(
+        children: [
+          // ─── SIDEBAR (z: zSidebar=30) ────────────────────────────
+          const Sidebar(),
 
-            // ─── CONTENT AREA ────────────────────────────────────────
-            Expanded(
-              child: Column(
-                children: [
-                  // Title bar solo en el área de contenido
-                  CustomTitleBar(
-                    breadcrumb: _breadcrumbFor(GoRouterState.of(context).uri.toString()),
-                    systemStatus: SystemStatus.operational,
-                  ),
+          // ─── CONTENT AREA ────────────────────────────────────────
+          Expanded(
+            child: Column(
+              children: [
+                // Title bar corona el área de contenido (z: zTitleBar=40)
+                CustomTitleBar(
+                  breadcrumb: _breadcrumbFor(location),
+                  systemStatus: systemStatus,
+                ),
 
-                  // Page content con fade/slide de entrada
-                  Expanded(
-                    child: FadeTransition(
-                      opacity: _pageFade,
-                      child: SlideTransition(
-                        position: _pageSlide,
+                // Stack: AppBackground (z: zBase=0) + contenido (z: zContent=10)
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      const ExcludeSemantics(
+                        child: AppBackground(child: SizedBox.shrink()),
+                      ),
+                      _ShellTransitionSwitcher(
+                        currentIndex: widget.navigationShell.currentIndex,
                         child: widget.navigationShell,
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
 
+/// Crossfade puro (durBase) entre ramas hermanas del IndexedStack.
+/// No desmonta el IndexedStack interno — sólo anima la opacidad al cambiar de índice.
+class _ShellTransitionSwitcher extends StatefulWidget {
+  final Widget child;
+  final int currentIndex;
+
+  const _ShellTransitionSwitcher({
+    required this.child,
+    required this.currentIndex,
+  });
+
+  @override
+  State<_ShellTransitionSwitcher> createState() =>
+      _ShellTransitionSwitcherState();
+}
+
+class _ShellTransitionSwitcherState extends State<_ShellTransitionSwitcher>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: AppMotion.durBase);
+    _fade = CurvedAnimation(parent: _ctrl, curve: AppMotion.easeStandard);
+    _ctrl.forward();
+  }
+
+  @override
+  void didUpdateWidget(_ShellTransitionSwitcher old) {
+    super.didUpdateWidget(old);
+    if (old.currentIndex != widget.currentIndex) {
+      _ctrl.duration = AppMotion.reduced(context)
+          ? AppMotion.durCrossfadeReduced
+          : AppMotion.durBase;
+      _ctrl.forward(from: 0.0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(opacity: _fade, child: widget.child);
+  }
 }
