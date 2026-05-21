@@ -1,10 +1,8 @@
 // Archivo: lib/features/store/presentation/widgets/product_card.dart
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:go_router/go_router.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/features/store/domain/models/store_product.dart';
-import 'package:botslode/features/hunter_bot/presentation/views/hunter_view.dart';
 
 /// Card de producto en la tienda
 class ProductCard extends StatefulWidget {
@@ -341,22 +339,17 @@ class _ProductCardState extends State<ProductCard> {
   }
 
   void _handleAction(StoreProduct product) {
-    if (product.id == 'HUNTER-BOT') {
-      // Navegar a HunterBot
-      context.goNamed(HunterView.routeName);
-    } else {
-      // Mostrar modal de compra (TODO)
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Compra de ${product.name} próximamente',
-            style: const TextStyle(fontFamily: 'Oxanium'),
-          ),
-          backgroundColor: AppColors.primary,
-          behavior: SnackBarBehavior.floating,
+    // Mostrar modal de compra (TODO)
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Compra de ${product.name} próximamente',
+          style: const TextStyle(fontFamily: 'Oxanium'),
         ),
-      );
-    }
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 }
 

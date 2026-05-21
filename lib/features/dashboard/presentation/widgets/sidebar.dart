@@ -1,18 +1,10 @@
 // Archivo: lib/features/dashboard/presentation/widgets/sidebar.dart
-import 'package:botslode/core/config/restricted_bots_config.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
-import 'package:botslode/core/providers/supabase_provider.dart';
 import 'package:botslode/features/billing/presentation/views/billing_view.dart';
 import 'package:botslode/features/bots_library/presentation/views/bots_library_view.dart';
 import 'package:botslode/features/dashboard/presentation/views/dashboard_view.dart';
-import 'package:botslode/features/hunter_bot/presentation/views/hunter_view.dart';
-import 'package:botslode/features/empresas_sin_dominio/presentation/views/empresas_sin_dominio_view.dart';
-import 'package:botslode/features/assistify_leads/presentation/views/assistify_leads_view.dart';
-import 'package:botslode/features/seeder_bot/presentation/views/seeder_view.dart';
 import 'package:botslode/features/settings/presentation/views/settings_view.dart';
 import 'package:botslode/features/store/presentation/views/store_view.dart';
-import 'package:botslode/features/wpp_inbox/presentation/providers/wpp_inbox_provider.dart';
-import 'package:botslode/features/wpp_inbox/presentation/views/wpp_inbox_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -25,8 +17,6 @@ class Sidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final String location = GoRouterState.of(context).uri.path;
-    final userId = ref.watch(currentUserIdProvider);
-    final canSeeRestrictedBots = RestrictedBotsConfig.canUserSeeRestrictedBots(userId);
 
     return Container(
       width: 80,
@@ -79,45 +69,6 @@ class Sidebar extends ConsumerWidget {
                     isActive: location == '/store',
                     onTap: () => context.goNamed(StoreView.routeName),
                   ),
-
-                  if (canSeeRestrictedBots) ...[
-
-                    // ── PROSPECCIÓN ────────────────────────────────────────
-                    const _SidebarDivider(label: "PROS."),
-                    _SidebarItem(
-                      icon: FontAwesomeIcons.crosshairs,
-                      label: "HUNTER",
-                      isActive: location == '/hunter',
-                      onTap: () => context.goNamed(HunterView.routeName),
-                    ),
-                    const SizedBox(height: 20),
-                    _SidebarItem(
-                      icon: FontAwesomeIcons.seedling,
-                      label: "SEEDER",
-                      isActive: location == '/seeder',
-                      onTap: () => context.goNamed(SeederView.routeName),
-                    ),
-
-                    // ── OUTREACH ───────────────────────────────────────────
-                    const _SidebarDivider(label: "OUT."),
-                    _SidebarItem(
-                      icon: FontAwesomeIcons.buildingCircleCheck,
-                      label: "APEX",
-                      isActive: location == '/empresas',
-                      onTap: () => context.goNamed(EmpresasSinDominioView.routeName),
-                    ),
-                    const SizedBox(height: 20),
-                    _SidebarItem(
-                      icon: FontAwesomeIcons.graduationCap,
-                      label: "ASSISTIFY",
-                      isActive: location == '/assistify',
-                      onTap: () => context.goNamed(AssistifyLeadsView.routeName),
-                    ),
-
-                    // ── INBOX ──────────────────────────────────────────────
-                    const _SidebarDivider(label: "MSG"),
-                    _SidebarInboxItem(location: location),
-                  ],
                 ],
               ),
             ),
@@ -175,102 +126,6 @@ class _SidebarItem extends StatelessWidget {
           _buildLabel(label, isActive),
         ],
       ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Divisor de sección del sidebar
-// ---------------------------------------------------------------------------
-
-class _SidebarDivider extends StatelessWidget {
-  const _SidebarDivider({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 1,
-              margin: const EdgeInsets.only(left: 12),
-              color: AppColors.primary.withOpacity(0.15),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: AppColors.primary.withOpacity(0.35),
-                fontSize: 7,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.5,
-                fontFamily: 'Oxanium',
-              ),
-            ),
-          ),
-          Expanded(
-            child: Container(
-              height: 1,
-              margin: const EdgeInsets.only(right: 12),
-              color: AppColors.primary.withOpacity(0.15),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Ítem INBOX con badge de no leídos
-// ---------------------------------------------------------------------------
-
-class _SidebarInboxItem extends ConsumerWidget {
-  const _SidebarInboxItem({required this.location});
-  final String location;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final convsAsync = ref.watch(wppConversationsProvider);
-    final totalUnread = convsAsync.valueOrNull?.fold<int>(
-          0, (sum, c) => sum + c.unreadCount) ?? 0;
-    final isActive = location == '/inbox';
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        _SidebarItem(
-          icon: FontAwesomeIcons.whatsapp,
-          label: "INBOX",
-          isActive: isActive,
-          onTap: () => context.goNamed(WppInboxView.routeName),
-        ),
-        if (totalUnread > 0)
-          Positioned(
-            right: 8,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.error,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                totalUnread > 99 ? '99+' : '$totalUnread',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }

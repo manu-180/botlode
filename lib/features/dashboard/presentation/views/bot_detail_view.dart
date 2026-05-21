@@ -153,27 +153,10 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     touch-action: manipulation !important;
   "></div>
 
-  <div id="botlode-hitzone-wpp" style="
-    position: fixed;
-    bottom: 168px;
-    right: 28px;
-    width: 100px;
-    height: 100px;
-    z-index: 100002;
-    pointer-events: none;
-    cursor: wait;
-    border-radius: 50%;
-    display: none;
-    background: transparent !important;
-    -webkit-tap-highlight-color: transparent !important;
-    touch-action: manipulation !important;
-  "></div>
-
   <script>
   (function() {
     const iframe = document.getElementById('botlode-player');
     const hitzoneBotEl = document.getElementById('botlode-hitzone-bot');
-    const hitzoneWppEl = document.getElementById('botlode-hitzone-wpp');
     if (!iframe) return;
 
     let isExpanded = false;
@@ -181,10 +164,8 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     let isAnimatingBubble = false;
     let botDisabled = false;
     const BUBBLE_HEIGHT_SOLO_BOT = 150;
-    const BUBBLE_HEIGHT_WITH_WPP = 290;
     const BUBBLE_HEIGHT_OFF = 0;
     const BUBBLE_WIDTH_SOLO_BOT = 150;
-    const BUBBLE_WIDTH_WITH_WPP = 140;
     let bubbleHeight = BUBBLE_HEIGHT_SOLO_BOT;
     let bubbleWidth = BUBBLE_WIDTH_SOLO_BOT;
     let iframeReady = false;
@@ -323,7 +304,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       // Failsafe: desbloquea interacción del iframe desde el primer gesto del usuario.
       iframe.style.pointerEvents = 'auto';
       updateHitzones(false);
-      updateWppHitzone(false);
       sendClickToIframe(source);
       retryCount = 0;
       if (retryTimer) clearTimeout(retryTimer);
@@ -337,36 +317,11 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       }, RETRY_DELAY_MS);
     }
 
-    function openWppChat(source) {
-      const now = Date.now();
-      if (!iframeReady || botDisabled || isExpanded) return;
-      if (now - lastClickTime < CLICK_COOLDOWN_MS) return;
-      lastClickTime = now;
-      const rect = iframe.getBoundingClientRect();
-      try {
-        iframe.contentWindow.postMessage({
-          type: 'HITZONE_CLICK_WPP',
-          clientX: rect.left + rect.width / 2,
-          clientY: rect.top + 50,
-          iframeX: rect.left,
-          iframeY: rect.top,
-        }, '*');
-      } catch (e) {}
-    }
-
     function updateHitzones(show) {
       if (hitzoneBotEl) {
         // Arquitectura tap-directo: sin capas intermedias que bloqueen el iframe.
         hitzoneBotEl.style.display = 'none';
         hitzoneBotEl.style.pointerEvents = 'none';
-      }
-    }
-
-    function updateWppHitzone(show) {
-      if (hitzoneWppEl) {
-        // Arquitectura tap-directo: sin capas intermedias que bloqueen el iframe.
-        hitzoneWppEl.style.display = 'none';
-        hitzoneWppEl.style.pointerEvents = 'none';
       }
     }
 
@@ -404,40 +359,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
       hitzoneBotEl.addEventListener('mouseleave', function(e) { if (!isExpanded) forwardEventToIframe(e, 'HITZONE_LEAVE_BOT'); });
       hitzoneBotEl.addEventListener('contextmenu', function(e) { e.preventDefault(); });
       hitzoneBotEl.addEventListener('dragstart', function(e) { e.preventDefault(); });
-    }
-
-    if (hitzoneWppEl) {
-      hitzoneWppEl.addEventListener('pointerdown', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.pointerType === 'touch') { touchHandled = true; setTimeout(function() { touchHandled = false; }, 500); }
-        else { mouseHandled = true; setTimeout(function() { mouseHandled = false; }, 500); }
-        openWppChat('pointerdown-' + e.pointerType);
-      }, { passive: false });
-      hitzoneWppEl.addEventListener('touchstart', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (touchHandled) return;
-        touchHandled = true;
-        openWppChat('touchstart');
-        setTimeout(function() { touchHandled = false; }, 500);
-      }, { passive: false });
-      hitzoneWppEl.addEventListener('mousedown', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (mouseHandled || touchHandled) return;
-        mouseHandled = true;
-        openWppChat('mousedown');
-        setTimeout(function() { mouseHandled = false; }, 500);
-      }, { passive: false });
-      hitzoneWppEl.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (touchHandled || mouseHandled) return;
-        openWppChat('click');
-      }, { passive: false });
-      hitzoneWppEl.addEventListener('contextmenu', function(e) { e.preventDefault(); });
-      hitzoneWppEl.addEventListener('dragstart', function(e) { e.preventDefault(); });
     }
 
     function activateIframe(source) {
@@ -563,11 +484,9 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     window.addEventListener('message', function(event) {
       const data = event.data;
 
-      if ((isExpanded || isOpening) && (data === 'CMD_WPP_VISIBLE' || data === 'CMD_WPP_HIDDEN')) return;
       const timeSinceClose = Date.now() - justClosedTimestamp;
-      if (justClosedTimestamp > 0 && timeSinceClose < 500 && 
-          (data === 'CMD_WPP_VISIBLE' || data === 'CMD_WPP_HIDDEN' || data === 'CMD_OPEN')) return;
-      
+      if (justClosedTimestamp > 0 && timeSinceClose < 500 && data === 'CMD_OPEN') return;
+
       if (data === 'CMD_READY') {
         activateIframe('CMD_READY');
         return;
@@ -589,7 +508,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
         iframe.style.overflow = 'hidden';
         iframe.style.display = 'none';
         if (hitzoneBotEl) { hitzoneBotEl.style.display = 'none'; }
-        if (hitzoneWppEl) { hitzoneWppEl.style.display = 'none'; }
         return;
       }
       
@@ -611,18 +529,17 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
           iframe.style.opacity = '1';
           iframe.style.pointerEvents = iframeReady ? 'auto' : 'none';
           updateHitzones(true);
-          updateWppHitzone(bubbleHeight === BUBBLE_HEIGHT_WITH_WPP);
           applyBubblePosition();
         }
         return;
       }
-      
+
       if (data === 'CMD_OPEN') {
         if (botDisabled) return;
         if (!isExpanded && !isOpening) {
           if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
           isOpening = true;
-          isExpanded = true; // marcar temprano para bloquear CMD_WPP_* durante apertura
+          isExpanded = true; // marcar temprano durante la apertura
           isAnimatingBubble = false;
           setFlutterHostPointerEventsForChat(true);
           
@@ -634,7 +551,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
           iframe.style.pointerEvents = 'auto';
           try { iframe.focus(); } catch(e) {}
           updateHitzones(false);
-          updateWppHitzone(false);
           if (isNarrowScreen() && window.visualViewport) {
             chatOpenViewportHeight = window.visualViewport.height;
           }
@@ -700,7 +616,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
           chatOpenViewportHeight = null;
           currentKeyboardHeight = 0;
           updateHitzones(true);
-          updateWppHitzone(bubbleHeight === BUBBLE_HEIGHT_WITH_WPP);
           iframe.style.filter = 'none';
           iframe.style.transform = 'none';
           iframe.style.transition = 'opacity ' + (T.closeFadeOut / 1000) + 's ease-out';
@@ -719,26 +634,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
             iframe.offsetHeight;
             setTimeout(animateBubbleEntrance, T.pauseBeforeEntrance);
           }, T.closeWaitChat);
-        }
-      } else if (data === 'CMD_WPP_VISIBLE') {
-        if (botDisabled) return;
-        bubbleHeight = BUBBLE_HEIGHT_WITH_WPP;
-        bubbleWidth = BUBBLE_WIDTH_WITH_WPP;
-        updateWppHitzone(true);
-        if (!isExpanded) {
-          iframe.style.transition = 'height 0.25s ease-out, width 0.25s ease-out';
-          iframe.style.width = bubbleWidth + 'px';
-          iframe.style.height = BUBBLE_HEIGHT_WITH_WPP + 'px';
-        }
-      } else if (data === 'CMD_WPP_HIDDEN') {
-        if (botDisabled) return;
-        bubbleHeight = BUBBLE_HEIGHT_SOLO_BOT;
-        bubbleWidth = BUBBLE_WIDTH_SOLO_BOT;
-        updateWppHitzone(false);
-        if (!isExpanded) {
-          iframe.style.transition = 'height 0.25s ease-out, width 0.25s ease-out';
-          iframe.style.width = bubbleWidth + 'px';
-          iframe.style.height = BUBBLE_HEIGHT_SOLO_BOT + 'px';
         }
       }
     });
@@ -1339,222 +1234,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
     );
   }
 
-  void _showWppPhoneDialog(Bot bot) {
-    final TextEditingController phoneCtrl = TextEditingController(
-      text: bot.telefono ?? '',
-    );
-    final formKey = GlobalKey<FormState>();
-
-    showDialog(
-      context: context,
-      builder: (context) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Shortcuts(
-          shortcuts: const { SingleActivator(LogicalKeyboardKey.enter): _DialogSubmitIntent() },
-          child: Actions(
-            actions: {
-              _DialogSubmitIntent: CallbackAction<_DialogSubmitIntent>(onInvoke: (_) async {
-                if (!formKey.currentState!.validate()) return null;
-                final phone = phoneCtrl.text.trim();
-                try {
-                  await ref.read(botsProvider.notifier).updateWppConfig(bot.id, true, phone);
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    _showEpicNotify("WHATSAPP CONFIGURADO");
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(e.toString().replaceFirst('Exception: ', '')),
-                        backgroundColor: AppColors.error,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                }
-                return null;
-              }),
-            },
-            child: Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            width: 420,
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: AppColors.surface.withValues(alpha: 0.98),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.5)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF25D366).withValues(alpha: 0.15),
-                  blurRadius: 30,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF25D366).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFF25D366).withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.chat_rounded,
-                          color: Color(0xFF25D366),
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Text(
-                          "NÚMERO DE WHATSAPP",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontFamily: 'Oxanium',
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    "Número con código de país, sin espacios ni símbolos.\nEj: 1134272488",
-                    style: TextStyle(
-                      color: AppColors.textSecondary.withValues(alpha: 0.9),
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  TextFormField(
-                    controller: phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    autofocus: true,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                    ],
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Courier',
-                      fontSize: 16,
-                      letterSpacing: 1.5,
-                    ),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.black.withValues(alpha: 0.5),
-                      hintText: "Teléfono",
-                      hintStyle: TextStyle(
-                        color: AppColors.textSecondary.withValues(alpha: 0.4),
-                      ),
-                      prefixIcon: Icon(
-                        Icons.phone_android_rounded,
-                        color: const Color(0xFF25D366).withValues(alpha: 0.8),
-                        size: 20,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF25D366),
-                          width: 2,
-                        ),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.error),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 16,
-                      ),
-                    ),
-                    validator: (value) {
-                      final v = value?.trim() ?? '';
-                      if (v.isEmpty) return "El número es obligatorio.";
-                      if (!RegExp(r'^[0-9]{10,15}$').hasMatch(v)) {
-                        return "Solo dígitos, 10 a 15 caracteres.";
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 28),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text(
-                          "CANCELAR",
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          if (!formKey.currentState!.validate()) return;
-                          final phone = phoneCtrl.text.trim();
-                          try {
-                            await ref
-                                .read(botsProvider.notifier)
-                                .updateWppConfig(bot.id, true, phone);
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                              _showEpicNotify("WHATSAPP CONFIGURADO");
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(e.toString().replaceFirst('Exception: ', '')),
-                                  backgroundColor: AppColors.error,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF25D366),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 14,
-                          ),
-                        ),
-                        icon: const Icon(Icons.check_rounded, size: 20),
-                        label: const Text("GUARDAR NÚMERO"),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showEditInitialMessageDialog(Bot bot) {
     final TextEditingController messageCtrl = TextEditingController(
       text: bot.initialMessage ?? 'Sistema en línea. ¿En qué puedo ayudarte hoy?'
@@ -1900,7 +1579,6 @@ class _BotDetailViewState extends ConsumerState<BotDetailView> {
                                     bot: bot,
                                     isActive: isActive,
                                     ref: ref,
-                                    onOpenWppPhoneDialog: () => _showWppPhoneDialog(bot),
                                     onEnergyToggle: _handleEnergyToggle,
                                   )
                                 : BotChatConsole(botName: bot.name, botColor: AppColors.primary, botId: bot.id),
@@ -2181,14 +1859,12 @@ class _MonitorPanel extends StatelessWidget {
   final Bot bot;
   final bool isActive;
   final WidgetRef ref;
-  final VoidCallback? onOpenWppPhoneDialog;
   final void Function(BuildContext context, String botId)? onEnergyToggle;
 
   const _MonitorPanel({
     required this.bot,
     required this.isActive,
     required this.ref,
-    this.onOpenWppPhoneDialog,
     this.onEnergyToggle,
   });
 
@@ -2244,12 +1920,6 @@ class _MonitorPanel extends StatelessWidget {
                 inactiveIcon: Icons.nightlight_round,
               ),
               const Divider(height: 32, color: AppColors.borderGlass),
-              _WppSection(
-                bot: bot,
-                ref: ref,
-                onOpenWppPhoneDialog: onOpenWppPhoneDialog,
-              ),
-              const Divider(height: 32, color: AppColors.borderGlass),
               _BubbleSizeSlider(
                 bot: bot,
                 ref: ref,
@@ -2259,91 +1929,6 @@ class _MonitorPanel extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _WppSection extends StatelessWidget {
-  final Bot bot;
-  final WidgetRef ref;
-  final VoidCallback? onOpenWppPhoneDialog;
-
-  const _WppSection({
-    required this.bot,
-    required this.ref,
-    this.onOpenWppPhoneDialog,
-  });
-
-  static const Color _wppGreen = Color(0xFF25D366);
-
-  Future<void> _onWppSwitchChanged(bool value) async {
-    final notifier = ref.read(botsProvider.notifier);
-    if (value) {
-      final hasPhone = bot.telefono != null && bot.telefono!.trim().isNotEmpty;
-      if (!hasPhone) {
-        onOpenWppPhoneDialog?.call();
-        return;
-      }
-      await notifier.updateWppConfig(bot.id, true, bot.telefono);
-    } else {
-      await notifier.updateWppConfig(bot.id, false, null);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _ConfigSwitch(
-          label: "BURBUJA WHATSAPP",
-          value: bot.wpp,
-          onChanged: _onWppSwitchChanged,
-          activeText: "VISIBLE",
-          inactiveText: "OCULTA",
-          activeColor: _wppGreen,
-          activeIcon: Icons.chat_rounded,
-          inactiveIcon: Icons.chat_bubble_outline_rounded,
-        ),
-        if (bot.wpp) ...[
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: _wppGreen.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _wppGreen.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.phone_android_rounded, color: _wppGreen.withValues(alpha: 0.9), size: 18),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    bot.telefono ?? "—",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Courier',
-                      fontSize: 14,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: onOpenWppPhoneDialog,
-                  style: TextButton.styleFrom(
-                    foregroundColor: _wppGreen,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text("EDITAR", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ],
     );
   }
 }

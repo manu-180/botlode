@@ -1,6 +1,5 @@
 // Archivo: lib/features/store/domain/models/store_product.dart
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:botslode/core/config/theme/app_colors.dart';
 
 /// Categorías de productos en la tienda
@@ -75,28 +74,7 @@ class StoreProduct {
   }
 
   /// Catálogo de productos disponibles
-  static List<StoreProduct> get catalog => [
-    const StoreProduct(
-      id: 'HUNTER-BOT',
-      name: 'HUNTER BOT',
-      description: 'Encuentra emails de contacto en cualquier sitio web y envía campañas de outreach automatizadas.',
-      category: ProductCategory.marketing,
-      price: 0,
-      priceDefined: false,
-      riveAsset: null, // TODO: Agregar animación Rive
-      icon: FontAwesomeIcons.crosshairs,
-      accentColor: AppColors.success,
-      isAvailable: false,
-      features: [
-        'Scraping inteligente de sitios web',
-        'Detección automática de emails',
-        'Integración con Resend',
-        'Logs en tiempo real',
-        'Templates de email personalizables',
-        'Estadísticas de campañas',
-      ],
-    ),
-  ];
+  static List<StoreProduct> get catalog => const [];
 
   /// Crea una copia con isOwned modificado
   StoreProduct copyWith({

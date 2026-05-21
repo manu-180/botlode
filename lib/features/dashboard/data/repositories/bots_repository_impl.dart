@@ -113,8 +113,6 @@ class BotsRepositoryImpl implements BotsRepository {
         'theme_mode': bot.themeMode,
         'show_offline_alert': bot.showOfflineAlert,
         'tech_color': '#${bot.primaryColor.value.toRadixString(16).substring(2).toUpperCase()}',
-        'wpp': bot.wpp,
-        'telefono': bot.telefono,
       }).eq('id', bot.id);
     } catch (e) {
       _handleSupabaseError(e, "No pudimos actualizar el bot. Verifica tu conexión.");
