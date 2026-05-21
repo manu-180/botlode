@@ -45,8 +45,12 @@ dev_dependencies:
 
 flutter_launcher_icons:
   android: false
-  ios: false
+  ios: true
   image_path: "assets/icon/botlode_logo.png"
+  # Fondo solido para el ícono iOS (Apple no permite transparencia)
+  adaptive_icon_background: "#050505"
+  remove_alpha_ios: true
+  background_color_ios: "#050505"
   min_sdk_android: 21 # opcional
   web:
     generate: true
