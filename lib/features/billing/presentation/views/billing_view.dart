@@ -451,6 +451,8 @@ class _SectionHeader extends StatelessWidget {
 
 // ─── Stub panel ───────────────────────────────────────────────────────────────
 // Used as a visual placeholder until real components land in prompts 48–59.
+// Wears HUD trim (corner brackets, dashed border, grid + mono code label)
+// so it reads as "module in assembly" rather than "raw stub".
 
 class _StubPanel extends StatelessWidget {
   const _StubPanel({required this.label, this.height = 96});
@@ -460,19 +462,59 @@ class _StubPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: height,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceHud,
-        border: Border.all(color: AppColors.borderSubtle, width: 1),
-        borderRadius: BorderRadius.circular(AppDimens.radiusM),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: AppTextStyles.mono.copyWith(color: AppColors.textTertiary),
-        textAlign: TextAlign.center,
+    return HudCornerBrackets(
+      color: AppColors.borderStrong,
+      armLength: 14,
+      thickness: 1.0,
+      child: Container(
+        width: double.infinity,
+        height: height,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceHud,
+          border: Border.all(color: AppColors.borderSubtle, width: 1),
+          borderRadius: BorderRadius.circular(AppDimens.radiusM),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const ExcludeSemantics(
+              child: IgnorePointer(
+                child: HudGridTexture(opacity: 0.03),
+              ),
+            ),
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.precision_manufacturing_outlined,
+                    color: AppColors.textTertiary.withValues(alpha: 0.6),
+                    size: AppDimens.iconM,
+                  ),
+                  const SizedBox(height: AppDimens.space8),
+                  Text(
+                    '// MÓDULO EN PREPARACIÓN',
+                    style: AppTextStyles.mono.copyWith(
+                      color: AppColors.textTertiary,
+                      letterSpacing: 1.4,
+                      fontSize: 10,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppDimens.space4),
+                  Text(
+                    label,
+                    style: AppTextStyles.mono.copyWith(
+                      color: AppColors.textTertiary.withValues(alpha: 0.55),
+                      fontSize: 10,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

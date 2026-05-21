@@ -91,21 +91,35 @@ class _ProductCardState extends State<ProductCard> {
     final reduced = AppMotion.reduced(context);
     final dur = reduced ? AppMotion.durCrossfadeReduced : AppMotion.durFast;
 
+    Widget inner = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildHeader(reduced),
+        Expanded(child: _buildBody()),
+        _buildFooter(reduced),
+      ],
+    );
+
+    // Unavailable state: desaturate to grayscale + reduce opacity for depth.
+    // Mirrors the bot_card "dimmed" treatment so unavailable products feel
+    // semantically inert rather than just transparent.
+    if (_isUnavailable) {
+      inner = ColorFiltered(
+        colorFilter: const ColorFilter.matrix(<double>[
+          0.33, 0.33, 0.33, 0, 0,
+          0.33, 0.33, 0.33, 0, 0,
+          0.33, 0.33, 0.33, 0, 0,
+          0,    0,    0,    1, 0,
+        ]),
+        child: Opacity(opacity: 0.78, child: inner),
+      );
+    }
+
     Widget card = HoloPanel(
       padding: EdgeInsets.zero,
       borderColor: _borderColor,
       glowAccent: _glowAccent,
-      child: Opacity(
-        opacity: _isUnavailable ? 0.55 : 1.0,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(),
-            Expanded(child: _buildBody()),
-            _buildFooter(reduced),
-          ],
-        ),
-      ),
+      child: inner,
     );
 
     // Hover translateY + press has no translate (already handled by scale)
@@ -157,8 +171,14 @@ class _ProductCardState extends State<ProductCard> {
 
   // ─── Header ───────────────────────────────────────────────────────────────
 
-  Widget _buildHeader() {
+  Widget _buildHeader(bool reduced) {
     final accent = _p.accentColor;
+    // Glow breathes on hover (subtle 1.0 → 1.4 multiplier).
+    final glowBoost = (!reduced && _isHovered && !_isUnavailable) ? 1.4 : 1.0;
+    final frameBorderWidth =
+        (!reduced && _isHovered && !_isUnavailable) ? 2.2 : 2.0;
+    final iconScale =
+        (!reduced && _isHovered && !_isUnavailable) ? 1.06 : 1.0;
 
     return SizedBox(
       height: 120,
@@ -183,41 +203,52 @@ class _ProductCardState extends State<ProductCard> {
             ),
           ),
 
-          // Radial glow behind icon
+          // Radial glow behind icon — animates intensity on hover.
           Center(
-            child: Container(
+            child: AnimatedContainer(
+              duration: AppMotion.durFast,
+              curve: AppMotion.easeStandard,
               width: 80,
               height: 80,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: accent.withValues(alpha: 0.22),
-                    blurRadius: 36,
-                    spreadRadius: 12,
+                    color: accent.withValues(alpha: 0.22 * glowBoost),
+                    blurRadius: 36 * glowBoost,
+                    spreadRadius: 12 * glowBoost,
                   ),
                 ],
               ),
             ),
           ),
 
-          // Circular HUD icon frame
+          // Circular HUD icon frame — micro-scale + brighter border on hover.
           Center(
-            child: Container(
-              padding: const EdgeInsets.all(AppDimens.space20),
-              decoration: BoxDecoration(
-                color: AppColors.surface.withValues(alpha: 0.90),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: accent.withValues(alpha: 0.32),
-                  width: 2,
+            child: AnimatedScale(
+              scale: iconScale,
+              duration: AppMotion.durFast,
+              curve: AppMotion.easeStandard,
+              child: AnimatedContainer(
+                duration: AppMotion.durFast,
+                curve: AppMotion.easeStandard,
+                padding: const EdgeInsets.all(AppDimens.space20),
+                decoration: BoxDecoration(
+                  color: AppColors.surface.withValues(alpha: 0.90),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: accent.withValues(
+                      alpha: _isHovered && !_isUnavailable ? 0.55 : 0.32,
+                    ),
+                    width: frameBorderWidth,
+                  ),
+                  boxShadow: AppDimens.glowStatus(accent),
                 ),
-                boxShadow: AppDimens.glowStatus(accent),
-              ),
-              child: FaIcon(
-                _p.icon,
-                color: accent,
-                size: AppDimens.iconL,
+                child: FaIcon(
+                  _p.icon,
+                  color: accent,
+                  size: AppDimens.iconL,
+                ),
               ),
             ),
           ),
@@ -327,12 +358,20 @@ class _ProductCardState extends State<ProductCard> {
   // ─── Footer ───────────────────────────────────────────────────────────────
 
   Widget _buildFooter(bool reduced) {
-    return Container(
+    // Footer top divider brightens on hover, tinted by the accent in use.
+    final accent = _glowAccent ?? AppColors.borderSubtle;
+    final dividerColor = (!reduced && _isHovered && _canInteract)
+        ? accent.withValues(alpha: 0.38)
+        : AppColors.borderSubtle;
+
+    return AnimatedContainer(
+      duration: AppMotion.durFast,
+      curve: AppMotion.easeStandard,
       padding: const EdgeInsets.all(AppDimens.space16),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceHud,
         border: Border(
-          top: BorderSide(color: AppColors.borderSubtle),
+          top: BorderSide(color: dividerColor),
         ),
       ),
       child: Row(

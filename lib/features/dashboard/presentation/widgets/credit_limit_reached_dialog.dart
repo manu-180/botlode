@@ -108,7 +108,20 @@ class CreditLimitReachedDialog extends StatelessWidget {
                     ),
                     child: AppIcons.icon(AppIcons.warning, size: AppDimens.iconL, color: AppColors.warning),
                   ),
-                  const SizedBox(height: AppDimens.space20),
+                  const SizedBox(height: AppDimens.space16),
+                  // Mono status line — primes the eye for the warning title.
+                  ExcludeSemantics(
+                    child: Text(
+                      '// PROTOCOL_HALT — QUOTA_LIMIT_REACHED',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.mono.copyWith(
+                        color: AppColors.warning.withValues(alpha: 0.85),
+                        letterSpacing: 1.4,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppDimens.space8),
                   Text(
                     'LÍMITE DE CRÉDITO ALCANZADO',
                     textAlign: TextAlign.center,

@@ -43,6 +43,8 @@ class CreditHudPanel extends StatelessWidget {
   }
 
   Widget _buildSkeleton() {
+    // Skeleton mirrors the real panel structure (reactor bar + readout column)
+    // so the layout doesn't snap into place once data arrives.
     return ClipPath(
       clipper: const ChamferClipper(chamfer: AppDimens.chamferM),
       child: Container(
@@ -55,13 +57,34 @@ class CreditHudPanel extends StatelessWidget {
           ),
         ),
         padding: const EdgeInsets.all(AppDimens.space20),
-        child: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SkeletonBase(width: 80, height: 24),
-            SizedBox(height: AppDimens.space12),
-            SkeletonBase(width: double.infinity, height: 10),
+            Container(
+              width: 6,
+              decoration: BoxDecoration(
+                color: AppColors.borderSubtle,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+            const SizedBox(width: AppDimens.space16),
+            const Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SkeletonBase(width: 110, height: 14),
+                  SizedBox(height: AppDimens.space12),
+                  SkeletonBase(width: 180, height: 22),
+                  SizedBox(height: AppDimens.space12),
+                  SkeletonBase(
+                    width: double.infinity,
+                    height: 10,
+                    radius: AppDimens.radiusS,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -69,20 +92,66 @@ class CreditHudPanel extends StatelessWidget {
   }
 
   Widget _buildError() {
-    return Container(
-      decoration: ShapeDecoration(
-        shape: ChamferBorder(
-          chamfer: AppDimens.chamferM,
-          side: BorderSide(
-            color: AppColors.danger.withValues(alpha: 0.6),
+    // Error state is now a fully-formed HUD panel: brackets, scanlines,
+    // danger glow, vertical reactor bar (slow critical pulse) and an icon
+    // glyph. Visually consistent with the data state so the user perceives
+    // the panel as "live but failing", not as a placeholder.
+    return HudCornerBrackets(
+      color: AppColors.danger.withValues(alpha: 0.65),
+      child: HoloPanel(
+        shape: HoloPanelShape.chamfer,
+        padding: EdgeInsets.zero,
+        cornerBrackets: false,
+        scanlines: true,
+        borderColor: AppColors.danger.withValues(alpha: 0.55),
+        glowAccent: AppColors.dangerGlow,
+        child: Padding(
+          padding: const EdgeInsets.all(AppDimens.space20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const HudReactorBar(
+                axis: Axis.vertical,
+                thickness: 6,
+                color: AppColors.danger,
+                pulsing: true,
+                duration: AppMotion.durHeartbeatFast,
+              ),
+              const SizedBox(width: AppDimens.space16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.report_gmailerrorred_outlined,
+                          color: AppColors.danger,
+                          size: AppDimens.iconM,
+                        ),
+                        const SizedBox(width: AppDimens.space8),
+                        Text(
+                          '!!! LECTURA NO DISPONIBLE !!!',
+                          style: AppTextStyles.label.copyWith(
+                            color: AppColors.danger,
+                            letterSpacing: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppDimens.space8),
+                    Text(
+                      'No se pudo leer el estado de crédito.',
+                      style: AppTextStyles.bodyS.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimens.space20),
-        child: Text(
-          'No se pudo leer el estado de crédito',
-          style: AppTextStyles.bodyS.copyWith(color: AppColors.danger),
         ),
       ),
     );

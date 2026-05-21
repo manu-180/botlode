@@ -260,39 +260,43 @@ class _LibraryCategoryChipState extends State<_LibraryCategoryChip> {
           }
           return KeyEventResult.ignored;
         },
-        child: AnimatedContainer(
-          duration: AppMotion.durFast,
-          curve: AppMotion.easeStandard,
-          padding: EdgeInsets.all(_focused ? 2 : 0),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppDimens.radiusPill + 4),
-            border: _focused
-                ? Border.all(color: AppColors.cyan, width: 2)
-                : null,
-          ),
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            onEnter: (_) => setState(() => _hovered = true),
-            onExit: (_) => setState(() => _hovered = false),
-            child: GestureDetector(
-              onTap: widget.onTap,
-              child: AnimatedContainer(
-                duration: AppMotion.durFast,
-                curve: AppMotion.easeStandard,
-                height: _kChipHeight,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimens.space12,
+        // Focus ring is rendered as a boxShadow ring around the chip itself —
+        // no padding swap, no layout shift. Cyan glow signals keyboard focus
+        // independently of selected state so both can coexist visually.
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: AppMotion.durFast,
+              curve: AppMotion.easeStandard,
+              height: _kChipHeight,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.space12,
+              ),
+              decoration: BoxDecoration(
+                color: _fillColor,
+                borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+                border: Border.all(
+                  color: _focused ? AppColors.cyan : _borderColor,
+                  width: _focused ? 2.0 : _borderWidth,
                 ),
-                decoration: BoxDecoration(
-                  color: _fillColor,
-                  borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-                  border: Border.all(color: _borderColor, width: _borderWidth),
-                ),
-                child: Center(
-                  child: Text(
-                    widget.label.toUpperCase(),
-                    style: AppTextStyles.label.copyWith(color: _textColor),
-                  ),
+                boxShadow: _focused
+                    ? const [
+                        BoxShadow(
+                          color: AppColors.cyanGlow,
+                          blurRadius: 12,
+                          spreadRadius: 0.5,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Center(
+                child: Text(
+                  widget.label.toUpperCase(),
+                  style: AppTextStyles.label.copyWith(color: _textColor),
                 ),
               ),
             ),

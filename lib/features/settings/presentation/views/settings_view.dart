@@ -274,13 +274,24 @@ class _SecurityHeader extends StatelessWidget {
                   boxShadow: AppDimens.glowGold,
                 ),
               ),
-              // Mid ring
+              // Mid ring — radial gradient gives the gold a soft falloff
+              // toward the inner circle, replacing the previous flat fill.
               Container(
                 width: 96,
                 height: 96,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.gold.withValues(alpha: 0.20),
+                  gradient: RadialGradient(
+                    colors: [
+                      AppColors.gold.withValues(alpha: 0.28),
+                      AppColors.gold.withValues(alpha: 0.08),
+                    ],
+                    stops: const [0.0, 1.0],
+                  ),
+                  border: Border.all(
+                    color: AppColors.gold.withValues(alpha: 0.18),
+                    width: 1,
+                  ),
                 ),
               ),
               // Inner circle with icon
@@ -379,7 +390,8 @@ class _SettingRow extends StatelessWidget {
           ),
         ),
 
-        // Trailing: loader or chevron
+        // Trailing: loader or animated chevron (the chevron brightens
+        // and lifts when the parent HoloPanel receives hover via WidgetState).
         if (isLoading)
           SizedBox(
             width: 16,
@@ -390,12 +402,57 @@ class _SettingRow extends StatelessWidget {
             ),
           )
         else
-          Icon(
+          _AnimatedRowChevron(accent: accent),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _AnimatedRowChevron
+// Listens to the ancestor HoloPanel hover state (propagated via a
+// `HoloPanel`'s WidgetStatesController) to brighten and translate slightly
+// to the right, giving each setting row a tactile, forward-leaning feel.
+// Falls back gracefully when no controller is found.
+// ---------------------------------------------------------------------------
+
+class _AnimatedRowChevron extends StatefulWidget {
+  final Color accent;
+
+  const _AnimatedRowChevron({required this.accent});
+
+  @override
+  State<_AnimatedRowChevron> createState() => _AnimatedRowChevronState();
+}
+
+class _AnimatedRowChevronState extends State<_AnimatedRowChevron> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = AppMotion.reduced(context);
+    final highlighted = !reduced && _hovered;
+
+    return MouseRegion(
+      // Track hover at the row level — works for desktop pointer users.
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedSlide(
+        offset: highlighted ? const Offset(0.18, 0) : Offset.zero,
+        duration: AppMotion.durFast,
+        curve: AppMotion.easeStandard,
+        child: AnimatedDefaultTextStyle(
+          duration: AppMotion.durFast,
+          style: const TextStyle(),
+          child: Icon(
             Icons.chevron_right_rounded,
             size: AppDimens.iconS,
-            color: accent.withValues(alpha: 0.4),
+            color: widget.accent.withValues(
+              alpha: highlighted ? 1.0 : 0.4,
+            ),
           ),
-      ],
+        ),
+      ),
     );
   }
 }

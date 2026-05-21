@@ -17,6 +17,7 @@ import 'package:botslode/core/ui/widgets/page_title.dart';
 import 'package:botslode/core/ui/widgets/skeleton_base.dart';
 import 'package:botslode/features/store/domain/models/store_product.dart';
 import 'package:botslode/features/store/presentation/widgets/product_card.dart';
+import 'package:flutter/services.dart';
 
 class StoreView extends ConsumerStatefulWidget {
   static const String routeName = 'store';
@@ -212,48 +213,81 @@ class _CategoryChip extends StatefulWidget {
 
 class _CategoryChipState extends State<_CategoryChip> {
   bool _hovered = false;
+  bool _focused = false;
 
   Color get _tint => widget.accentColor ?? AppColors.gold;
 
   @override
   Widget build(BuildContext context) {
     final isActive = widget.isActive;
+    final reduced = AppMotion.reduced(context);
+    final hoverScale = (!reduced && _hovered && !isActive) ? 1.03 : 1.0;
+
+    final borderColor = isActive
+        ? _tint.withValues(alpha: 0.5)
+        : _hovered
+            ? AppColors.borderStrong
+            : AppColors.borderDefault;
 
     return Semantics(
       selected: isActive,
       button: true,
       label: widget.label,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: AppMotion.durFast,
-            curve: AppMotion.easeStandard,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.space16,
-              vertical: AppDimens.space8,
-            ),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? _tint.withValues(alpha: 0.12)
-                  : _hovered
-                      ? _tint.withValues(alpha: 0.06)
-                      : Colors.transparent,
-              borderRadius: AppDimens.brPill,
-              border: Border.all(
-                color: isActive
-                    ? _tint.withValues(alpha: 0.5)
-                    : AppColors.borderDefault,
-                width: isActive ? 1.5 : 1.0,
-              ),
-            ),
-            child: Text(
-              widget.label,
-              style: AppTextStyles.labelSmall.copyWith(
-                color: isActive ? _tint : AppColors.textSecondary,
+      child: Focus(
+        onFocusChange: (f) => setState(() => _focused = f),
+        onKeyEvent: (_, event) {
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.enter ||
+               event.logicalKey == LogicalKeyboardKey.space)) {
+            widget.onTap();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedScale(
+              scale: hoverScale,
+              duration: AppMotion.durFast,
+              curve: AppMotion.easeStandard,
+              child: AnimatedContainer(
+                duration: AppMotion.durFast,
+                curve: AppMotion.easeStandard,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimens.space16,
+                  vertical: AppDimens.space8,
+                ),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? _tint.withValues(alpha: 0.12)
+                      : _hovered
+                          ? _tint.withValues(alpha: 0.06)
+                          : Colors.transparent,
+                  borderRadius: AppDimens.brPill,
+                  border: Border.all(
+                    color: _focused ? AppColors.cyan : borderColor,
+                    width: _focused ? 2.0 : (isActive ? 1.5 : 1.0),
+                  ),
+                  boxShadow: _focused
+                      ? [
+                          const BoxShadow(
+                            color: AppColors.cyanGlow,
+                            blurRadius: 12,
+                            spreadRadius: 0.5,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  widget.label,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: isActive ? _tint : AppColors.textSecondary,
+                  ),
+                ),
               ),
             ),
           ),
@@ -517,17 +551,19 @@ class _StoreProductGrid extends StatelessWidget {
         itemBuilder: (context, index) {
           final card = ProductCard(product: products[index]);
           if (reduced) {
-            return Opacity(opacity: 1, child: card);
+            return card;
           }
           final staggerDelay = AppMotion.staggerDelay(index);
+          final totalMs = AppMotion.durBase.inMilliseconds +
+              staggerDelay.inMilliseconds;
+          // Start of the easing window inside the combined duration.
+          final intervalStart =
+              (staggerDelay.inMilliseconds / totalMs).clamp(0.0, 1.0);
           return TweenAnimationBuilder<double>(
             tween: Tween(begin: 0.0, end: 1.0),
             duration: AppMotion.durBase + staggerDelay,
             curve: Interval(
-              staggerDelay.inMilliseconds /
-                  (AppMotion.durBase.inMilliseconds + staggerDelay.inMilliseconds)
-                      .toDouble()
-                      .clamp(0.0, 1.0),
+              intervalStart,
               1.0,
               curve: AppMotion.easeEntrance,
             ),
