@@ -157,35 +157,60 @@ class _StoreToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = Breakpoints.isMobile(context);
+
+    final chipRow = SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _CategoryChip(
+            label: 'TODOS',
+            isActive: selectedCategory == null,
+            onTap: () => onCategorySelected(null),
+          ),
+          for (final cat in ProductCategory.values) ...[
+            const SizedBox(width: AppDimens.space8),
+            _CategoryChip(
+              label: cat.displayName,
+              isActive: selectedCategory == cat,
+              accentColor: cat.color,
+              onTap: () => onCategorySelected(cat),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    final searchField = Semantics(
+      label: 'Buscar módulo',
+      explicitChildNodes: true,
+      child: AppSearchField(
+        controller: searchCtrl,
+        hint: 'Buscar módulo...',
+        width: isMobile ? double.infinity : 280,
+        onChanged: onSearchChanged,
+        onClear: () => onSearchChanged(''),
+      ),
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          chipRow,
+          const SizedBox(height: AppDimens.space12),
+          searchField,
+        ],
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _CategoryChip(
-          label: 'TODOS',
-          isActive: selectedCategory == null,
-          onTap: () => onCategorySelected(null),
-        ),
-        for (final cat in ProductCategory.values) ...[
-          const SizedBox(width: AppDimens.space8),
-          _CategoryChip(
-            label: cat.displayName,
-            isActive: selectedCategory == cat,
-            accentColor: cat.color,
-            onTap: () => onCategorySelected(cat),
-          ),
-        ],
-        const Spacer(),
-        Semantics(
-          label: 'Buscar módulo',
-          explicitChildNodes: true,
-          child: AppSearchField(
-            controller: searchCtrl,
-            hint: 'Buscar módulo...',
-            width: 280,
-            onChanged: onSearchChanged,
-            onClear: () => onSearchChanged(''),
-          ),
-        ),
+        Expanded(child: chipRow),
+        const SizedBox(width: AppDimens.space16),
+        searchField,
       ],
     );
   }
@@ -515,7 +540,7 @@ class _StoreSkeletonGrid extends StatelessWidget {
       child: GridView.builder(
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: maxExtent,
-          childAspectRatio: formFactor == FormFactor.mobile ? 0.68 : 0.82,
+          childAspectRatio: formFactor == FormFactor.mobile ? 0.6 : 0.82,
           crossAxisSpacing: AppDimens.space20,
           mainAxisSpacing: AppDimens.space20,
         ),
@@ -549,7 +574,7 @@ class _StoreProductGrid extends StatelessWidget {
       child: GridView.builder(
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: maxExtent,
-          childAspectRatio: formFactor == FormFactor.mobile ? 0.68 : 0.82,
+          childAspectRatio: formFactor == FormFactor.mobile ? 0.6 : 0.82,
           crossAxisSpacing: AppDimens.space20,
           mainAxisSpacing: AppDimens.space20,
         ),

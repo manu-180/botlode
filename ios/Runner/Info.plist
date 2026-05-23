@@ -45,5 +45,33 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>BotLode usa la cámara solo si decidís escanear tu tarjeta al cargar un método de pago.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>BotLode pide acceso a fotos cuando adjuntás material de entrenamiento al bot.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>BotLode pide guardar fotos cuando descargás recibos o capturas del panel.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>BotLode usa el micrófono solo si activás un bot por voz.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.botslode.botslode</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>botslode</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

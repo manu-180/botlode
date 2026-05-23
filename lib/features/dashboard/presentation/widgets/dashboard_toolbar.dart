@@ -10,6 +10,7 @@ import 'package:botslode/core/ui/panels/holo_panel.dart';
 import 'package:botslode/core/ui/inputs/app_text_field.dart';
 import 'package:botslode/core/ui/hud/hud_status_dot.dart';
 import 'package:botslode/core/ui/badges/app_badge.dart' hide BotStatus;
+import 'package:botslode/core/ui/responsive/breakpoints.dart';
 import 'package:botslode/features/dashboard/domain/models/bot.dart';
 import 'package:botslode/features/dashboard/presentation/providers/bots_provider.dart';
 import 'package:botslode/features/dashboard/presentation/providers/dashboard_controller.dart';
@@ -57,44 +58,48 @@ class _DashboardToolbarState extends ConsumerState<DashboardToolbar> {
           b.status == BotStatus.creditSuspended,
     ).length;
 
+    final isMobile = Breakpoints.isMobile(context);
+
     return SizedBox(
-      height: 64,
+      height: isMobile ? 80 : 64,
       child: HoloPanel(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppDimens.space16,
-          vertical: AppDimens.space12,
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? AppDimens.space12 : AppDimens.space16,
+          vertical: isMobile ? AppDimens.space8 : AppDimens.space12,
         ),
         borderColor: AppColors.borderDefault,
         child: Row(
-          // Fix 3: explicit crossAxisAlignment
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // ── Search field ───────────────────────────────────────────────
             Expanded(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 180),
-                child: AppSearchField(
-                  controller: _searchCtrl,
-                  hint: 'BUSCAR UNIDAD POR ID O NOMBRE...',
-                  onChanged: (value) =>
-                      ref.read(dashboardSearchProvider.notifier).setSearch(value),
-                  onClear: () =>
-                      ref.read(dashboardSearchProvider.notifier).setSearch(''),
-                ),
+              child: AppSearchField(
+                controller: _searchCtrl,
+                hint: isMobile
+                    ? 'BUSCAR UNIDAD...'
+                    : 'BUSCAR UNIDAD POR ID O NOMBRE...',
+                onChanged: (value) =>
+                    ref.read(dashboardSearchProvider.notifier).setSearch(value),
+                onClear: () =>
+                    ref.read(dashboardSearchProvider.notifier).setSearch(''),
               ),
             ),
 
-            const SizedBox(width: AppDimens.space20),
-
-            // ── Segmented filter rail ──────────────────────────────────────
-            _SegmentedFilter(
-              currentFilter: currentFilter,
-              allCount: allBots.length,
-              activeCount: activeCount,
-              offlineCount: offlineCount,
-              onFilterChanged: (filter) =>
-                  ref.read(dashboardFilterProvider.notifier).setFilter(filter),
-            ),
+            // ── Segmented filter (sólo desktop/tablet) ─────────────────────
+            // En mobile lo ocultamos — su layout exige > 300 px adicionales
+            // y entra en infinite relayout cuando el ancho es chico.
+            if (!isMobile) ...[
+              const SizedBox(width: AppDimens.space20),
+              _SegmentedFilter(
+                currentFilter: currentFilter,
+                allCount: allBots.length,
+                activeCount: activeCount,
+                offlineCount: offlineCount,
+                onFilterChanged: (filter) => ref
+                    .read(dashboardFilterProvider.notifier)
+                    .setFilter(filter),
+              ),
+            ],
           ],
         ),
       ),

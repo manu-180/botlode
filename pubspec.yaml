@@ -38,7 +38,6 @@ dependencies:
   url_launcher: ^6.2.5
   webview_flutter: ^4.8.0
   uuid: ^4.3.3
-  window_manager: ^0.3.8
   flutter_stripe: ^11.5.0
   flutter_stripe_web: ^6.5.1
   flutter_svg: ^2.0.10

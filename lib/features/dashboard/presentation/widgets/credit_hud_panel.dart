@@ -239,19 +239,24 @@ class CreditHudPanel extends StatelessWidget {
     required String labelText,
     required double available,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        HudReactorBar(
-          axis: Axis.vertical,
-          thickness: 6,
-          color: stateColor,
-          pulsing: true,
-          duration: reactorDuration,
-        ),
-        const SizedBox(width: AppDimens.space16),
-        Expanded(
-          child: Column(
+    // IntrinsicHeight permite que la barra reactor vertical (height: infinity)
+    // se ajuste a la altura del Column de la derecha. Sin esto, en parents
+    // sin altura fija (mobile, layouts intrínsecos) el Row colapsa y rompe
+    // el layout.
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          HudReactorBar(
+            axis: Axis.vertical,
+            thickness: 6,
+            color: stateColor,
+            pulsing: true,
+            duration: reactorDuration,
+          ),
+          const SizedBox(width: AppDimens.space16),
+          Expanded(
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -324,6 +329,7 @@ class CreditHudPanel extends StatelessWidget {
           ),
         ),
       ],
+    ),
     );
   }
 }

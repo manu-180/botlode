@@ -1,0 +1,16 @@
+# Template para android/key.properties (NO commitear el real).
+#
+# 1. Generar keystore (una sola vez, guardar en un lugar seguro fuera del repo):
+#    keytool -genkey -v -keystore ~/botslode-release.jks \
+#      -keyalg RSA -keysize 2048 -validity 10000 -alias botslode
+#
+# 2. Copiar este archivo a `android/key.properties` y completar:
+#    cp android/key.properties.example android/key.properties
+#
+# 3. Editar android/key.properties con los valores reales.
+
+storePassword=TU_STORE_PASSWORD
+keyPassword=TU_KEY_PASSWORD
+keyAlias=botslode
+# Ruta al keystore — absoluta o relativa al módulo android/app/
+storeFile=/ruta/absoluta/al/botslode-release.jks

@@ -166,35 +166,50 @@ class _LibraryToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = Breakpoints.isMobile(context);
+
+    final chips = SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final cat in _categories) ...[
+            _LibraryCategoryChip(
+              label: cat,
+              selected: cat == 'TODOS'
+                  ? selectedCategory == null
+                  : selectedCategory == cat,
+              onTap: () => onCategorySelected(cat == 'TODOS' ? null : cat),
+            ),
+            if (cat != _categories.last)
+              const SizedBox(width: AppDimens.space8),
+          ],
+        ],
+      ),
+    );
+
+    final searchField = AppTextField(
+      controller: searchController,
+      label: 'Buscar plano...',
+      variant: AppTextFieldVariant.search,
+      onChanged: onSearchChanged,
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          chips,
+          const SizedBox(height: AppDimens.space12),
+          searchField,
+        ],
+      );
+    }
+
     return Row(
       children: [
-        // Category chips
-        Wrap(
-          spacing: AppDimens.space8,
-          children: _categories.map((cat) {
-            final isAll = cat == 'TODOS';
-            final isSelected =
-                isAll ? selectedCategory == null : selectedCategory == cat;
-            return _LibraryCategoryChip(
-              label: cat,
-              selected: isSelected,
-              onTap: () => onCategorySelected(isAll ? null : cat),
-            );
-          }).toList(),
-        ),
-
-        const Spacer(),
-
-        // Search field
-        SizedBox(
-          width: _kSearchFieldWidth,
-          child: AppTextField(
-            controller: searchController,
-            label: 'Buscar plano...',
-            variant: AppTextFieldVariant.search,
-            onChanged: onSearchChanged,
-          ),
-        ),
+        Expanded(child: chips),
+        const SizedBox(width: AppDimens.space16),
+        SizedBox(width: _kSearchFieldWidth, child: searchField),
       ],
     );
   }
@@ -334,7 +349,7 @@ class _LibraryGrid extends StatelessWidget {
       return GridView.builder(
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: maxExtent,
-          childAspectRatio: formFactor == FormFactor.mobile ? 0.62 : 0.78,
+          childAspectRatio: formFactor == FormFactor.mobile ? 0.55 : 0.78,
           crossAxisSpacing: AppDimens.space20,
           mainAxisSpacing: AppDimens.space20,
         ),

@@ -347,7 +347,10 @@ class _DashboardViewState extends ConsumerState<DashboardView>
                 // ── [2] Sticky toolbar ────────────────────────────────────
                 SliverPersistentHeader(
                   pinned: true,
-                  delegate: _ToolbarDelegate(animation: _toolbarAnim),
+                  delegate: _ToolbarDelegate(
+                    animation: _toolbarAnim,
+                    height: formFactor == FormFactor.mobile ? 80 : 64,
+                  ),
                 ),
 
                 // ── [3] Grid (animated with SliverOpacity) ────────────────
@@ -448,17 +451,19 @@ class _HeaderBand extends StatelessWidget {
 
 class _ToolbarDelegate extends SliverPersistentHeaderDelegate {
   final Animation<double> animation;
+  final double height;
 
-  const _ToolbarDelegate({required this.animation});
-
-  @override
-  double get minExtent => AppDimens.space64;
+  const _ToolbarDelegate({required this.animation, this.height = 64});
 
   @override
-  double get maxExtent => AppDimens.space64;
+  double get minExtent => height;
 
   @override
-  bool shouldRebuild(covariant _ToolbarDelegate oldDelegate) => true;
+  double get maxExtent => height;
+
+  @override
+  bool shouldRebuild(covariant _ToolbarDelegate oldDelegate) =>
+      oldDelegate.height != height || oldDelegate.animation != animation;
 
   @override
   Widget build(

@@ -13,7 +13,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:rive/rive.dart'; // IMPORTACIÓN CRÍTICA AÑADIDA
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:window_manager/window_manager.dart';
 import 'package:botslode/core/logging/app_logger.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -89,25 +88,8 @@ void main() {
       _log.warn("📈 [POSTHOG] init falló", error: e);
     }
 
-    // 4. CONFIGURACIÓN DE VENTANA (sólo desktop nativo)
-    // window_manager no funciona en Android/iOS/Web. Sólo iniciamos la
-    // configuración de ventana en Windows/macOS/Linux.
-    if (PlatformInfo.supportsWindowManager) {
-      await windowManager.ensureInitialized();
-      const windowOptions = WindowOptions(
-        size: Size(1280, 720),
-        minimumSize: Size(1024, 600),
-        center: true,
-        backgroundColor: Colors.transparent,
-        skipTaskbar: false,
-        titleBarStyle: TitleBarStyle.hidden,
-      );
-
-      await windowManager.waitUntilReadyToShow(windowOptions, () async {
-        await windowManager.show();
-        await windowManager.focus();
-      });
-    }
+    // 4. La app pivoteó a mobile-first; ya no se configura window_manager.
+    // En desktop nativo se usa la barra de título estándar del SO.
 
       // T15·08 — SentryRiverpodObserver: emite breadcrumbs por provider lifecycle.
       runApp(

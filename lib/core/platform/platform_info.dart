@@ -30,12 +30,9 @@ class PlatformInfo {
         defaultTargetPlatform == TargetPlatform.iOS;
   }
 
-  /// True si la plataforma soporta `window_manager` (Windows/macOS/Linux).
-  /// Web y mobile no lo soportan.
-  static bool get supportsWindowManager => isDesktop;
-
-  /// True si la plataforma usa una window chrome custom (title bar oculta
-  /// + controles propios). Sólo desktop nativo.
+  /// True si la plataforma usa una window chrome custom (title bar HUD
+  /// decorativa). Hoy sólo desktop nativo. La app es mobile-first; no
+  /// hace falta `window_manager` porque ya no se controla la ventana.
   static bool get usesCustomTitleBar => isDesktop;
 
   /// True si la plataforma soporta `flutter_stripe` SDK nativo (Android/iOS).

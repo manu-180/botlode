@@ -51,6 +51,15 @@ class _UnitAvatarPanelState extends ConsumerState<UnitAvatarPanel>
       vsync: this,
       duration: AppMotion.durShimmer,
     );
+    // No llamar _maybeStartShimmer() acá: usa AppMotion.reduced(context)
+    // que depende de MediaQuery, y MediaQuery no está disponible en
+    // initState. Se llama desde didChangeDependencies (corre antes del
+    // primer build y cuando cambia MediaQuery).
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _maybeStartShimmer();
   }
 
