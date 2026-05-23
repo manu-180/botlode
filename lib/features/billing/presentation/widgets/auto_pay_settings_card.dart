@@ -366,7 +366,7 @@ class _HudToggleState extends State<_HudToggle>
         // Rail decoration
         final railDecoration = isOn
             ? BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   colors: [
                     AppColors.goldDeep.withValues(alpha: 0.8),
                     AppColors.gold.withValues(alpha: 0.6),

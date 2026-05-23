@@ -4,6 +4,7 @@ import 'package:botslode/core/config/theme/app_dimens.dart';
 import 'package:botslode/core/config/theme/app_motion.dart';
 import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:botslode/core/ui/app_background.dart';
+import 'package:botslode/core/ui/responsive/breakpoints.dart';
 import 'package:botslode/core/ui/widgets/app_button.dart';
 import 'package:botslode/core/ui/widgets/app_text_field.dart';
 import 'package:botslode/core/ui/widgets/empty_state.dart';
@@ -325,11 +326,14 @@ class _LibraryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final formFactor = Breakpoints.of(context);
+    final maxExtent = formFactor == FormFactor.mobile ? 220.0 : 350.0;
+
     // ── Loading branch ────────────────────────────────────────────────────────
     if (isLoading) {
       return GridView.builder(
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 350,
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: maxExtent,
           childAspectRatio: 0.78,
           crossAxisSpacing: AppDimens.space20,
           mainAxisSpacing: AppDimens.space20,
@@ -369,8 +373,8 @@ class _LibraryGrid extends StatelessWidget {
 
     // ── Default: grid — stagger handled internally by BlueprintCard ──────────
     return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 350,
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: maxExtent,
         childAspectRatio: 0.78,
         crossAxisSpacing: AppDimens.space20,
         mainAxisSpacing: AppDimens.space20,

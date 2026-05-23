@@ -6,7 +6,7 @@ part of 'billing_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$billingHash() => r'f7cbde8841c1423a4ba0fb39add66c8e065a3eae';
+String _$billingHash() => r'12cdcc5256b9640868680cbf9f31e59cb46a1925';
 
 /// See also [Billing].
 @ProviderFor(Billing)
@@ -21,7 +21,7 @@ final billingProvider =
 );
 
 typedef _$Billing = AutoDisposeAsyncNotifier<BillingState>;
-String _$billingV2Hash() => r'b20aebe53cbb9d98b1c67bfea7a7145604fdcf07';
+String _$billingV2Hash() => r'c77f01fd1647e39f0231cec1d38c244f3ff9a588';
 
 /// Notifier T4 que expone [BillingV2State] a la capa de presentación.
 ///

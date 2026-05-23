@@ -11,6 +11,7 @@ import 'package:botslode/core/ui/app_background.dart';
 import 'package:botslode/core/ui/hud/hud_divider.dart';
 import 'package:botslode/core/ui/inputs/app_text_field.dart';
 import 'package:botslode/core/ui/panels/holo_panel.dart';
+import 'package:botslode/core/ui/responsive/breakpoints.dart';
 import 'package:botslode/core/ui/widgets/app_button.dart';
 import 'package:botslode/core/ui/widgets/empty_state.dart';
 import 'package:botslode/core/ui/widgets/page_title.dart';
@@ -69,6 +70,11 @@ class _StoreViewState extends ConsumerState<StoreView> {
   Widget build(BuildContext context) {
     final catalogEmpty = StoreProduct.catalog.isEmpty;
     final products = _filteredProducts;
+    final formFactor = Breakpoints.of(context);
+    final hPadding = Breakpoints.horizontalPadding(formFactor);
+    final vPadding = formFactor == FormFactor.mobile
+        ? AppDimens.space16
+        : AppDimens.space32;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -76,14 +82,9 @@ class _StoreViewState extends ConsumerState<StoreView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(
-                AppDimens.space32,
-                AppDimens.space32,
-                AppDimens.space32,
-                0,
-              ),
-              child: PageTitle(
+            Padding(
+              padding: EdgeInsets.fromLTRB(hPadding, vPadding, hPadding, 0),
+              child: const PageTitle(
                 title: 'TIENDA',
                 subtitle: 'Potencia tus unidades con módulos premium',
                 style: PageTitleStyle.techBar,
@@ -92,9 +93,7 @@ class _StoreViewState extends ConsumerState<StoreView> {
             ),
             const SizedBox(height: AppDimens.space24),
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimens.space32,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: hPadding),
               child: _StoreToolbar(
                 searchCtrl: _searchCtrl,
                 selectedCategory: _selectedCategory,
@@ -104,9 +103,9 @@ class _StoreViewState extends ConsumerState<StoreView> {
               ),
             ),
             const SizedBox(height: AppDimens.space16),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppDimens.space32),
-              child: ExcludeSemantics(
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: hPadding),
+              child: const ExcludeSemantics(
                 child: HudDivider(nodeColor: AppColors.gold),
               ),
             ),
@@ -503,15 +502,19 @@ class _StoreSkeletonGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final formFactor = Breakpoints.of(context);
+    final hPadding = Breakpoints.horizontalPadding(formFactor);
+    final maxExtent = formFactor == FormFactor.mobile ? 200.0 : 320.0;
+
     return Padding(
-      padding: const EdgeInsets.only(
-        left: AppDimens.space32,
-        right: AppDimens.space32,
+      padding: EdgeInsets.only(
+        left: hPadding,
+        right: hPadding,
         bottom: AppDimens.space32,
       ),
       child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 320,
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: maxExtent,
           childAspectRatio: 0.82,
           crossAxisSpacing: AppDimens.space20,
           mainAxisSpacing: AppDimens.space20,
@@ -533,16 +536,19 @@ class _StoreProductGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reduced = AppMotion.reduced(context);
+    final formFactor = Breakpoints.of(context);
+    final hPadding = Breakpoints.horizontalPadding(formFactor);
+    final maxExtent = formFactor == FormFactor.mobile ? 200.0 : 320.0;
 
     return Padding(
-      padding: const EdgeInsets.only(
-        left: AppDimens.space32,
-        right: AppDimens.space32,
+      padding: EdgeInsets.only(
+        left: hPadding,
+        right: hPadding,
         bottom: AppDimens.space32,
       ),
       child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 320,
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: maxExtent,
           childAspectRatio: 0.82,
           crossAxisSpacing: AppDimens.space20,
           mainAxisSpacing: AppDimens.space20,

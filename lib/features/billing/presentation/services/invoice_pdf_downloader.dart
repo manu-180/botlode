@@ -1,4 +1,5 @@
 // Archivo: lib/features/billing/presentation/services/invoice_pdf_downloader.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -56,7 +57,8 @@ class InvoicePdfDownloader {
 
     // Native: show snackbar with open action.
     // Web: browser handles the download — filePath is null, no snackbar needed.
-    if (filePath != null) {
+    // Uri.file() no es válido en web, por eso el guard kIsWeb.
+    if (filePath != null && !kIsWeb) {
       final path = filePath;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

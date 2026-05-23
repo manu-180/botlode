@@ -70,7 +70,12 @@ SentryEvent? redactEvent(SentryEvent event, Hint hint) {
 
 /// Aplica políticas T15·05 sobre un [Breadcrumb] antes de adjuntarlo.
 /// Devuelve `null` para descartar el breadcrumb.
-Breadcrumb? redactBreadcrumb(Breadcrumb crumb, Hint hint) {
+///
+/// La signature acepta `Breadcrumb?` para coincidir con `BeforeBreadcrumbCallback`
+/// de sentry_flutter 8.x.
+Breadcrumb? redactBreadcrumb(Breadcrumb? crumb, Hint hint) {
+  if (crumb == null) return null;
+
   // Drop categorías sensibles enteras
   if (crumb.category == 'auth' || crumb.category == 'billing.secret') {
     return null;

@@ -65,7 +65,6 @@ abstract class $BillingV2StateCopyWith<$Res> {
       String? errorCode,
       String? errorMessage,
       ProrationOutput? pendingProration});
-
 }
 
 /// @nodoc
@@ -130,7 +129,6 @@ class _$BillingV2StateCopyWithImpl<$Res, $Val extends BillingV2State>
               as ProrationOutput?,
     ) as $Val);
   }
-
 }
 
 /// @nodoc
@@ -151,7 +149,6 @@ abstract class _$$BillingV2StateImplCopyWith<$Res>
       String? errorCode,
       String? errorMessage,
       ProrationOutput? pendingProration});
-
 }
 
 /// @nodoc

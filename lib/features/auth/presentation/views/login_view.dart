@@ -11,6 +11,7 @@ import 'package:botslode/core/providers/rive_provider.dart';
 import 'package:botslode/core/ui/app_background.dart';
 import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
 import 'package:botslode/core/ui/hud/hud_scanlines.dart';
+import 'package:botslode/core/ui/responsive/breakpoints.dart';
 import 'package:botslode/core/ui/toasts/toast_service.dart';
 import 'package:botslode/core/ui/widgets/app_button.dart';
 import 'package:botslode/core/ui/widgets/app_text_field.dart';
@@ -166,6 +167,24 @@ class _LoginViewState extends ConsumerState<LoginView>
         });
       }
     });
+
+    final isMobile = Breakpoints.isMobile(context);
+
+    if (isMobile) {
+      // En mobile el panel cinematográfico izquierdo no aporta — el formulario
+      // ocupa toda la pantalla con el fondo ambiental detrás.
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Stack(
+          children: [
+            const Positioned.fill(
+              child: AppBackground(showBlobs: false, child: SizedBox()),
+            ),
+            Positioned.fill(child: _buildRightPanel(authState, reduce)),
+          ],
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,

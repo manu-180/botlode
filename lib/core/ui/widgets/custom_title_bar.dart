@@ -1,6 +1,10 @@
 // lib/core/ui/widgets/custom_title_bar.dart
 // Barra de título «Hangar OS» — franja HUD de 36 px con marca, breadcrumb,
 // indicador de estado y controles de ventana.
+//
+// Sólo se renderiza en desktop nativo (Windows/macOS/Linux). En mobile y web
+// se devuelve un widget vacío: la barra del sistema operativo o del navegador
+// ya cubre esa función.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
@@ -10,6 +14,7 @@ import '../../config/theme/app_dimens.dart';
 import '../../config/theme/app_icons.dart';
 import '../../config/theme/app_motion.dart';
 import '../../config/theme/app_text_styles.dart';
+import '../../platform/platform_info.dart';
 import '../hud/hud_status_dot.dart';
 
 // ─── SystemStatus ─────────────────────────────────────────────────────────────
@@ -26,6 +31,12 @@ class CustomTitleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // En mobile/web no se muestra la title bar custom — la barra del SO o del
+    // navegador ya cubre esa función y window_manager no está disponible.
+    if (!PlatformInfo.usesCustomTitleBar) {
+      return const SizedBox.shrink();
+    }
+
     return SizedBox(
       height: AppDimens.titleBarHeight,
       child: DecoratedBox(

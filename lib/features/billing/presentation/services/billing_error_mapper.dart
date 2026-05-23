@@ -10,9 +10,11 @@
 // por separado antes de llamar a este servicio.
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:botslode/l10n/app_strings.dart';
+
+import 'socket_exception_io.dart'
+    if (dart.library.html) 'socket_exception_web.dart';
 
 // ---------------------------------------------------------------------------
 // Enum de códigos normalizados
@@ -121,7 +123,7 @@ class BillingErrorMapper {
   ///   5. Heurísticas por contenido de texto
   ///   6. Fallback → unknown
   static String mapBillingError(Object error) {
-    if (error is SocketException) {
+    if (isNetworkException(error)) {
       return describe(BillingErrorCode.networkError);
     }
     if (error is TimeoutException) {

@@ -978,13 +978,13 @@ class _AddCardModalState extends ConsumerState<AddCardModal>
     Widget ring = Container(
       width: 80,
       height: 80,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: AppColors.danger.withValues(alpha: 0.1),
-        border: Border.fromBorderSide(
+        border: const Border.fromBorderSide(
           BorderSide(color: AppColors.danger, width: 2),
         ),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(color: AppColors.dangerGlow, blurRadius: 16, spreadRadius: 1),
         ],
       ),

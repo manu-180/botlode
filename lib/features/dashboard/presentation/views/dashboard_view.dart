@@ -6,6 +6,7 @@ import 'package:botslode/core/config/theme/app_motion.dart';
 import 'package:botslode/core/config/theme/app_text_styles.dart';
 import 'package:botslode/core/ui/buttons/app_button.dart';
 import 'package:botslode/core/ui/hud/hud.dart';
+import 'package:botslode/core/ui/responsive/breakpoints.dart';
 import 'package:botslode/core/ui/states/error_state.dart';
 import 'package:botslode/core/ui/widgets/page_title.dart';
 import 'package:botslode/features/billing/presentation/providers/billing_provider.dart';
@@ -189,6 +190,12 @@ class _DashboardViewState extends ConsumerState<DashboardView>
     final totalDebt         = billingState?.totalDebt ?? 0.0;
     final dollarRate        = billingState?.dollarRate ?? 1200.0;
     final hasQueryOrFilter  = search.isNotEmpty || filter != BotFilter.all;
+    final formFactor        = Breakpoints.of(context);
+    final gridMaxExtent     = Breakpoints.gridTileExtent(formFactor);
+    final hPadding          = Breakpoints.horizontalPadding(formFactor);
+    final vPadding          = formFactor == FormFactor.mobile
+        ? AppDimens.space16
+        : AppDimens.space32;
 
     // Trigger content fade-in on loading → data/error transition.
     ref.listen<AsyncValue<List<Bot>>>(filteredBotsProvider, (prev, next) {
@@ -209,8 +216,8 @@ class _DashboardViewState extends ConsumerState<DashboardView>
       padding: const EdgeInsets.only(top: AppDimens.space24),
       sliver: botsAsync.when(
         loading: () => SliverGrid(
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 400,
+          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: gridMaxExtent,
             childAspectRatio: 1.4,
             crossAxisSpacing: AppDimens.gapCard,
             mainAxisSpacing: AppDimens.gapCard,
@@ -256,8 +263,8 @@ class _DashboardViewState extends ConsumerState<DashboardView>
             }
           } else {
             contentSliver = SliverGrid(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 400,
+              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: gridMaxExtent,
                 childAspectRatio: 1.4,
                 crossAxisSpacing: AppDimens.gapCard,
                 mainAxisSpacing: AppDimens.gapCard,
@@ -288,9 +295,9 @@ class _DashboardViewState extends ConsumerState<DashboardView>
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppDimens.space32,
-          vertical: AppDimens.space32,
+        padding: EdgeInsets.symmetric(
+          horizontal: hPadding,
+          vertical: vPadding,
         ),
         child: Center(
           child: ConstrainedBox(

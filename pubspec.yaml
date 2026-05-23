@@ -55,15 +55,18 @@ dev_dependencies:
   riverpod_lint: ^2.3.10
 
 flutter_launcher_icons:
-  android: false
-  ios: false
+  android: "ic_launcher"
+  ios: true
   image_path: "assets/icon/botlode_logo.png"
-  min_sdk_android: 21 # opcional
+  min_sdk_android: 21
+  adaptive_icon_background: "#050505"
+  adaptive_icon_foreground: "assets/icon/botlode_logo.png"
+  remove_alpha_ios: true
   web:
     generate: true
     image_path: "assets/icon/botlode_logo.png"
-    background_color: "#050505" # Tu color de fondo negro
-    theme_color: "#FFFFC000" # Tu color primario (Amarillo/Dorado)
+    background_color: "#050505"
+    theme_color: "#FFC000"
   windows:
     generate: true
     icon_size: 48

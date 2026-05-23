@@ -1,10 +1,14 @@
 // lib/features/dashboard/presentation/views/main_layout.dart
-// Shell principal «Hangar OS»: sidebar + title bar + AppBackground + toasts de conectividad.
+// Shell principal responsive «Hangar OS»:
+//  - Desktop / tablet ≥ 600 px: sidebar fijo + title bar custom + content
+//  - Mobile < 600 px: bottom nav + content (sin sidebar, sin title bar custom)
 import 'package:botslode/core/config/theme/app_colors.dart';
 import 'package:botslode/core/config/theme/app_motion.dart';
 import 'package:botslode/core/providers/connectivity_provider.dart';
 import 'package:botslode/core/ui/app_background.dart';
 import 'package:botslode/core/ui/hud/connectivity_hud.dart';
+import 'package:botslode/core/ui/responsive/breakpoints.dart';
+import 'package:botslode/core/ui/responsive/mobile_bottom_nav.dart';
 import 'package:botslode/core/ui/widgets/custom_title_bar.dart';
 import 'package:botslode/features/dashboard/presentation/widgets/sidebar.dart';
 import 'package:flutter/material.dart';
@@ -67,6 +71,40 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         isOnline ? SystemStatus.operational : SystemStatus.offline;
     final location = GoRouterState.of(context).uri.toString();
 
+    return ResponsiveBuilder(
+      builder: (context, formFactor) {
+        final isMobile = formFactor == FormFactor.mobile;
+
+        if (isMobile) {
+          return _MobileShell(
+            navigationShell: widget.navigationShell,
+            location: location,
+          );
+        }
+
+        return _DesktopShell(
+          navigationShell: widget.navigationShell,
+          breadcrumb: _breadcrumbFor(location),
+          systemStatus: systemStatus,
+        );
+      },
+    );
+  }
+}
+
+class _DesktopShell extends StatelessWidget {
+  const _DesktopShell({
+    required this.navigationShell,
+    required this.breadcrumb,
+    required this.systemStatus,
+  });
+
+  final StatefulNavigationShell navigationShell;
+  final String breadcrumb;
+  final SystemStatus systemStatus;
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Row(
@@ -80,7 +118,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               children: [
                 // Title bar corona el área de contenido (z: zTitleBar=40)
                 CustomTitleBar(
-                  breadcrumb: _breadcrumbFor(location),
+                  breadcrumb: breadcrumb,
                   systemStatus: systemStatus,
                 ),
 
@@ -93,8 +131,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                         child: AppBackground(child: SizedBox.shrink()),
                       ),
                       _ShellTransitionSwitcher(
-                        currentIndex: widget.navigationShell.currentIndex,
-                        child: widget.navigationShell,
+                        currentIndex: navigationShell.currentIndex,
+                        child: navigationShell,
                       ),
                     ],
                   ),
@@ -104,6 +142,41 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MobileShell extends StatelessWidget {
+  const _MobileShell({
+    required this.navigationShell,
+    required this.location,
+  });
+
+  final StatefulNavigationShell navigationShell;
+  final String location;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      extendBody: true,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const ExcludeSemantics(
+            child: AppBackground(child: SizedBox.shrink()),
+          ),
+          SafeArea(
+            top: true,
+            bottom: false,
+            child: _ShellTransitionSwitcher(
+              currentIndex: navigationShell.currentIndex,
+              child: navigationShell,
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: MobileBottomNav(currentLocation: location),
     );
   }
 }

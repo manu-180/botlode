@@ -5,6 +5,7 @@ import 'package:botslode/core/config/theme/app_theme.dart';
 import 'package:botslode/core/observability/breadcrumbs.dart';
 import 'package:botslode/core/observability/posthog_client.dart';
 import 'package:botslode/core/observability/sentry_init.dart';
+import 'package:botslode/core/platform/platform_info.dart';
 import 'package:botslode/core/router/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -43,11 +44,20 @@ void main() {
     }
 
     // 1. INICIALIZACIÓN DE STRIPE
+    // flutter_stripe sólo soporta Android/iOS de forma nativa. En web se usa
+    // flutter_stripe_web (init implícito), y en desktop no se inicializa.
     const stripeKey = String.fromEnvironment('STRIPE_PUBLISHABLE_KEY');
-    if (stripeKey.isNotEmpty) {
+    if (stripeKey.isNotEmpty && PlatformInfo.supportsNativeStripe) {
       Stripe.publishableKey = stripeKey;
       await Stripe.instance.applySettings();
       _log.info("💳 [STRIPE] SDK inicializado.");
+    } else if (stripeKey.isNotEmpty && PlatformInfo.isWeb) {
+      Stripe.publishableKey = stripeKey;
+      _log.info("💳 [STRIPE] Public key configurada (web).");
+    } else if (stripeKey.isEmpty) {
+      _log.info("💳 [STRIPE] STRIPE_PUBLISHABLE_KEY vacía, SDK no inicializado.");
+    } else {
+      _log.info("💳 [STRIPE] Plataforma desktop sin soporte nativo Stripe.");
     }
 
     // 2. INICIALIZACIÓN DE SUPABASE
@@ -79,21 +89,25 @@ void main() {
       _log.warn("📈 [POSTHOG] init falló", error: e);
     }
 
-    // 4. CONFIGURACIÓN DE VENTANA
-    await windowManager.ensureInitialized();
-    WindowOptions windowOptions = const WindowOptions(
-      size: Size(1280, 720), 
-      minimumSize: Size(1024, 600), 
-      center: true,
-      backgroundColor: Colors.transparent,
-      skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.hidden,
-    );
+    // 4. CONFIGURACIÓN DE VENTANA (sólo desktop nativo)
+    // window_manager no funciona en Android/iOS/Web. Sólo iniciamos la
+    // configuración de ventana en Windows/macOS/Linux.
+    if (PlatformInfo.supportsWindowManager) {
+      await windowManager.ensureInitialized();
+      const windowOptions = WindowOptions(
+        size: Size(1280, 720),
+        minimumSize: Size(1024, 600),
+        center: true,
+        backgroundColor: Colors.transparent,
+        skipTaskbar: false,
+        titleBarStyle: TitleBarStyle.hidden,
+      );
 
-    await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
+      await windowManager.waitUntilReadyToShow(windowOptions, () async {
+        await windowManager.show();
+        await windowManager.focus();
+      });
+    }
 
       // T15·08 — SentryRiverpodObserver: emite breadcrumbs por provider lifecycle.
       runApp(
