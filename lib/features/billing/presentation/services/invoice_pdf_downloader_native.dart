@@ -18,10 +18,17 @@ Future<String?> platformDownloadPdf(
   try {
     final response = await client.send(http.Request('GET', Uri.parse(url)));
 
-    if (response.statusCode == 401) throw PdfDownloadException.unauthorized();
-    if (response.statusCode == 404) throw PdfDownloadException.notFound();
+    if (response.statusCode == 401) {
+      throw const PdfDownloadException(PdfDownloadErrorType.unauthorized);
+    }
+    if (response.statusCode == 404) {
+      throw const PdfDownloadException(PdfDownloadErrorType.notFound);
+    }
     if (response.statusCode != 200) {
-      throw PdfDownloadException.network('HTTP ${response.statusCode}');
+      throw PdfDownloadException(
+        PdfDownloadErrorType.network,
+        message: 'HTTP ${response.statusCode}',
+      );
     }
 
     final dir = await getDownloadsDirectory() ??

@@ -419,8 +419,33 @@ class Bots extends _$Bots {
   Future<void> updateBubbleSize(String id, double size) async {
     final repository = ref.read(botsRepositoryProvider);
     await repository.patchBot(id, {'bubble_size': size});
-    
+
     final currentList = state.value ?? [];
     state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(bubbleSize: size) : b).toList());
+  }
+
+  /// Configura la integración WhatsApp para un bot.
+  ///
+  /// Intenta persistir en Supabase (columnas `wpp` y `telefono`). Si la
+  /// columna no existe (PostgrestException 42703), actualiza sólo el estado
+  /// local y no relanza — la UI sigue funcionando.
+  Future<void> updateWppConfig(String id, bool enabled, String? phone) async {
+    final repository = ref.read(botsRepositoryProvider);
+    try {
+      await repository.patchBot(id, {
+        'wpp': enabled,
+        'telefono': enabled ? phone : null,
+      });
+    } catch (_) {
+      // Si la columna aún no existe en Supabase, seguimos con state local.
+    }
+
+    final currentList = state.value ?? [];
+    state = AsyncData(
+      currentList.map((b) {
+        if (b.id != id) return b;
+        return b.copyWith(wpp: enabled, telefono: enabled ? phone : null);
+      }).toList(),
+    );
   }
 }

@@ -8,6 +8,7 @@ import 'package:botslode/core/ui/app_background.dart';
 import 'package:botslode/core/ui/hud/hud_corner_brackets.dart';
 import 'package:botslode/core/ui/hud/hud_divider.dart';
 import 'package:botslode/core/ui/panels/holo_panel.dart';
+import 'package:botslode/core/ui/responsive/breakpoints.dart';
 import 'package:botslode/core/ui/widgets/app_button.dart';
 import 'package:botslode/features/settings/presentation/widgets/about_botslode_dialog.dart';
 import 'package:botslode/features/settings/presentation/widgets/change_password_dialog.dart';
@@ -67,6 +68,12 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
   @override
   Widget build(BuildContext context) {
     final reduced = AppMotion.reduced(context);
+    final isMobile = Breakpoints.isMobile(context);
+    // En mobile bajamos el "neon": sin glow exterior en los paneles, sin
+    // shimmer en el header. El acento se mantiene pero más sutil.
+    final Color? gold = isMobile ? null : AppColors.gold;
+    final Color? cyan = isMobile ? null : AppColors.cyan;
+    final Color? danger = isMobile ? null : AppColors.danger;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -84,7 +91,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // --- Header ---
-                    _SecurityHeader(reduced: reduced)
+                    _SecurityHeader(reduced: reduced || isMobile)
                         .animate(delay: AppMotion.staggerDelay(0))
                         .fadeIn(
                           duration: AppMotion.durBase,
@@ -103,7 +110,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                     HoloPanel(
                       interactive: true,
                       onTap: _showChangePassword,
-                      glowAccent: AppColors.gold,
+                      glowAccent: gold,
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppDimens.space20,
                         vertical: AppDimens.space16,
@@ -134,7 +141,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                     HoloPanel(
                       interactive: true,
                       onTap: _showAbout,
-                      glowAccent: AppColors.cyan,
+                      glowAccent: cyan,
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppDimens.space20,
                         vertical: AppDimens.space16,
@@ -170,7 +177,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                     HoloPanel(
                       interactive: true,
                       onTap: _showLogoutConfirm,
-                      glowAccent: AppColors.danger,
+                      glowAccent: danger,
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppDimens.space20,
                         vertical: AppDimens.space16,

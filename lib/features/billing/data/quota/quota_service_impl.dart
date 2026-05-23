@@ -20,6 +20,7 @@ class QuotaServiceImpl implements QuotaService {
   @override
   Future<QuotaResult> check(String tenantId, QuotaAction action) async {
     // Default: allow all actions. Actual enforcement via Edge Functions (T5).
-    return const QuotaResult.allowed();
+    // `limit: -1` indica ilimitado en el modelo enriquecido de QuotaResult.
+    return QuotaResult.allowed(used: 0, limit: -1);
   }
 }

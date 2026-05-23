@@ -28,6 +28,14 @@ class Bot {
   /// Si true, ciclo en velocidad aumentada (30 seg = 1 mes). Inyectado por provider según usuario.
   final bool? useTurboMode;
 
+  /// Si true, la integración WhatsApp está habilitada para este bot.
+  /// Persistencia en Supabase pendiente (T-WPP).
+  final bool wpp;
+
+  /// Número de teléfono asociado a la integración WhatsApp del bot.
+  /// Formato libre por ahora.
+  final String? telefono;
+
   const Bot({
     required this.id,
     required this.name,
@@ -45,6 +53,8 @@ class Bot {
     this.initialMessage,
     this.bubbleSize = 86.0, // Tamaño por defecto (86px)
     this.useTurboMode,
+    this.wpp = false,
+    this.telefono,
   });
 
   bool get _effectiveTurbo => useTurboMode ?? _defaultTurboMode;
@@ -152,6 +162,8 @@ class Bot {
       accessPin: map['access_pin'] as String?,
       initialMessage: map['initial_message'] as String?,
       bubbleSize: (map['bubble_size'] as num?)?.toDouble() ?? 86.0,
+      wpp: (map['wpp'] as bool?) ?? false,
+      telefono: map['telefono'] as String?,
     );
   }
 
@@ -190,6 +202,8 @@ class Bot {
     String? accessPin, String? initialMessage,
     double? bubbleSize,
     bool? useTurboMode,
+    bool? wpp,
+    String? telefono,
   }) {
     return Bot(
       id: id,
@@ -208,6 +222,8 @@ class Bot {
       initialMessage: initialMessage ?? this.initialMessage,
       bubbleSize: bubbleSize ?? this.bubbleSize,
       useTurboMode: useTurboMode ?? this.useTurboMode,
+      wpp: wpp ?? this.wpp,
+      telefono: telefono ?? this.telefono,
     );
   }
 }

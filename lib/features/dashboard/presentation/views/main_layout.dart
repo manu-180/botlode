@@ -159,22 +159,20 @@ class _MobileShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      extendBody: true,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const ExcludeSemantics(
-            child: AppBackground(child: SizedBox.shrink()),
-          ),
-          SafeArea(
-            top: true,
-            bottom: false,
-            child: _ShellTransitionSwitcher(
+      body: SafeArea(
+        bottom: false,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const ExcludeSemantics(
+              child: AppBackground(child: SizedBox.shrink()),
+            ),
+            _ShellTransitionSwitcher(
               currentIndex: navigationShell.currentIndex,
               child: navigationShell,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: MobileBottomNav(currentLocation: location),
     );

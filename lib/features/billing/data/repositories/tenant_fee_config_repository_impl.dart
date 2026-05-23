@@ -25,8 +25,9 @@ class TenantFeeConfigRepositoryImpl implements TenantFeeConfigRepository {
       return TenantFeeConfig.fromJson(response);
     } catch (e) {
       throw BillingRepositoryException(
-        'Error al obtener tenant_fee_config para el tenant $tenantId',
-        cause: e,
+        code: 'tenant_fee_config_fetch_error',
+        message:
+            'Error al obtener tenant_fee_config para el tenant $tenantId: $e',
       );
     }
   }

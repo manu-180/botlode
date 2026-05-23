@@ -334,7 +334,7 @@ class _LibraryGrid extends StatelessWidget {
       return GridView.builder(
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: maxExtent,
-          childAspectRatio: 0.78,
+          childAspectRatio: formFactor == FormFactor.mobile ? 0.62 : 0.78,
           crossAxisSpacing: AppDimens.space20,
           mainAxisSpacing: AppDimens.space20,
         ),
@@ -375,7 +375,7 @@ class _LibraryGrid extends StatelessWidget {
     return GridView.builder(
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: maxExtent,
-        childAspectRatio: 0.78,
+        childAspectRatio: formFactor == FormFactor.mobile ? 0.62 : 0.78,
         crossAxisSpacing: AppDimens.space20,
         mainAxisSpacing: AppDimens.space20,
       ),

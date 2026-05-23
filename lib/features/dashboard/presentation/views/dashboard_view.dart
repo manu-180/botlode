@@ -218,7 +218,7 @@ class _DashboardViewState extends ConsumerState<DashboardView>
         loading: () => SliverGrid(
           gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: gridMaxExtent,
-            childAspectRatio: 1.4,
+            childAspectRatio: formFactor == FormFactor.mobile ? 0.95 : 1.4,
             crossAxisSpacing: AppDimens.gapCard,
             mainAxisSpacing: AppDimens.gapCard,
           ),
@@ -265,7 +265,8 @@ class _DashboardViewState extends ConsumerState<DashboardView>
             contentSliver = SliverGrid(
               gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                 maxCrossAxisExtent: gridMaxExtent,
-                childAspectRatio: 1.4,
+                childAspectRatio:
+                    formFactor == FormFactor.mobile ? 0.95 : 1.4,
                 crossAxisSpacing: AppDimens.gapCard,
                 mainAxisSpacing: AppDimens.gapCard,
               ),

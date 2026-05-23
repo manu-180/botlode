@@ -515,7 +515,7 @@ class _StoreSkeletonGrid extends StatelessWidget {
       child: GridView.builder(
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: maxExtent,
-          childAspectRatio: 0.82,
+          childAspectRatio: formFactor == FormFactor.mobile ? 0.68 : 0.82,
           crossAxisSpacing: AppDimens.space20,
           mainAxisSpacing: AppDimens.space20,
         ),
@@ -549,7 +549,7 @@ class _StoreProductGrid extends StatelessWidget {
       child: GridView.builder(
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: maxExtent,
-          childAspectRatio: 0.82,
+          childAspectRatio: formFactor == FormFactor.mobile ? 0.68 : 0.82,
           crossAxisSpacing: AppDimens.space20,
           mainAxisSpacing: AppDimens.space20,
         ),
