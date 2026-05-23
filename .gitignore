@@ -44,16 +44,8 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-
+# Secrets — never commit .env
 .env
 
-# Security baseline (T0)
-.env.local
-.env.*.local
-**/key.properties
-**/keystore/*.jks
-**/keystore/*.keystore
-**/google-services.json
-**/GoogleService-Info.plist
-build/
-.flutter-plugins
+# Build outputs locales
+*.log

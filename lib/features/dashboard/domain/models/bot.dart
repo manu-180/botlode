@@ -24,9 +24,7 @@ class Bot {
   final bool showOfflineAlert;
   final String? accessPin;
   final String? initialMessage;
-  final bool wpp;
-  final String? telefono;
-  final double bubbleSize; // Tamaño de las burbujas flotantes (bot + WhatsApp) en píxeles
+  final double bubbleSize; // Tamaño de la burbuja flotante del bot en píxeles
   /// Si true, ciclo en velocidad aumentada (30 seg = 1 mes). Inyectado por provider según usuario.
   final bool? useTurboMode;
 
@@ -45,8 +43,6 @@ class Bot {
     this.showOfflineAlert = true,
     this.accessPin,
     this.initialMessage,
-    this.wpp = false,
-    this.telefono,
     this.bubbleSize = 86.0, // Tamaño por defecto (86px)
     this.useTurboMode,
   });
@@ -155,8 +151,6 @@ class Bot {
       showOfflineAlert: map['show_offline_alert'] ?? true,
       accessPin: map['access_pin'] as String?,
       initialMessage: map['initial_message'] as String?,
-      wpp: map['wpp'] == true || map['wpp'] == 'true',
-      telefono: map['telefono'] as String?,
       bubbleSize: (map['bubble_size'] as num?)?.toDouble() ?? 86.0,
     );
   }
@@ -185,8 +179,6 @@ class Bot {
       'theme_mode': themeMode,
       'show_offline_alert': showOfflineAlert,
       'initial_message': initialMessage,
-      'wpp': wpp,
-      'telefono': telefono,
       'bubble_size': bubbleSize,
     };
   }
@@ -195,7 +187,7 @@ class Bot {
     String? name, String? description, String? category, String? systemPrompt,
     BotStatus? status, Color? primaryColor, double? currentBalance,
     DateTime? cycleStartDate, DateTime? lastActive, String? themeMode, bool? showOfflineAlert,
-    String? accessPin, String? initialMessage, bool? wpp, String? telefono,
+    String? accessPin, String? initialMessage,
     double? bubbleSize,
     bool? useTurboMode,
   }) {
@@ -214,8 +206,6 @@ class Bot {
       showOfflineAlert: showOfflineAlert ?? this.showOfflineAlert,
       accessPin: accessPin ?? this.accessPin,
       initialMessage: initialMessage ?? this.initialMessage,
-      wpp: wpp ?? this.wpp,
-      telefono: telefono ?? this.telefono,
       bubbleSize: bubbleSize ?? this.bubbleSize,
       useTurboMode: useTurboMode ?? this.useTurboMode,
     );

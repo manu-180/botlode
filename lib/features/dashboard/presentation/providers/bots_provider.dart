@@ -415,27 +415,7 @@ class Bots extends _$Bots {
     state = AsyncData(currentList.map((b) => b.id == id ? b.copyWith(initialMessage: newMessage) : b).toList());
   }
 
-  /// Actualiza la configuración de la burbuja WhatsApp.
-  /// Si [wpp] es true, [telefono] es obligatorio (no null ni vacío).
-  /// Al apagar la burbuja (wpp: false) no se borra el teléfono en BD para que no se pierda por error.
-  Future<void> updateWppConfig(String id, bool wpp, String? telefono) async {
-    if (wpp && (telefono == null || telefono.trim().isEmpty)) {
-      throw Exception("Cuando la burbuja WhatsApp está activa, el número de contacto es obligatorio.");
-    }
-    final repository = ref.read(botsRepositoryProvider);
-    final patchData = <String, dynamic>{'wpp': wpp};
-    if (wpp) {
-      patchData['telefono'] = telefono!.trim();
-    }
-    // No enviamos telefono: null al apagar — así el número se conserva en BD si vuelve a activar
-    await repository.patchBot(id, patchData);
-    final currentList = state.value ?? [];
-    state = AsyncData(currentList.map((b) => b.id == id
-        ? b.copyWith(wpp: wpp, telefono: wpp ? telefono!.trim() : b.telefono)
-        : b).toList());
-  }
-
-  /// Actualiza el tamaño de las burbujas flotantes (bot + WhatsApp).
+  /// Actualiza el tamaño de la burbuja flotante del bot.
   Future<void> updateBubbleSize(String id, double size) async {
     final repository = ref.read(botsRepositoryProvider);
     await repository.patchBot(id, {'bubble_size': size});

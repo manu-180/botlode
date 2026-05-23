@@ -62,6 +62,7 @@ flutter_launcher_icons:
   adaptive_icon_background: "#050505"
   adaptive_icon_foreground: "assets/icon/botlode_logo.png"
   remove_alpha_ios: true
+  background_color_ios: "#050505"
   web:
     generate: true
     image_path: "assets/icon/botlode_logo.png"
